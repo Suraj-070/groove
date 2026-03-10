@@ -37,7 +37,7 @@ app.use(session({
     httpOnly: true,
     sameSite: isProd ? 'none' : 'lax',
     maxAge: 7 * 24 * 60 * 60 * 1000
-  } // 7 days
+  }
 }));
 app.use(passport.initialize());
 app.use(passport.session());
@@ -175,7 +175,6 @@ app.get('/youtube/playlist', requireAuth, async (req, res) => {
     let songs = [];
     let nextPageToken = null;
 
-    // Paginate through all playlist items (max 50 per page)
     do {
       const url = new URL('https://www.googleapis.com/youtube/v3/playlistItems');
       url.searchParams.set('part', 'snippet');
@@ -193,14 +192,13 @@ app.get('/youtube/playlist', requireAuth, async (req, res) => {
       items.forEach(item => {
         const videoId = item.snippet?.resourceId?.videoId;
         const title = item.snippet?.title;
-        // Skip deleted/private videos
         if (videoId && title && title !== 'Deleted video' && title !== 'Private video') {
           songs.push({ videoId, title })
         }
       });
 
       nextPageToken = data.nextPageToken || null;
-    } while (nextPageToken && songs.length < 200) // cap at 200 songs
+    } while (nextPageToken && songs.length < 200)
 
     res.json({ songs, total: songs.length });
   } catch (e) {
@@ -226,7 +224,12 @@ function getRoom(roomId) {
 // ─── SOCKET.IO ────────────────────────────────────────────────
 const server = http.createServer(app);
 const io = new Server(server, {
-  cors: { origin: ALLOWED_ORIGINS, credentials: true }
+  cors: {
+    origin: ALLOWED_ORIGINS,
+    credentials: true,
+    methods: ['GET', 'POST']
+  },
+  transports: ['websocket', 'polling']
 });
 
 io.on('connection', (socket) => {
@@ -288,7 +291,12 @@ io.on('connection', (socket) => {
     if (prev && !room.songsPlayed.find(s => s.videoId === prev.videoId))
       room.songsPlayed.push({ ...prev, playedAt: Date.now() });
     room.currentIndex = index; room.currentTime = 0; room.isPlaying = true;
-    io.to(roomId).emit('load-song', { index, videoId: room.queue[index]?.videoId, title: room.queue[index]?.title, queue: room.queue });
+    io.to(roomId).emit('load-song', {
+      index,
+      videoId: room.queue[index]?.videoId,
+      title: room.queue[index]?.title,
+      queue: room.queue
+    });
   });
 
   socket.on('remove-song', ({ roomId, index }) => {
@@ -351,6 +359,7 @@ io.on('connection', (socket) => {
   });
 });
 
-server.listen(3001, () => {
-  console.log('🎵 Groove Together server running on http://localhost:3001');
+const PORT = process.env.PORT || 3001;
+server.listen(PORT, () => {
+  console.log(`🎵 Groove Together server running on http://localhost:${PORT}`);
 });
