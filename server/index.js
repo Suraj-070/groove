@@ -25,8 +25,14 @@ app.use(cors({
     if (!origin || ALLOWED_ORIGINS.includes(origin)) cb(null, true)
     else cb(new Error('Not allowed by CORS'))
   },
-  credentials: true
+  credentials: true,
+  methods: ['GET', 'POST', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  exposedHeaders: ['set-cookie']
 }));
+
+app.options('*', cors())
+
 app.use(express.json());
 app.use(session({
   secret: process.env.SESSION_SECRET || 'groove_secret',
