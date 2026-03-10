@@ -13,7 +13,7 @@ import Visualizer from './components/Visualizer'
 import './App.css'
 
 const BACKEND = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'
-const socket = io(BACKEND, { withCredentials: true })
+const socket = io(BACKEND, { withCredentials: true, autoConnect: false })
 
 function App() {
   const [user, setUser] = useState(null)
@@ -81,6 +81,7 @@ function App() {
 
   const handleJoin = ({ roomId }) => {
     setRoomId(roomId)
+    if (!socket.connected) socket.connect()
     socket.emit('join-room', {
       roomId,
       username: user.username,
