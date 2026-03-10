@@ -12,10 +12,16 @@ const { randomUUID } = require('crypto');
 
 const app = express();
 
-app.set('trust proxy', 1)
+const ALLOWED_ORIGINS = [
+  'http://localhost:5173',
+  process.env.FRONTEND_URL,
+].filter(Boolean)
 
 app.use(cors({
-  origin: 'https://groovetogeth.netlify.app/',
+  origin: (origin, cb) => {
+    if (!origin || ALLOWED_ORIGINS.includes(origin)) cb(null, true)
+    else cb(new Error('Not allowed by CORS'))
+  },
   credentials: true
 }));
 app.use(express.json());
@@ -50,10 +56,14 @@ passport.deserializeUser((user, done) => done(null, user));
 // ─── AUTH ROUTES ──────────────────────────────────────────────
 app.get('/auth/discord', passport.authenticate('discord'));
 
+const FRONTEND = process.env.FRONTEND_URL || 'http://localhost:5173'
+
+app.get('/health', (req, res) => res.json({ status: 'ok' }))
+
 app.get('/auth/discord/callback',
-  passport.authenticate('discord', { failureRedirect: 'http://groovetogeth.netlify.app?error=auth_failed' }),
+  passport.authenticate('discord', { failureRedirect: `${FRONTEND}?error=auth_failed` }),
   (req, res) => {
-    res.redirect('http://groovetogeth.netlify.app?auth=success');
+    res.redirect(`${FRONTEND}?auth=success`)
   }
 );
 
@@ -208,7 +218,7 @@ function getRoom(roomId) {
 // ─── SOCKET.IO ────────────────────────────────────────────────
 const server = http.createServer(app);
 const io = new Server(server, {
-  cors: { origin: 'http://groovetogeth.netlify.app', credentials: true }
+  cors: { origin: ALLOWED_ORIGINS, credentials: true }
 });
 
 io.on('connection', (socket) => {
@@ -270,7 +280,7 @@ io.on('connection', (socket) => {
     if (prev && !room.songsPlayed.find(s => s.videoId === prev.videoId))
       room.songsPlayed.push({ ...prev, playedAt: Date.now() });
     room.currentIndex = index; room.currentTime = 0; room.isPlaying = true;
-    io.to(roomId).emit('load-song', { index, videoId: room.queue[index]?.videoId });
+    io.to(roomId).emit('load-song', { index, videoId: room.queue[index]?.videoId, title: room.queue[index]?.title, queue: room.queue });
   });
 
   socket.on('remove-song', ({ roomId, index }) => {
@@ -334,5 +344,5 @@ io.on('connection', (socket) => {
 });
 
 server.listen(3001, () => {
-  console.log('🎵 Groove Together server running on http://groovetogeth.netlify.app');
+  console.log('🎵 Groove Together server running on http://localhost:3001');
 });

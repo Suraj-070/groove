@@ -143,7 +143,11 @@ function App() {
       setIsPlaying(isPlaying)
     })
     socket.on('queue-updated', ({ queue }) => setQueue(queue))
-    socket.on('load-song', ({ index }) => { setCurrentIndex(index); setIsPlaying(true) })
+    socket.on('load-song', ({ index, queue: updatedQueue }) => {
+      if (updatedQueue) setQueue(updatedQueue)
+      setCurrentIndex(index)
+      setIsPlaying(true)
+    })
     socket.on('user-joined', ({ users }) => setUsers(users))
     socket.on('user-left', ({ users }) => setUsers(users))
     socket.on('dj-mode-changed', ({ djMode, djId }) => { setDjMode(djMode); setDjId(djId) })
