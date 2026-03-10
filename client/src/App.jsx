@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { io } from 'socket.io-client'
+import { DiscordSDK } from '@discord/embedded-app-sdk'
 import Player from './components/Player'
 import Queue from './components/Queue'
 import RoomJoin from './components/RoomJoin'
@@ -12,8 +13,21 @@ import Library from './components/Library'
 import Visualizer from './components/Visualizer'
 import './App.css'
 
-const BACKEND = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'
+// ── Detect Discord Activity context ──────────────────────────
+const IS_DISCORD = window.location.hostname.endsWith('.discordsays.com')
+
+// ── Backend URL: use /.proxy/api inside Discord, direct otherwise
+const BACKEND = IS_DISCORD
+  ? '/.proxy/api'
+  : (import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001')
+
 const socket = io(BACKEND, { withCredentials: true, autoConnect: false })
+
+// ── Discord SDK (only init inside Discord) ───────────────────
+let discordSdk = null
+if (IS_DISCORD) {
+  discordSdk = new DiscordSDK(import.meta.env.VITE_DISCORD_CLIENT_ID)
+}
 
 function App() {
   const [user, setUser] = useState(null)
@@ -37,8 +51,8 @@ function App() {
   const [mobileTab, setMobileTab] = useState('player')
   const [profileOpen, setProfileOpen] = useState(false)
   const profileRef = useRef(null)
-  // Track viewport for mobile detection
   const [windowWidth, setWindowWidth] = useState(window.innerWidth)
+
   useEffect(() => {
     const onResize = () => setWindowWidth(window.innerWidth)
     window.addEventListener('resize', onResize)
@@ -53,30 +67,67 @@ function App() {
     if (prev >= 0) handleLoadSong(prev)
   }
 
-  // Check auth on load and after OAuth redirect
+  // ── Auth: Discord Activity vs Web ────────────────────────────
   useEffect(() => {
-    const checkAuth = async () => {
+    const initAuth = async () => {
       try {
-        const res = await fetch(`${BACKEND}/auth/me`, { credentials: 'include' })
-        if (res.ok) {
-          const userData = await res.json()
-          setUser(userData)
+        if (IS_DISCORD && discordSdk) {
+          // ── Discord Activity auth flow ──
+          await discordSdk.ready()
+
+          const { code } = await discordSdk.commands.authorize({
+            client_id: import.meta.env.VITE_DISCORD_CLIENT_ID,
+            response_type: 'code',
+            state: '',
+            prompt: 'none',
+            scope: ['identify']
+          })
+
+          // Exchange code for token via our backend
+          const res = await fetch(`${BACKEND}/auth/discord/token`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ code })
+          })
+
+          if (res.ok) {
+            const userData = await res.json()
+            setUser(userData)
+            // Auto-join a room based on Discord channel
+            const channelId = discordSdk.channelId || 'discord-activity'
+            setRoomId(channelId)
+            if (!socket.connected) socket.connect()
+            socket.emit('join-room', {
+              roomId: channelId,
+              username: userData.username,
+              avatar: userData.avatar,
+              discordId: userData.id
+            })
+          }
+        } else {
+          // ── Standard web auth flow ──
+          const res = await fetch(`${BACKEND}/auth/me`, { credentials: 'include' })
+          if (res.ok) {
+            const userData = await res.json()
+            setUser(userData)
+          }
+
+          const params = new URLSearchParams(window.location.search)
+          if (params.get('auth') === 'success') {
+            window.history.replaceState({}, '', '/')
+            const res2 = await fetch(`${BACKEND}/auth/me`, { credentials: 'include' })
+            if (res2.ok) setUser(await res2.json())
+          }
         }
       } catch (e) {
-        console.error('Auth check failed:', e)
+        console.error('Auth init failed:', e)
       } finally {
         setAuthLoading(false)
       }
     }
 
-    checkAuth()
-
-    // Handle redirect back from Discord OAuth
-    const params = new URLSearchParams(window.location.search)
-    if (params.get('auth') === 'success') {
-      window.history.replaceState({}, '', '/')
-      checkAuth()
-    }
+    initAuth()
   }, [])
 
   const handleJoin = ({ roomId }) => {
@@ -104,7 +155,7 @@ function App() {
   }
 
   const handleNext = () => {
-    if (djMode && !isDJ) return  // only DJ can advance in DJ mode
+    if (djMode && !isDJ) return
     const next = currentIndex + 1
     if (next < queue.length) handleLoadSong(next)
   }
@@ -123,7 +174,6 @@ function App() {
     setRoomId(null)
   }
 
-  // Unread messages
   useEffect(() => {
     const handleNewMsg = () => {
       if (!chatOpen) setUnread((p) => p + 1)
@@ -189,7 +239,6 @@ function App() {
             <circle cx="22" cy="36" r="3.5" fill="url(#alg2)"/>
             <circle cx="34" cy="33" r="3.5" fill="url(#alg2)"/>
           </svg>
-          {/* Spinning ring around logo */}
           <svg className="auth-ring" width="110" height="110" viewBox="0 0 110 110" fill="none">
             <circle cx="55" cy="55" r="50" stroke="url(#rg1)" strokeWidth="2" strokeLinecap="round" strokeDasharray="80 240"/>
             <defs>
@@ -204,7 +253,7 @@ function App() {
           <span className="auth-title-big">GROOVE</span>
           <span className="auth-title-small">· together ·</span>
         </div>
-        <p className="auth-status">Connecting with Discord...</p>
+        <p className="auth-status">{IS_DISCORD ? 'Loading Activity...' : 'Connecting with Discord...'}</p>
       </div>
     )
   }
@@ -213,9 +262,7 @@ function App() {
 
   return (
     <div className="app">
-      {/* Club Visualizer */}
       <Visualizer isPlaying={isPlaying} partyMode={partyMode} />
-
       <ReactionBurst socket={socket} roomId={roomId} username={user?.username} />
 
       <header className="app-header">
@@ -264,7 +311,6 @@ function App() {
             {unread > 0 && <span className="unread-badge">{unread}</span>}
           </button>
 
-          {/* Profile dropdown */}
           {user && (
             <div className="profile-wrap" ref={profileRef}>
               <button
@@ -283,7 +329,6 @@ function App() {
                 <>
                   <div className="profile-backdrop" onClick={() => setProfileOpen(false)} />
                   <div className="profile-dropdown profile-dropdown--portal">
-                    {/* Header */}
                     <div className="pd-header">
                       <div className="pd-avatar-wrap">
                         {user.avatar
@@ -294,13 +339,12 @@ function App() {
                       </div>
                       <div className="pd-info">
                         <p className="pd-name">{user.username}</p>
-                        <p className="pd-tag">via Discord</p>
+                        <p className="pd-tag">{IS_DISCORD ? 'Discord Activity' : 'via Discord'}</p>
                       </div>
                     </div>
 
                     <div className="pd-divider" />
 
-                    {/* Session stats */}
                     <div className="pd-stats">
                       <div className="pd-stat">
                         <span className="pd-stat-val">{queue.length}</span>
@@ -318,7 +362,6 @@ function App() {
 
                     <div className="pd-divider" />
 
-                    {/* Actions */}
                     <div className="pd-actions">
                       <button className="pd-action" onClick={() => { handleGetRecap(); setProfileOpen(false) }}>
                         <span className="pd-action-icon">📊</span>
@@ -337,20 +380,21 @@ function App() {
 
                     <div className="pd-divider" />
 
-                    {/* Room info */}
                     <div className="pd-room">
                       <span className="pd-room-label">Room</span>
                       <span className="pd-room-id">{roomId}</span>
                       <button className="pd-copy" onClick={() => navigator.clipboard?.writeText(roomId)} title="Copy room ID">⎘</button>
                     </div>
 
-                    <div className="pd-divider" />
-
-                    {/* Logout */}
-                    <button className="pd-logout" onClick={() => { setProfileOpen(false); handleLogout() }}>
-                      <span>↩</span>
-                      <span>Sign Out</span>
-                    </button>
+                    {!IS_DISCORD && (
+                      <>
+                        <div className="pd-divider" />
+                        <button className="pd-logout" onClick={() => { setProfileOpen(false); handleLogout() }}>
+                          <span>↩</span>
+                          <span>Sign Out</span>
+                        </button>
+                      </>
+                    )}
                   </div>
                 </>,
                 document.body
@@ -380,7 +424,6 @@ function App() {
           <UserList users={users} currentUser={socket.id} djId={djId} />
         </div>
 
-        {/* Mobile backdrop for queue sheet */}
         {isMobileView && (
           <div
             className={`mobile-queue-backdrop ${mobileTab === 'queue' ? 'visible' : ''}`}
@@ -398,7 +441,6 @@ function App() {
           />
         </div>
 
-        {/* Desktop queue collapse toggle */}
         {!isMobileView && (
           <button
             className={`queue-collapse-btn ${queueCollapsed ? 'is-collapsed' : ''}`}
@@ -411,70 +453,36 @@ function App() {
         )}
       </main>
 
-      {/* Mobile bottom navigation */}
       {isMobileView && (
         <nav className="mobile-bottom-nav">
-          <button
-            className={`mobile-nav-btn ${mobileTab === 'player' ? 'active' : ''}`}
-            onClick={() => setMobileTab('player')}
-          >
+          <button className={`mobile-nav-btn ${mobileTab === 'player' ? 'active' : ''}`} onClick={() => setMobileTab('player')}>
             <span className="nav-icon">🎵</span>
             <span className="nav-label">Player</span>
           </button>
-
-          <button
-            className={`mobile-nav-btn ${mobileTab === 'queue' ? 'active' : ''}`}
-            onClick={() => setMobileTab(t => t === 'queue' ? 'player' : 'queue')}
-          >
+          <button className={`mobile-nav-btn ${mobileTab === 'queue' ? 'active' : ''}`} onClick={() => setMobileTab(t => t === 'queue' ? 'player' : 'queue')}>
             <span className="nav-icon">🎶</span>
             <span className="nav-label">Queue</span>
             {queue.length > 0 && <span className="nav-badge" />}
           </button>
-
-          <button
-            className={`mobile-nav-btn ${partyMode ? 'active' : ''}`}
-            onClick={() => setPartyMode(p => !p)}
-          >
+          <button className={`mobile-nav-btn ${partyMode ? 'active' : ''}`} onClick={() => setPartyMode(p => !p)}>
             <span className="nav-icon">🎊</span>
             <span className="nav-label">Party</span>
           </button>
-
-          <button
-            className={`mobile-nav-btn`}
-            onClick={() => { setChatOpen(true); setUnread(0) }}
-          >
+          <button className="mobile-nav-btn" onClick={() => { setChatOpen(true); setUnread(0) }}>
             <span className="nav-icon">💬</span>
             <span className="nav-label">Chat</span>
             {unread > 0 && <span className="nav-badge" />}
           </button>
-
-          <button
-            className={`mobile-nav-btn`}
-            onClick={handleGetRecap}
-          >
+          <button className="mobile-nav-btn" onClick={handleGetRecap}>
             <span className="nav-icon">📊</span>
             <span className="nav-label">Recap</span>
           </button>
         </nav>
       )}
 
-      <Chat
-        socket={socket}
-        roomId={roomId}
-        username={user?.username}
-        isOpen={chatOpen}
-        onClose={() => setChatOpen(false)}
-      />
-
+      <Chat socket={socket} roomId={roomId} username={user?.username} isOpen={chatOpen} onClose={() => setChatOpen(false)} />
       {showRecap && <SessionRecap recap={recap} onClose={() => setShowRecap(false)} />}
-
-      <Library
-        isOpen={libraryOpen}
-        onClose={() => setLibraryOpen(false)}
-        socket={socket}
-        roomId={roomId}
-        username={user?.username}
-      />
+      <Library isOpen={libraryOpen} onClose={() => setLibraryOpen(false)} socket={socket} roomId={roomId} username={user?.username} />
     </div>
   )
 }

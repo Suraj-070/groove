@@ -1,4 +1,4 @@
-require('dotenv').config();
+require('dotenv').config({ path: require('path').join(__dirname, '.env') });
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
@@ -25,13 +25,8 @@ app.use(cors({
     if (!origin || ALLOWED_ORIGINS.includes(origin)) cb(null, true)
     else cb(new Error('Not allowed by CORS'))
   },
-  credentials: true,
-  methods: ['GET', 'POST', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  exposedHeaders: ['set-cookie']
+  credentials: true
 }));
-
-app.options(/.*/, cors());
 app.use(express.json());
 app.use(session({
   secret: process.env.SESSION_SECRET || 'groove_secret',
@@ -72,6 +67,48 @@ app.get('/auth/discord', passport.authenticate('discord'));
 const FRONTEND = process.env.FRONTEND_URL || 'http://localhost:5173'
 
 app.get('/health', (req, res) => res.json({ status: 'ok' }))
+
+// ─── DISCORD ACTIVITY TOKEN EXCHANGE ─────────────────────────
+app.post('/auth/discord/token', async (req, res) => {
+  const { code } = req.body
+  if (!code) return res.status(400).json({ error: 'Code required' })
+
+  try {
+    const tokenRes = await fetch('https://discord.com/api/oauth2/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        client_id: process.env.DISCORD_CLIENT_ID,
+        client_secret: process.env.DISCORD_CLIENT_SECRET,
+        grant_type: 'authorization_code',
+        code
+      })
+    })
+    const tokenData = await tokenRes.json()
+    if (!tokenData.access_token) return res.status(400).json({ error: 'Token exchange failed' })
+
+    // Get user info from Discord
+    const userRes = await fetch('https://discord.com/api/users/@me', {
+      headers: { Authorization: `Bearer ${tokenData.access_token}` }
+    })
+    const profile = await userRes.json()
+
+    const user = {
+      id: profile.id,
+      username: profile.username,
+      avatar: profile.avatar
+        ? `https://cdn.discordapp.com/avatars/${profile.id}/${profile.avatar}.png`
+        : `https://cdn.discordapp.com/embed/avatars/${parseInt(profile.id) % 5}.png`
+    }
+
+    req.session.passport = { user }
+    req.session.save()
+    res.json(user)
+  } catch (e) {
+    console.error('Token exchange error:', e)
+    res.status(500).json({ error: 'Token exchange failed' })
+  }
+})
 
 app.get('/auth/discord/callback',
   passport.authenticate('discord', { failureRedirect: `${FRONTEND}?error=auth_failed` }),
