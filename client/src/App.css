@@ -153,6 +153,25 @@ body {
   background: var(--border);
 }
 
+.emoji-grid {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 4px;
+  padding: 8px;
+}
+.emoji-btn {
+  background: none;
+  border: none;
+  font-size: 1.4rem;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 6px;
+  transition: background 0.15s;
+}
+.emoji-btn:hover {
+  background: rgba(255,255,255,0.1);
+}
+
 .btn-secondary {
   padding: 14px;
   background: transparent;

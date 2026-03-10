@@ -1,12 +1,18 @@
 import { useState, useEffect, useRef } from 'react'
-import Picker from '@emoji-mart/react'
-import data from '@emoji-mart/data'
+
+const EMOJIS = [
+  '😀','😂','🥹','😍','🤩','😎','🥳','😭','😤','🤯',
+  '👍','👎','❤️','🔥','💯','✨','🎵','🎶','🎸','🥁',
+  '🎉','🎊','💃','🕺','👏','🙌','💀','😱','🤣','😅',
+  '🫶','💜','🖤','⚡','🌊','🍕','🧃','☕','🍻','🎮',
+]
 
 export default function Chat({ socket, roomId, username, isOpen, onClose }) {
   const [messages, setMessages] = useState([])
   const [input, setInput] = useState('')
   const [showPicker, setShowPicker] = useState(false)
   const bottomRef = useRef(null)
+  const pickerRef = useRef(null)
 
   useEffect(() => {
     socket.on('chat-msg', (msg) => {
@@ -18,6 +24,17 @@ export default function Chat({ socket, roomId, username, isOpen, onClose }) {
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
+
+  // Close picker on outside click
+  useEffect(() => {
+    const handler = (e) => {
+      if (pickerRef.current && !pickerRef.current.contains(e.target)) {
+        setShowPicker(false)
+      }
+    }
+    if (showPicker) document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [showPicker])
 
   const sendMessage = (text) => {
     if (!text.trim()) return
@@ -33,7 +50,7 @@ export default function Chat({ socket, roomId, username, isOpen, onClose }) {
   }
 
   const handleEmojiSelect = (emoji) => {
-    setInput((prev) => prev + emoji.native)
+    setInput((prev) => prev + emoji)
     setShowPicker(false)
   }
 
@@ -64,14 +81,18 @@ export default function Chat({ socket, roomId, username, isOpen, onClose }) {
       </div>
 
       {showPicker && (
-        <div className="emoji-picker-wrap">
-          <Picker
-            data={data}
-            onEmojiSelect={handleEmojiSelect}
-            theme="dark"
-            previewPosition="none"
-            skinTonePosition="none"
-          />
+        <div className="emoji-picker-wrap" ref={pickerRef}>
+          <div className="emoji-grid">
+            {EMOJIS.map((emoji) => (
+              <button
+                key={emoji}
+                className="emoji-btn"
+                onClick={() => handleEmojiSelect(emoji)}
+              >
+                {emoji}
+              </button>
+            ))}
+          </div>
         </div>
       )}
 
