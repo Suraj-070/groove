@@ -31,8 +31,7 @@ app.use(cors({
   exposedHeaders: ['set-cookie']
 }));
 
-app.options('*', cors())
-
+app.options(/.*/, cors());
 app.use(express.json());
 app.use(session({
   secret: process.env.SESSION_SECRET || 'groove_secret',
