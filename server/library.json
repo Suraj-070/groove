@@ -1,0 +1,48 @@
+{
+  "cd74192d-984e-4a0f-a653-f406443be356": {
+    "categories": []
+  },
+  "1394593929013235853": {
+    "categories": [
+      {
+        "id": "e2a4b911-d3d4-4bd9-a913-06ca75d0634a",
+        "name": "🎵 playlist",
+        "color": "#7c6aff",
+        "songs": [],
+        "createdAt": 1773119577248
+      }
+    ]
+  },
+  "1285571443366559751": {
+    "categories": [
+      {
+        "id": "75fa0fd2-c961-47f3-b96c-afb23952f73d",
+        "name": "⚡ edm",
+        "color": "#ff6a8a",
+        "songs": [
+          {
+            "videoId": "DfLqy83UHk8",
+            "title": "Illenium - Free Fall (Lyrics / Lyric Video) ft. RUNN",
+            "addedAt": 1773118293760
+          },
+          {
+            "videoId": "fVeD9vWCpZ8",
+            "title": "Sabai - Million Days (Official Lyric Video) ft. Hoang & Claire Ridgely",
+            "addedAt": 1773118306715
+          },
+          {
+            "videoId": "DWoO612DTpI",
+            "title": "SLANDER & William Black - Back To U (Lyrics)",
+            "addedAt": 1773118318768
+          },
+          {
+            "videoId": "X-sIsWrqAaU",
+            "title": "Said The Sky - All I Got (Lyrics / Lyric Video) With Kwesi",
+            "addedAt": 1773118330417
+          }
+        ],
+        "createdAt": 1773118287256
+      }
+    ]
+  }
+}

@@ -1,0 +1,25 @@
+<svg width="256" height="256" viewBox="0 0 56 56" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="logoGrad" x1="0" y1="0" x2="56" y2="56" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#7c6aff"/>
+      <stop offset="100%" stop-color="#ff6a8a"/>
+    </linearGradient>
+    <linearGradient id="noteGrad" x1="0" y1="0" x2="56" y2="56" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.95"/>
+      <stop offset="100%" stop-color="#e0daff"/>
+    </linearGradient>
+  </defs>
+  <!-- Background circles -->
+  <circle cx="28" cy="28" r="28" fill="url(#logoGrad)" opacity="0.15"/>
+  <circle cx="28" cy="28" r="22" fill="url(#logoGrad)" opacity="0.2"/>
+  <!-- Sound waves left -->
+  <path d="M14 22 Q10 28 14 34" stroke="url(#logoGrad)" stroke-width="2.5" stroke-linecap="round" fill="none" opacity="0.7"/>
+  <path d="M10 18 Q4 28 10 38" stroke="url(#logoGrad)" stroke-width="2" stroke-linecap="round" fill="none" opacity="0.4"/>
+  <!-- Sound waves right -->
+  <path d="M42 22 Q46 28 42 34" stroke="url(#logoGrad)" stroke-width="2.5" stroke-linecap="round" fill="none" opacity="0.7"/>
+  <path d="M46 18 Q52 28 46 38" stroke="url(#logoGrad)" stroke-width="2" stroke-linecap="round" fill="none" opacity="0.4"/>
+  <!-- Music note -->
+  <path d="M24 36V22l12-3v14" stroke="url(#noteGrad)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <circle cx="22" cy="36" r="3.5" fill="url(#noteGrad)"/>
+  <circle cx="34" cy="33" r="3.5" fill="url(#noteGrad)"/>
+</svg>
