@@ -12,6 +12,9 @@ const { randomUUID } = require('crypto');
 
 const app = express();
 
+app.set('trust proxy', 1)
+const isProd = !!process.env.FRONTEND_URL
+
 const ALLOWED_ORIGINS = [
   'http://localhost:5173',
   process.env.FRONTEND_URL,
@@ -29,7 +32,12 @@ app.use(session({
   secret: process.env.SESSION_SECRET || 'groove_secret',
   resave: false,
   saveUninitialized: false,
-  cookie: { secure: false, maxAge: 7 * 24 * 60 * 60 * 1000 } // 7 days
+  cookie: {
+    secure: isProd,
+    httpOnly: true,
+    sameSite: isProd ? 'none' : 'lax',
+    maxAge: 7 * 24 * 60 * 60 * 1000
+  } // 7 days
 }));
 app.use(passport.initialize());
 app.use(passport.session());
