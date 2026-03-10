@@ -12,8 +12,10 @@ const { randomUUID } = require('crypto');
 
 const app = express();
 
+app.set('trust proxy', 1)
+
 app.use(cors({
-  origin: 'http://localhost:5173',
+  origin: 'https://groovetogeth.netlify.app/',
   credentials: true
 }));
 app.use(express.json());
@@ -49,9 +51,9 @@ passport.deserializeUser((user, done) => done(null, user));
 app.get('/auth/discord', passport.authenticate('discord'));
 
 app.get('/auth/discord/callback',
-  passport.authenticate('discord', { failureRedirect: 'http://localhost:5173?error=auth_failed' }),
+  passport.authenticate('discord', { failureRedirect: 'http://groovetogeth.netlify.app?error=auth_failed' }),
   (req, res) => {
-    res.redirect('http://localhost:5173?auth=success');
+    res.redirect('http://groovetogeth.netlify.app?auth=success');
   }
 );
 
@@ -206,7 +208,7 @@ function getRoom(roomId) {
 // ─── SOCKET.IO ────────────────────────────────────────────────
 const server = http.createServer(app);
 const io = new Server(server, {
-  cors: { origin: 'http://localhost:5173', credentials: true }
+  cors: { origin: 'http://groovetogeth.netlify.app', credentials: true }
 });
 
 io.on('connection', (socket) => {
@@ -332,5 +334,5 @@ io.on('connection', (socket) => {
 });
 
 server.listen(3001, () => {
-  console.log('🎵 Groove Together server running on http://localhost:3001');
+  console.log('🎵 Groove Together server running on http://groovetogeth.netlify.app');
 });
