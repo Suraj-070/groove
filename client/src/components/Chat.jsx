@@ -4,7 +4,7 @@ const EMOJIS = [
   '😀','😂','🥹','😍','🤩','😎','🥳','😭','😤','🤯',
   '👍','👎','❤️','🔥','💯','✨','🎵','🎶','🎸','🥁',
   '🎉','🎊','💃','🕺','👏','🙌','💀','😱','🤣','😅',
-  '🫶','💜','🖤','⚡','🌊','🍕','🧃','☕','🍻','🎮',
+  '🫶','💜','🖤','⚡','🌊','🍕','🧃','☕','🍻','🎮'
 ]
 
 export default function Chat({ socket, roomId, username, isOpen, onClose }) {
@@ -12,7 +12,7 @@ export default function Chat({ socket, roomId, username, isOpen, onClose }) {
   const [input, setInput] = useState('')
   const [showPicker, setShowPicker] = useState(false)
   const bottomRef = useRef(null)
-  const pickerRef = useRef(null)
+  const inputRef = useRef(null)
 
   useEffect(() => {
     socket.on('chat-msg', (msg) => {
@@ -25,16 +25,9 @@ export default function Chat({ socket, roomId, username, isOpen, onClose }) {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
-  // Close picker on outside click
   useEffect(() => {
-    const handler = (e) => {
-      if (pickerRef.current && !pickerRef.current.contains(e.target)) {
-        setShowPicker(false)
-      }
-    }
-    if (showPicker) document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [showPicker])
+    if (isOpen) setTimeout(() => inputRef.current?.focus(), 100)
+  }, [isOpen])
 
   const sendMessage = (text) => {
     if (!text.trim()) return
@@ -49,9 +42,10 @@ export default function Chat({ socket, roomId, username, isOpen, onClose }) {
     setInput('')
   }
 
-  const handleEmojiSelect = (emoji) => {
+  const addEmoji = (emoji) => {
     setInput((prev) => prev + emoji)
     setShowPicker(false)
+    inputRef.current?.focus()
   }
 
   if (!isOpen) return null
@@ -81,14 +75,10 @@ export default function Chat({ socket, roomId, username, isOpen, onClose }) {
       </div>
 
       {showPicker && (
-        <div className="emoji-picker-wrap" ref={pickerRef}>
+        <div className="emoji-picker-wrap">
           <div className="emoji-grid">
             {EMOJIS.map((emoji) => (
-              <button
-                key={emoji}
-                className="emoji-btn"
-                onClick={() => handleEmojiSelect(emoji)}
-              >
+              <button key={emoji} className="emoji-btn" onClick={() => addEmoji(emoji)}>
                 {emoji}
               </button>
             ))}
@@ -98,12 +88,13 @@ export default function Chat({ socket, roomId, username, isOpen, onClose }) {
 
       <div className="chat-input-row">
         <button
-          className="emoji-toggle-btn"
+          className={`emoji-toggle-btn ${showPicker ? 'active' : ''}`}
           onClick={() => setShowPicker((p) => !p)}
         >
           😊
         </button>
         <input
+          ref={inputRef}
           type="text"
           placeholder="Say something..."
           value={input}

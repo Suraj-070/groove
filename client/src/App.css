@@ -399,10 +399,41 @@ body {
   position: absolute;
   bottom: 64px;
   left: 8px;
+  right: 8px;
   z-index: 200;
-  border-radius: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
   overflow: hidden;
   box-shadow: 0 16px 40px rgba(0,0,0,0.5);
+  padding: 10px;
+}
+
+.emoji-grid {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 4px;
+}
+
+.emoji-btn {
+  background: none;
+  border: none;
+  font-size: 1.4rem;
+  cursor: pointer;
+  padding: 6px 4px;
+  border-radius: 8px;
+  transition: background 0.15s, transform 0.1s;
+  line-height: 1;
+  text-align: center;
+}
+
+.emoji-btn:hover {
+  background: var(--surface2);
+  transform: scale(1.2);
+}
+
+.emoji-toggle-btn.active {
+  background: var(--surface2);
 }
 
 .chat-input-row {

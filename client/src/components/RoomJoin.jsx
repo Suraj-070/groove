@@ -40,7 +40,7 @@ export default function RoomJoin({ onJoin, user, onGuestLogin }) {
     window.location.href = `${BACKEND}/auth/google`
   }
 
-  const handleGuestLogin = () => {
+  const handleGuestSubmit = () => {
     const name = guestName.trim()
     if (!name) { setGuestError('Please enter a username'); return }
     if (name.length < 2) { setGuestError('Must be at least 2 characters'); return }
@@ -58,7 +58,7 @@ export default function RoomJoin({ onJoin, user, onGuestLogin }) {
     onJoin({ roomId: generated })
   }
 
-  // Not logged in
+  // ── Not logged in ─────────────────────────────────────────
   if (!user) {
     return (
       <div className="room-join">
@@ -91,7 +91,6 @@ export default function RoomJoin({ onJoin, user, onGuestLogin }) {
                 Continue with Google
               </button>
 
-              {/* Divider */}
               <div className="divider"><span>or</span></div>
 
               {/* Guest */}
@@ -102,7 +101,6 @@ export default function RoomJoin({ onJoin, user, onGuestLogin }) {
               <p className="join-note">Guest accounts don't save your library</p>
             </>
           ) : (
-            /* Guest name form */
             <div className="guest-form">
               <p className="guest-form-title">Choose a username</p>
               <input
@@ -110,16 +108,16 @@ export default function RoomJoin({ onJoin, user, onGuestLogin }) {
                 placeholder="Your display name..."
                 value={guestName}
                 onChange={(e) => { setGuestName(e.target.value); setGuestError('') }}
-                onKeyDown={(e) => e.key === 'Enter' && handleGuestLogin()}
+                onKeyDown={(e) => e.key === 'Enter' && handleGuestSubmit()}
                 maxLength={20}
                 autoFocus
               />
               {guestError && <p className="guest-error">{guestError}</p>}
-              <button className="btn-primary" onClick={handleGuestLogin}>
+              <button className="btn-primary" onClick={handleGuestSubmit}>
                 Join as Guest
               </button>
               <button className="btn-back" onClick={() => { setShowGuest(false); setGuestError('') }}>
-                ← Back
+                ← Back to login
               </button>
             </div>
           )}
@@ -128,7 +126,13 @@ export default function RoomJoin({ onJoin, user, onGuestLogin }) {
     )
   }
 
-  // Logged in — show room join
+  // ── Logged in — show room join ────────────────────────────
+  const providerLabel = user.isGuest
+    ? '👤 Guest'
+    : user.provider === 'google'
+    ? '🔵 via Google'
+    : '🎮 via Discord'
+
   return (
     <div className="room-join">
       <div className="join-card">
@@ -148,9 +152,7 @@ export default function RoomJoin({ onJoin, user, onGuestLogin }) {
           )}
           <div>
             <p className="discord-name">{user.username}</p>
-            <p className="discord-sub">
-              {user.isGuest ? '👤 Guest' : user.provider === 'google' ? '🔵 Google' : '🎮 Discord'}
-            </p>
+            <p className="discord-sub">{providerLabel}</p>
           </div>
         </div>
 
