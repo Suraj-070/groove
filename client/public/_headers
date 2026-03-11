@@ -1,0 +1,4 @@
+/*
+  X-Frame-Options: ALLOWALL
+  Content-Security-Policy: frame-ancestors *; script-src 'self' 'unsafe-eval' 'unsafe-inline' https://www.youtube.com https://s.ytimg.com blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com blob:; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https: blob:; connect-src 'self' https: wss: blob:; frame-src https://www.youtube.com https://*.youtube.com;
+  Access-Control-Allow-Origin: *
