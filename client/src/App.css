@@ -153,25 +153,6 @@ body {
   background: var(--border);
 }
 
-.emoji-grid {
-  display: grid;
-  grid-template-columns: repeat(8, 1fr);
-  gap: 4px;
-  padding: 8px;
-}
-.emoji-btn {
-  background: none;
-  border: none;
-  font-size: 1.4rem;
-  cursor: pointer;
-  padding: 4px;
-  border-radius: 6px;
-  transition: background 0.15s;
-}
-.emoji-btn:hover {
-  background: rgba(255,255,255,0.1);
-}
-
 .btn-secondary {
   padding: 14px;
   background: transparent;
@@ -3604,3 +3585,86 @@ h1, h2, h3 {
   font-family: 'Unbounded', sans-serif !important;
   font-size: 0.72rem !important;
 }
+
+/* ─── MULTI-AUTH LOGIN BUTTONS ─────────────────────────── */
+.google-login-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  width: 100%;
+  padding: 14px;
+  background: #fff;
+  border: 1.5px solid #dadce0;
+  border-radius: 12px;
+  color: #3c4043;
+  font-family: 'Outfit', sans-serif;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-top: 8px;
+}
+.google-login-btn:hover {
+  background: #f8f9fa;
+  border-color: #aaa;
+  transform: translateY(-1px);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+}
+
+.guest-login-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  padding: 13px;
+  background: transparent;
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  color: var(--text2);
+  font-family: 'Outfit', sans-serif;
+  font-size: 0.95rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.guest-login-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: rgba(124,106,255,0.06);
+}
+
+/* Guest name form */
+.guest-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  margin-top: 4px;
+}
+.guest-form-title {
+  font-family: 'Outfit', sans-serif;
+  font-size: 0.9rem;
+  color: var(--text2);
+  text-align: center;
+  margin-bottom: 2px;
+}
+.guest-error {
+  font-size: 0.8rem;
+  color: #ff6a8a;
+  text-align: center;
+  margin: 0;
+}
+.btn-back {
+  background: transparent;
+  border: none;
+  color: var(--muted2);
+  font-family: 'Outfit', sans-serif;
+  font-size: 0.85rem;
+  cursor: pointer;
+  padding: 4px;
+  transition: color 0.2s;
+  text-align: center;
+}
+.btn-back:hover { color: var(--text); }

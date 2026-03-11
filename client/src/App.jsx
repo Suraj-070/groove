@@ -130,6 +130,21 @@ function App() {
     initAuth()
   }, [])
 
+
+  const handleGuestLogin = async ({ username }) => {
+    try {
+      const res = await fetch(`${BACKEND}/auth/guest`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ username })
+      })
+      if (res.ok) setUser(await res.json())
+    } catch (e) {
+      console.error('Guest login failed:', e)
+    }
+  }
+
   const handleJoin = ({ roomId }) => {
     setRoomId(roomId)
     if (!socket.connected) socket.connect()
@@ -258,7 +273,7 @@ function App() {
     )
   }
 
-  if (!roomId) return <RoomJoin onJoin={handleJoin} user={user} />
+  if (!roomId) return <RoomJoin onJoin={handleJoin} user={user} onGuestLogin={handleGuestLogin} />
 
   return (
     <div className="app">

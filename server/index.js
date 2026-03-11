@@ -1,4 +1,4 @@
-require('dotenv').config({ path: require('path').join(__dirname, '.env') });
+require('dotenv').config();
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
@@ -8,6 +8,7 @@ const path = require('path');
 const session = require('express-session');
 const passport = require('passport');
 const DiscordStrategy = require('passport-discord').Strategy;
+const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const { randomUUID } = require('crypto');
 
 const app = express();
@@ -25,8 +26,11 @@ app.use(cors({
     if (!origin || ALLOWED_ORIGINS.includes(origin)) cb(null, true)
     else cb(new Error('Not allowed by CORS'))
   },
-  credentials: true
+  credentials: true,
+  methods: ['GET', 'POST', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
 }));
+app.options(/.*/, cors())
 app.use(express.json());
 app.use(session({
   secret: process.env.SESSION_SECRET || 'groove_secret',
@@ -42,7 +46,7 @@ app.use(session({
 app.use(passport.initialize());
 app.use(passport.session());
 
-// ─── DISCORD PASSPORT ─────────────────────────────────────────
+// ─── DISCORD STRATEGY ─────────────────────────────────────────
 passport.use(new DiscordStrategy({
   clientID: process.env.DISCORD_CLIENT_ID,
   clientSecret: process.env.DISCORD_CLIENT_SECRET,
@@ -50,29 +54,83 @@ passport.use(new DiscordStrategy({
   scope: ['identify']
 }, (accessToken, refreshToken, profile, done) => {
   return done(null, {
-    id: profile.id,
+    id: `discord_${profile.id}`,
     username: profile.username,
     avatar: profile.avatar
       ? `https://cdn.discordapp.com/avatars/${profile.id}/${profile.avatar}.png`
-      : `https://cdn.discordapp.com/embed/avatars/${parseInt(profile.id) % 5}.png`
+      : `https://cdn.discordapp.com/embed/avatars/${parseInt(profile.id) % 5}.png`,
+    provider: 'discord'
   });
 }));
 
+// ─── GOOGLE STRATEGY ──────────────────────────────────────────
+if (process.env.GOOGLE_CLIENT_ID) {
+  passport.use(new GoogleStrategy({
+    clientID: process.env.GOOGLE_CLIENT_ID,
+    clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+    callbackURL: process.env.GOOGLE_CALLBACK_URL || `${process.env.BACKEND_URL}/auth/google/callback`
+  }, (accessToken, refreshToken, profile, done) => {
+    return done(null, {
+      id: `google_${profile.id}`,
+      username: profile.displayName || profile.emails?.[0]?.value?.split('@')[0],
+      avatar: profile.photos?.[0]?.value || null,
+      provider: 'google'
+    });
+  }));
+}
+
 passport.serializeUser((user, done) => done(null, user));
 passport.deserializeUser((user, done) => done(null, user));
-
-// ─── AUTH ROUTES ──────────────────────────────────────────────
-app.get('/auth/discord', passport.authenticate('discord'));
 
 const FRONTEND = process.env.FRONTEND_URL || 'http://localhost:5173'
 
 app.get('/health', (req, res) => res.json({ status: 'ok' }))
 
+// ─── DISCORD AUTH ─────────────────────────────────────────────
+app.get('/auth/discord', passport.authenticate('discord'));
+app.get('/auth/discord/callback',
+  passport.authenticate('discord', { failureRedirect: `${FRONTEND}?error=auth_failed` }),
+  (req, res) => res.redirect(`${FRONTEND}?auth=success`)
+);
+
+// ─── GOOGLE AUTH ──────────────────────────────────────────────
+app.get('/auth/google', (req, res, next) => {
+  if (!process.env.GOOGLE_CLIENT_ID) {
+    return res.redirect(`${FRONTEND}?error=google_not_configured`)
+  }
+  passport.authenticate('google', { scope: ['profile', 'email'] })(req, res, next)
+});
+app.get('/auth/google/callback',
+  passport.authenticate('google', { failureRedirect: `${FRONTEND}?error=auth_failed` }),
+  (req, res) => res.redirect(`${FRONTEND}?auth=success`)
+);
+
+// ─── GUEST AUTH ───────────────────────────────────────────────
+app.post('/auth/guest', (req, res) => {
+  const { username } = req.body
+  if (!username?.trim()) return res.status(400).json({ error: 'Username required' })
+  const name = username.trim()
+  if (name.length < 2 || name.length > 20) return res.status(400).json({ error: 'Username must be 2-20 characters' })
+
+  const user = {
+    id: `guest_${randomUUID()}`,
+    username: name,
+    avatar: null,
+    provider: 'guest',
+    isGuest: true
+  }
+
+  req.session.passport = { user }
+  req.session.save((err) => {
+    if (err) return res.status(500).json({ error: 'Session error' })
+    res.json(user)
+  })
+});
+
 // ─── DISCORD ACTIVITY TOKEN EXCHANGE ─────────────────────────
 app.post('/auth/discord/token', async (req, res) => {
   const { code } = req.body
   if (!code) return res.status(400).json({ error: 'Code required' })
-
   try {
     const tokenRes = await fetch('https://discord.com/api/oauth2/token', {
       method: 'POST',
@@ -86,75 +144,51 @@ app.post('/auth/discord/token', async (req, res) => {
     })
     const tokenData = await tokenRes.json()
     if (!tokenData.access_token) return res.status(400).json({ error: 'Token exchange failed' })
-
-    // Get user info from Discord
     const userRes = await fetch('https://discord.com/api/users/@me', {
       headers: { Authorization: `Bearer ${tokenData.access_token}` }
     })
     const profile = await userRes.json()
-
     const user = {
-      id: profile.id,
+      id: `discord_${profile.id}`,
       username: profile.username,
       avatar: profile.avatar
         ? `https://cdn.discordapp.com/avatars/${profile.id}/${profile.avatar}.png`
-        : `https://cdn.discordapp.com/embed/avatars/${parseInt(profile.id) % 5}.png`
+        : null,
+      provider: 'discord'
     }
-
     req.session.passport = { user }
     req.session.save()
     res.json(user)
   } catch (e) {
-    console.error('Token exchange error:', e)
     res.status(500).json({ error: 'Token exchange failed' })
-  }
-})
-
-app.get('/auth/discord/callback',
-  passport.authenticate('discord', { failureRedirect: `${FRONTEND}?error=auth_failed` }),
-  (req, res) => {
-    res.redirect(`${FRONTEND}?auth=success`)
-  }
-);
-
-app.get('/auth/me', (req, res) => {
-  if (req.isAuthenticated()) {
-    res.json(req.user);
-  } else {
-    res.status(401).json({ error: 'Not authenticated' });
   }
 });
 
+app.get('/auth/me', (req, res) => {
+  if (req.isAuthenticated()) res.json(req.user)
+  else res.status(401).json({ error: 'Not authenticated' })
+});
+
 app.get('/auth/logout', (req, res) => {
-  req.logout(() => {
-    res.json({ success: true });
-  });
+  req.logout(() => res.json({ success: true }))
 });
 
 // ─── LIBRARY PERSISTENCE ──────────────────────────────────────
 const LIBRARY_FILE = path.join(__dirname, 'library.json');
-
 function loadLibraries() {
   try {
-    if (fs.existsSync(LIBRARY_FILE))
-      return JSON.parse(fs.readFileSync(LIBRARY_FILE, 'utf8'));
-  } catch (e) { console.error('Failed to load library:', e); }
+    if (fs.existsSync(LIBRARY_FILE)) return JSON.parse(fs.readFileSync(LIBRARY_FILE, 'utf8'));
+  } catch (e) {}
   return {};
 }
-
 function saveLibraries() {
-  try { fs.writeFileSync(LIBRARY_FILE, JSON.stringify(libraries, null, 2)); }
-  catch (e) { console.error('Failed to save library:', e); }
+  try { fs.writeFileSync(LIBRARY_FILE, JSON.stringify(libraries, null, 2)); } catch (e) {}
 }
-
 const libraries = loadLibraries();
-
 function getLibrary(userId) {
   if (!libraries[userId]) libraries[userId] = { categories: [] };
   return libraries[userId];
 }
-
-// Auth middleware
 function requireAuth(req, res, next) {
   if (req.isAuthenticated()) return next();
   res.status(401).json({ error: 'Not authenticated' });
@@ -162,10 +196,12 @@ function requireAuth(req, res, next) {
 
 // ─── LIBRARY REST API ─────────────────────────────────────────
 app.get('/library', requireAuth, (req, res) => {
+  if (req.user.isGuest) return res.json({ categories: [] })
   res.json(getLibrary(req.user.id));
 });
 
 app.post('/library/categories', requireAuth, (req, res) => {
+  if (req.user.isGuest) return res.status(403).json({ error: 'Guests cannot save library' })
   const { name, color } = req.body;
   if (!name?.trim()) return res.status(400).json({ error: 'Name required' });
   const lib = getLibrary(req.user.id);
@@ -183,13 +219,13 @@ app.delete('/library/categories/:categoryId', requireAuth, (req, res) => {
 });
 
 app.post('/library/categories/:categoryId/songs', requireAuth, (req, res) => {
+  if (req.user.isGuest) return res.status(403).json({ error: 'Guests cannot save library' })
   const { videoId, title } = req.body;
   if (!videoId) return res.status(400).json({ error: 'videoId required' });
   const lib = getLibrary(req.user.id);
   const category = lib.categories.find(c => c.id === req.params.categoryId);
   if (!category) return res.status(404).json({ error: 'Category not found' });
-  if (category.songs.find(s => s.videoId === videoId))
-    return res.status(409).json({ error: 'Song already in category' });
+  if (category.songs.find(s => s.videoId === videoId)) return res.status(409).json({ error: 'Song already in category' });
   const song = { videoId, title, addedAt: Date.now() };
   category.songs.push(song);
   saveLibraries();
@@ -209,14 +245,10 @@ app.delete('/library/categories/:categoryId/songs/:videoId', requireAuth, (req, 
 app.get('/youtube/playlist', requireAuth, async (req, res) => {
   const { playlistId } = req.query;
   if (!playlistId) return res.status(400).json({ error: 'playlistId required' });
-
   const apiKey = process.env.YOUTUBE_API_KEY;
   if (!apiKey) return res.status(500).json({ error: 'YouTube API key not configured' });
-
   try {
-    let songs = [];
-    let nextPageToken = null;
-
+    let songs = [], nextPageToken = null;
     do {
       const url = new URL('https://www.googleapis.com/youtube/v3/playlistItems');
       url.searchParams.set('part', 'snippet');
@@ -224,34 +256,25 @@ app.get('/youtube/playlist', requireAuth, async (req, res) => {
       url.searchParams.set('maxResults', '50');
       url.searchParams.set('key', apiKey);
       if (nextPageToken) url.searchParams.set('pageToken', nextPageToken);
-
       const response = await fetch(url.toString());
       const data = await response.json();
-
       if (data.error) return res.status(400).json({ error: data.error.message });
-
-      const items = data.items || [];
-      items.forEach(item => {
+      (data.items || []).forEach(item => {
         const videoId = item.snippet?.resourceId?.videoId;
         const title = item.snippet?.title;
-        if (videoId && title && title !== 'Deleted video' && title !== 'Private video') {
-          songs.push({ videoId, title })
-        }
+        if (videoId && title && title !== 'Deleted video' && title !== 'Private video')
+          songs.push({ videoId, title });
       });
-
       nextPageToken = data.nextPageToken || null;
     } while (nextPageToken && songs.length < 200)
-
     res.json({ songs, total: songs.length });
   } catch (e) {
-    console.error('YouTube API error:', e);
     res.status(500).json({ error: 'Failed to fetch playlist' });
   }
 });
 
 // ─── ROOM STATE ───────────────────────────────────────────────
 const rooms = {};
-
 function getRoom(roomId) {
   if (!rooms[roomId]) {
     rooms[roomId] = {
@@ -266,11 +289,7 @@ function getRoom(roomId) {
 // ─── SOCKET.IO ────────────────────────────────────────────────
 const server = http.createServer(app);
 const io = new Server(server, {
-  cors: {
-    origin: ALLOWED_ORIGINS,
-    credentials: true,
-    methods: ['GET', 'POST']
-  },
+  cors: { origin: ALLOWED_ORIGINS, credentials: true, methods: ['GET', 'POST'] },
   transports: ['websocket', 'polling']
 });
 
@@ -279,12 +298,10 @@ io.on('connection', (socket) => {
     socket.join(roomId);
     socket.roomId = roomId;
     socket.username = username;
-
     const room = getRoom(roomId);
     const isFirstUser = Object.keys(room.users).length === 0;
     room.users[socket.id] = { id: socket.id, discordId, username, avatar, joinedAt: Date.now() };
     if (isFirstUser) room.djId = socket.id;
-
     socket.emit('room-state', {
       queue: room.queue, currentIndex: room.currentIndex,
       currentTime: room.currentTime, isPlaying: room.isPlaying,
@@ -292,11 +309,7 @@ io.on('connection', (socket) => {
       djMode: room.djMode, sessionStart: room.sessionStart,
       songsPlayed: room.songsPlayed
     });
-
-    socket.to(roomId).emit('user-joined', {
-      user: room.users[socket.id],
-      users: Object.values(room.users)
-    });
+    socket.to(roomId).emit('user-joined', { user: room.users[socket.id], users: Object.values(room.users) });
   });
 
   socket.on('play', ({ roomId, time }) => {
@@ -334,10 +347,8 @@ io.on('connection', (socket) => {
       room.songsPlayed.push({ ...prev, playedAt: Date.now() });
     room.currentIndex = index; room.currentTime = 0; room.isPlaying = true;
     io.to(roomId).emit('load-song', {
-      index,
-      videoId: room.queue[index]?.videoId,
-      title: room.queue[index]?.title,
-      queue: room.queue
+      index, videoId: room.queue[index]?.videoId,
+      title: room.queue[index]?.title, queue: room.queue
     });
   });
 
