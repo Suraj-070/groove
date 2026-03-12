@@ -315,7 +315,7 @@ function CrateDetail({ crate, colorDef, onBack, onAddSong, onDeleteSong, onPlayS
 
 // ── Main Library Component ────────────────────────────────────
 export default function Library({ isOpen, onClose, socket, roomId, username, onAddSongToQueue, currentVideoId }) {
-  const { categories, loading, createCategory, deleteCategory, addSong, deleteSong, refetch } = useLibrary()
+  const { categories, loading, authError, createCategory, deleteCategory, addSong, deleteSong, refetch } = useLibrary()
   const [activeCrateId, setActiveCrateId] = useState(null)
   const [showNewCrate, setShowNewCrate] = useState(false)
   const [toast, setToast] = useState('')
@@ -323,7 +323,9 @@ export default function Library({ isOpen, onClose, socket, roomId, username, onA
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(''), 2500) }
 
-  useEffect(() => { if (isOpen) refetch() }, [isOpen])
+  useEffect(() => {
+    if (isOpen) refetch()
+  }, [isOpen])
 
   if (!isOpen) return null
 
@@ -421,6 +423,12 @@ export default function Library({ isOpen, onClose, socket, roomId, username, onA
             <div className="lib-loading">
               <div className="lib-loading-spinner" />
               <p>Loading your crates...</p>
+            </div>
+          ) : authError ? (
+            <div className="lib-empty-state">
+              <div className="lib-empty-icon">🔒</div>
+              <h2>Sign in to use Library</h2>
+              <p>Your library is saved to your account. Sign in with Discord or Google to access it.</p>
             </div>
           ) : categories.length === 0 ? (
             <div className="lib-empty-state">

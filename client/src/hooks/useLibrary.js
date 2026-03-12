@@ -1,31 +1,38 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useCallback } from 'react'
 
 const API = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'
 
 export function useLibrary() {
   const [categories, setCategories] = useState([])
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
+  const [authError, setAuthError] = useState(false)
 
   const fetchLibrary = useCallback(async () => {
     setLoading(true)
+    setAuthError(false)
     try {
       const res = await fetch(`${API}/library`, { credentials: 'include' })
-      if (!res.ok) throw new Error('Not authenticated')
+      if (res.status === 401 || res.status === 403) {
+        setAuthError(true)
+        setCategories([])
+        return
+      }
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const data = await res.json()
-      // Normalize — ensure every category has songs as an array
       const normalized = (data.categories || []).map(c => ({
         ...c,
         songs: Array.isArray(c.songs) ? c.songs : []
       }))
       setCategories(normalized)
     } catch (e) {
-      console.error('Failed to fetch library:', e)
+      console.warn('Library fetch failed:', e.message)
+      setCategories([])
     } finally {
       setLoading(false)
     }
   }, [])
 
-  useEffect(() => { fetchLibrary() }, [fetchLibrary])
+  // NO auto-fetch on mount — only fetch when explicitly called
 
   const createCategory = async (name, color) => {
     const res = await fetch(`${API}/library/categories`, {
@@ -34,9 +41,11 @@ export function useLibrary() {
       credentials: 'include',
       body: JSON.stringify({ name, color })
     })
+    if (!res.ok) throw new Error('Failed to create category')
     const category = await res.json()
-    setCategories(prev => [...prev, { ...category, songs: Array.isArray(category.songs) ? category.songs : [] }])
-    return category
+    const safe = { ...category, songs: Array.isArray(category.songs) ? category.songs : [] }
+    setCategories(prev => [...prev, safe])
+    return safe
   }
 
   const deleteCategory = async (categoryId) => {
@@ -55,12 +64,12 @@ export function useLibrary() {
       body: JSON.stringify({ videoId, title })
     })
     if (!res.ok) {
-      const err = await res.json()
+      const err = await res.json().catch(() => ({}))
       throw new Error(err.error || 'Failed to add song')
     }
     const song = await res.json()
     setCategories(prev => prev.map(c =>
-      c.id === categoryId ? { ...c, songs: [...c.songs, song] } : c
+      c.id === categoryId ? { ...c, songs: [...(c.songs || []), song] } : c
     ))
     return song
   }
@@ -71,9 +80,9 @@ export function useLibrary() {
       credentials: 'include'
     })
     setCategories(prev => prev.map(c =>
-      c.id === categoryId ? { ...c, songs: c.songs.filter(s => s.videoId !== videoId) } : c
+      c.id === categoryId ? { ...c, songs: (c.songs || []).filter(s => s.videoId !== videoId) } : c
     ))
   }
 
-  return { categories, loading, createCategory, deleteCategory, addSong, deleteSong, refetch: fetchLibrary }
+  return { categories, loading, authError, createCategory, deleteCategory, addSong, deleteSong, refetch: fetchLibrary }
 }
