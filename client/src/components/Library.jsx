@@ -327,7 +327,14 @@ export default function Library({ isOpen, onClose, socket, roomId, username, onA
   if (!isOpen) return null
 
   const activeCrate = categories.find(c => c.id === activeCrateId)
-  const activeCrateColorIdx = colorMap[activeCrateId] ?? 0
+  const getCrateColorIdx = (id, fallbackIdx = 0) => {
+    if (colorMap[id] !== undefined) return colorMap[id]
+    // Deterministic from id string so crates always have consistent colors
+    let hash = 0
+    for (let i = 0; i < id.length; i++) hash = (hash * 31 + id.charCodeAt(i)) & 0xff
+    return hash % CRATE_COLORS.length
+  }
+  const activeCrateColorIdx = getCrateColorIdx(activeCrateId)
   const activeCrateColor = CRATE_COLORS[activeCrateColorIdx]
 
   const handleCreateCrate = async (name, color, colorIdx) => {
@@ -427,11 +434,11 @@ export default function Library({ isOpen, onClose, socket, roomId, username, onA
                 <CrateCard
                   key={crate.id}
                   crate={crate}
-                  colorDef={CRATE_COLORS[colorMap[crate.id] ?? i % CRATE_COLORS.length]}
+                  colorDef={CRATE_COLORS[getCrateColorIdx(crate.id, i)]}
                   isActive={crate.id === playingCrateId}
                   onClick={() => {
                     setActiveCrateId(crate.id)
-                    setColorMap(prev => ({ ...prev, [crate.id]: prev[crate.id] ?? i % CRATE_COLORS.length }))
+                    setColorMap(prev => ({ ...prev, [crate.id]: prev[crate.id] ?? getCrateColorIdx(crate.id, i) }))
                   }}
                   onPlay={() => handlePushToQueue(crate)}
                   onShuffle={() => handlePushToQueue(crate, true)}

@@ -1674,11 +1674,12 @@ em-emoji-picker {
 /* ── Crate grid ── */
 .lib-crate-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(200px, 220px));
   gap: 20px;
   padding: 28px 32px;
   overflow-y: auto;
   flex: 1;
+  align-content: start;
 }
 .lib-crate-grid::-webkit-scrollbar { width: 4px; }
 .lib-crate-grid::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 4px; }
@@ -1696,7 +1697,8 @@ em-emoji-picker {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  min-height: 200px;
+  height: 220px;
+  max-height: 220px;
 }
 .crate-card:hover {
   transform: translateY(-4px);
@@ -1708,6 +1710,16 @@ em-emoji-picker {
   box-shadow: 0 0 0 1px var(--crate-accent, #7c6aff), 0 16px 40px rgba(124,106,255,0.2);
 }
 
+.crate-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  background: var(--crate-bg, linear-gradient(135deg,#7c6aff,#ff6a8a));
+  border-radius: 20px 20px 0 0;
+  opacity: 0.8;
+}
+
 /* glow behind card */
 .crate-glow {
   position: absolute;
@@ -1716,12 +1728,12 @@ em-emoji-picker {
   width: 160%;
   height: 160%;
   background: var(--crate-bg, linear-gradient(135deg,#7c6aff,#ff6a8a));
-  opacity: 0.07;
+  opacity: 0.13;
   border-radius: 50%;
   pointer-events: none;
   transition: opacity 0.2s;
 }
-.crate-card:hover .crate-glow { opacity: 0.13; }
+.crate-card:hover .crate-glow { opacity: 0.22; }
 
 /* delete btn */
 .crate-delete-btn {
@@ -1751,11 +1763,12 @@ em-emoji-picker {
 /* thumbnail stack */
 .crate-thumbs {
   position: relative;
-  height: 64px;
+  height: 58px;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin: 4px 0;
+  margin: 0;
+  flex-shrink: 0;
 }
 .crate-thumb-img {
   position: absolute;
@@ -1775,7 +1788,7 @@ em-emoji-picker {
 }
 
 /* info */
-.crate-info { flex: 1; }
+.crate-info { flex: 0; }
 .crate-name {
   font-family: 'Outfit', sans-serif;
   font-weight: 700;
@@ -1797,6 +1810,7 @@ em-emoji-picker {
 .crate-actions {
   display: flex;
   gap: 8px;
+  margin-top: auto;
 }
 .crate-action-btn {
   flex: 1;
@@ -1808,9 +1822,8 @@ em-emoji-picker {
   padding: 7px 10px;
   cursor: pointer;
   transition: all 0.15s;
-  opacity: 0;
+  opacity: 1;
 }
-.crate-card:hover .crate-action-btn { opacity: 1; }
 .crate-action-btn.play {
   background: var(--crate-accent, #7c6aff);
   color: #fff;
