@@ -107,17 +107,26 @@ function App() {
           }
         } else {
           // ── Standard web auth flow ──
-          const res = await fetch(`${BACKEND}/auth/me`, { credentials: 'include' })
-          if (res.ok) {
-            const userData = await res.json()
-            setUser(userData)
+          try {
+            const controller = new AbortController()
+            const timeout = setTimeout(() => controller.abort(), 5000)
+            const res = await fetch(`${BACKEND}/auth/me`, { credentials: 'include', signal: controller.signal })
+            clearTimeout(timeout)
+            if (res.ok) {
+              const userData = await res.json()
+              setUser(userData)
+            }
+          } catch (e) {
+            // Session check failed or timed out — continue as guest
           }
 
           const params = new URLSearchParams(window.location.search)
           if (params.get('auth') === 'success') {
             window.history.replaceState({}, '', '/')
-            const res2 = await fetch(`${BACKEND}/auth/me`, { credentials: 'include' })
-            if (res2.ok) setUser(await res2.json())
+            try {
+              const res2 = await fetch(`${BACKEND}/auth/me`, { credentials: 'include' })
+              if (res2.ok) setUser(await res2.json())
+            } catch {}
           }
         }
       } catch (e) {
@@ -469,6 +478,9 @@ function App() {
             onAddSong={handleAddSong}
             onSelectSong={handleLoadSong}
             onRemoveSong={handleRemoveSong}
+            socket={socket}
+            roomId={roomId}
+            username={user?.username}
           />
         </div>
 
