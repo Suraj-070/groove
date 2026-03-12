@@ -4,8 +4,8 @@ import EmojiPicker from './EmojiPicker'
 const SPAM_LIMIT = 8
 const SPAM_WINDOW = 2000
 const QUICK_EMOJIS = ['🔥','💯','🎵','❤️','😂','👏','🚀','✨','💀','🤩']
-const HOLD_DELAY = 350   // ms before spam starts
-const SPAM_INTERVAL = 180 // ms between spam sends
+const HOLD_DELAY = 400
+const SPAM_INTERVAL = 200
 
 export default function ReactionBurst({ socket, roomId, username }) {
   const [bursts, setBursts] = useState([])
@@ -17,6 +17,31 @@ export default function ReactionBurst({ socket, roomId, username }) {
   const spamIntervalRef = useRef(null)
   const holdTimerRef    = useRef(null)
   const isHoldingRef    = useRef(false)
+  const activeEmojiRef  = useRef(null)
+
+  // Global mouseup/touchend — ALWAYS stops spam no matter where pointer is released
+  useEffect(() => {
+    const stopAll = () => {
+      clearTimeout(holdTimerRef.current)
+      clearInterval(spamIntervalRef.current)
+      holdTimerRef.current = null
+      spamIntervalRef.current = null
+      // If it was a tap (not a hold), send one reaction
+      if (activeEmojiRef.current && !isHoldingRef.current) {
+        sendReactionRef.current?.(activeEmojiRef.current)
+      }
+      isHoldingRef.current = false
+      activeEmojiRef.current = null
+    }
+    document.addEventListener('mouseup', stopAll)
+    document.addEventListener('touchend', stopAll)
+    document.addEventListener('touchcancel', stopAll)
+    return () => {
+      document.removeEventListener('mouseup', stopAll)
+      document.removeEventListener('touchend', stopAll)
+      document.removeEventListener('touchcancel', stopAll)
+    }
+  }, [])
 
   useEffect(() => {
     socket.on('reaction', ({ emoji, username: from }) => spawnBurst(emoji, from, false))
@@ -46,31 +71,21 @@ export default function ReactionBurst({ socket, roomId, username }) {
     setRecentEmojis(prev => [emoji, ...prev.filter(e => e !== emoji)].slice(0, 8))
   }, [socket, roomId, username, spawnBurst])
 
-  // ── Hold-to-spam logic ─────────────────────────────────────
+  // Store sendReaction in a ref so the document listener can access latest version
+  const sendReactionRef = useRef(sendReaction)
+  useEffect(() => { sendReactionRef.current = sendReaction }, [sendReaction])
+
   const startHold = (emoji) => {
-    isHoldingRef.current = false
+    // Clear any previous hold that wasn't cleaned up
     clearTimeout(holdTimerRef.current)
     clearInterval(spamIntervalRef.current)
+    isHoldingRef.current = false
+    activeEmojiRef.current = emoji
 
     holdTimerRef.current = setTimeout(() => {
       isHoldingRef.current = true
-      spamIntervalRef.current = setInterval(() => sendReaction(emoji), SPAM_INTERVAL)
+      spamIntervalRef.current = setInterval(() => sendReactionRef.current(emoji), SPAM_INTERVAL)
     }, HOLD_DELAY)
-  }
-
-  const stopHold = () => {
-    clearTimeout(holdTimerRef.current)
-    clearInterval(spamIntervalRef.current)
-    holdTimerRef.current = null
-    spamIntervalRef.current = null
-  }
-
-  // Called on release — only sends ONE reaction if it was a tap, not a hold
-  const handleRelease = (emoji) => {
-    const wasHolding = isHoldingRef.current
-    stopHold()
-    isHoldingRef.current = false
-    if (!wasHolding) sendReaction(emoji)
   }
 
   const quickEmojis = recentEmojis.length > 0 ? recentEmojis : QUICK_EMOJIS
@@ -102,18 +117,15 @@ export default function ReactionBurst({ socket, roomId, username }) {
                   <button
                     key={i}
                     className="reaction-emoji-btn"
-                    onMouseDown={() => startHold(emoji)}
-                    onMouseUp={() => handleRelease(emoji)}
-                    onMouseLeave={stopHold}
+                    onMouseDown={(e) => { e.preventDefault(); startHold(emoji) }}
                     onTouchStart={(e) => { e.preventDefault(); startHold(emoji) }}
-                    onTouchEnd={(e) => { e.preventDefault(); handleRelease(emoji) }}
                   >
                     {emoji}
                   </button>
                 ))}
               </div>
             </div>
-            <EmojiPicker onSelect={(emoji) => { sendReaction(emoji) }} onClose={() => setShowPicker(false)} />
+            <EmojiPicker onSelect={sendReaction} onClose={() => setShowPicker(false)} />
           </div>
         )}
       </div>
