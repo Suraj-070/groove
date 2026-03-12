@@ -1,24 +1,27 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useLibrary } from '../hooks/useLibrary'
 
-const CATEGORY_COLORS = [
-  '#7c6aff', '#ff6a8a', '#6affb8', '#ffb86a',
-  '#6ab8ff', '#ff6aff', '#a8ff6a', '#ff9f6a'
+const BACKEND = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'
+
+const CRATE_COLORS = [
+  { bg: 'linear-gradient(135deg,#7c6aff,#ff6a8a)', accent: '#7c6aff', name: 'Violet' },
+  { bg: 'linear-gradient(135deg,#ff6a8a,#ffb86a)', accent: '#ff6a8a', name: 'Coral' },
+  { bg: 'linear-gradient(135deg,#6affb8,#6ab8ff)', accent: '#6affb8', name: 'Mint' },
+  { bg: 'linear-gradient(135deg,#ffb86a,#ffff6a)', accent: '#ffb86a', name: 'Gold' },
+  { bg: 'linear-gradient(135deg,#6ab8ff,#7c6aff)', accent: '#6ab8ff', name: 'Sky' },
+  { bg: 'linear-gradient(135deg,#ff6aff,#7c6aff)', accent: '#ff6aff', name: 'Pink' },
+  { bg: 'linear-gradient(135deg,#6affb8,#ffb86a)', accent: '#6affb8', name: 'Lime' },
+  { bg: 'linear-gradient(135deg,#ff4444,#ff6a8a)', accent: '#ff4444', name: 'Red' },
 ]
 
-const CATEGORY_EMOJIS = ['🎵', '😢', '🔥', '🌙', '💪', '❤️', '🎉', '😌', '⚡', '🌊']
-
-async function fetchTitle(videoId) {
-  try {
-    const res = await fetch(`https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`)
-    const data = await res.json()
-    return data.title
-  } catch { return videoId }
-}
+const MOODS = ['🔥','😢','🌙','💪','❤️','🎉','😌','⚡','🌊','🤩','💀','🎸','🌈','🍕','👑']
 
 function extractVideoId(url) {
-  const patterns = [/(?:v=)([a-zA-Z0-9_-]{11})/, /(?:youtu\.be\/)([a-zA-Z0-9_-]{11})/]
-  for (const p of patterns) { const m = url.match(p); if (m) return m[1] }
+  if (!url) return null
+  const trimmed = url.trim()
+  if (/^[a-zA-Z0-9_-]{11}$/.test(trimmed)) return trimmed
+  const patterns = [/[?&]v=([a-zA-Z0-9_-]{11})/, /youtu\.be\/([a-zA-Z0-9_-]{11})/, /shorts\/([a-zA-Z0-9_-]{11})/]
+  for (const p of patterns) { const m = trimmed.match(p); if (m) return m[1] }
   return null
 }
 
@@ -27,354 +30,424 @@ function extractPlaylistId(url) {
   return match ? match[1] : null
 }
 
-// ─── Warning Modal ────────────────────────────────────────────
-function PlaylistWarningModal({ total, onImportAll, onImportFirst, onCancel }) {
+async function fetchTitle(videoId) {
+  try {
+    const controller = new AbortController()
+    setTimeout(() => controller.abort(), 5000)
+    const res = await fetch(`https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`, { signal: controller.signal })
+    if (!res.ok) throw new Error()
+    const data = await res.json()
+    return data.title || `Song (${videoId})`
+  } catch { return `Song (${videoId})` }
+}
+
+// ── Crate Card ────────────────────────────────────────────────
+function CrateCard({ crate, colorDef, onClick, onPlay, onShuffle, onDelete, isActive }) {
+  const thumbs = crate.songs.slice(0, 3).map(s => `https://img.youtube.com/vi/${s.videoId}/default.jpg`)
+
   return (
-    <div className="warning-overlay">
-      <div className="warning-modal">
-        <div className="warning-icon">⚠️</div>
-        <h2>Large Playlist Detected</h2>
-        <p className="warning-desc">
-          This playlist has <strong>{total} songs</strong> — importing all of them may take a while and fill up your queue quickly.
-        </p>
+    <div
+      className={`crate-card ${isActive ? 'crate-active' : ''}`}
+      style={{ '--crate-bg': colorDef?.bg || CRATE_COLORS[0].bg, '--crate-accent': colorDef?.accent || '#7c6aff' }}
+      onClick={onClick}
+    >
+      {/* Glow bg */}
+      <div className="crate-glow" />
 
-        <div className="warning-suggestions">
-          <p className="warning-suggestions-label">What would you like to do?</p>
+      {/* Delete */}
+      <button className="crate-delete-btn" onClick={e => { e.stopPropagation(); onDelete() }} title="Delete crate">×</button>
 
-          <button className="warning-option" onClick={() => onImportFirst(50)}>
-            <span className="warning-option-icon">⚡</span>
-            <div>
-              <p className="warning-option-title">Import first 50 songs</p>
-              <p className="warning-option-sub">Fast and manageable</p>
-            </div>
-          </button>
+      {/* Thumbnail stack */}
+      <div className="crate-thumbs">
+        {thumbs.length === 0 && <div className="crate-empty-thumb">🎵</div>}
+        {thumbs.map((src, i) => (
+          <img key={i} src={src} alt="" className="crate-thumb-img" style={{ zIndex: thumbs.length - i, transform: `rotate(${(i - 1) * 4}deg) translateX(${(i - 1) * 8}px)` }} />
+        ))}
+      </div>
 
-          <button className="warning-option" onClick={() => onImportFirst(100)}>
-            <span className="warning-option-icon">🎵</span>
-            <div>
-              <p className="warning-option-title">Import first 100 songs</p>
-              <p className="warning-option-sub">Good balance of variety</p>
-            </div>
-          </button>
+      {/* Info */}
+      <div className="crate-info">
+        <p className="crate-name">{crate.name}</p>
+        <p className="crate-count">{crate.songs.length} songs</p>
+      </div>
 
-          <button className="warning-option warning-option-all" onClick={onImportAll}>
-            <span className="warning-option-icon">📥</span>
-            <div>
-              <p className="warning-option-title">Import all {total} songs</p>
-              <p className="warning-option-sub">May take longer to load</p>
-            </div>
-          </button>
+      {/* Actions */}
+      <div className="crate-actions">
+        <button className="crate-action-btn play" onClick={e => { e.stopPropagation(); onPlay() }} disabled={!crate.songs.length}>
+          ▶ Play All
+        </button>
+        <button className="crate-action-btn shuffle" onClick={e => { e.stopPropagation(); onShuffle() }} disabled={!crate.songs.length}>
+          🔀
+        </button>
+      </div>
+
+      {isActive && <div className="crate-now-playing-badge">▶ Playing</div>}
+    </div>
+  )
+}
+
+// ── New Crate Form ────────────────────────────────────────────
+function NewCrateForm({ onCreate, onCancel }) {
+  const [name, setName] = useState('')
+  const [mood, setMood] = useState('🔥')
+  const [colorIdx, setColorIdx] = useState(0)
+
+  const handleCreate = () => {
+    if (!name.trim()) return
+    onCreate(`${mood} ${name.trim()}`, CRATE_COLORS[colorIdx].accent, colorIdx)
+    onCancel()
+  }
+
+  return (
+    <div className="new-crate-overlay" onClick={onCancel}>
+      <div className="new-crate-modal" onClick={e => e.stopPropagation()}>
+        <h2 className="ncm-title">New Crate</h2>
+
+        <div className="ncm-mood-row">
+          {MOODS.map(m => (
+            <button key={m} className={`ncm-mood ${mood === m ? 'active' : ''}`} onClick={() => setMood(m)}>{m}</button>
+          ))}
         </div>
 
-        <button className="warning-cancel" onClick={onCancel}>Cancel</button>
+        <input
+          className="ncm-input"
+          placeholder="Crate name (e.g. Late Night Drives)"
+          value={name}
+          onChange={e => setName(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && handleCreate()}
+          autoFocus
+        />
+
+        <div className="ncm-color-row">
+          {CRATE_COLORS.map((c, i) => (
+            <button
+              key={i}
+              className={`ncm-color-dot ${colorIdx === i ? 'active' : ''}`}
+              style={{ background: c.bg }}
+              onClick={() => setColorIdx(i)}
+            />
+          ))}
+        </div>
+
+        <div className="ncm-actions">
+          <button className="ncm-cancel" onClick={onCancel}>Cancel</button>
+          <button className="ncm-create" onClick={handleCreate} disabled={!name.trim()}>
+            Create Crate
+          </button>
+        </div>
       </div>
     </div>
   )
 }
 
-// ─── Main Component ───────────────────────────────────────────
-export default function Library({ isOpen, onClose, socket, roomId, username, onAddSongToQueue, currentVideoId }) {
-  const { categories, loading, createCategory, deleteCategory, addSong, deleteSong } = useLibrary()
-  const [activeCategory, setActiveCategory] = useState(null)
-  const [showNewCategory, setShowNewCategory] = useState(false)
-  const [newCatName, setNewCatName] = useState('')
-  const [newCatColor, setNewCatColor] = useState(CATEGORY_COLORS[0])
-  const [newCatEmoji, setNewCatEmoji] = useState('🎵')
-
-  // Single song state
-  const [songInput, setSongInput] = useState('')
-  const [addingToCategory, setAddingToCategory] = useState(null)
+// ── Crate Detail View ─────────────────────────────────────────
+function CrateDetail({ crate, colorDef, onBack, onAddSong, onDeleteSong, onPlaySong, onPushToQueue, onShuffle, currentVideoId, socket, roomId, username }) {
+  const [search, setSearch] = useState('')
+  const [urlInput, setUrlInput] = useState('')
+  const [addMode, setAddMode] = useState('url') // 'url' | 'playlist'
+  const [loading, setLoading] = useState(false)
+  const [importing, setImporting] = useState(false)
+  const [importProgress, setImportProgress] = useState('')
   const [error, setError] = useState('')
+  const [toast, setToast] = useState('')
 
-  // Playlist import state
-  const [playlistInput, setPlaylistInput] = useState('')
-  const [importingPlaylist, setImportingPlaylist] = useState(false)
-  const [importProgress, setImportProgress] = useState(null)
-  const [addTab, setAddTab] = useState('song') // 'song' | 'playlist'
+  const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(''), 2500) }
 
-  // Warning modal state
-  const [warningData, setWarningData] = useState(null) // { songs, total }
+  const filtered = crate.songs.filter(s => s.title.toLowerCase().includes(search.toLowerCase()))
 
-  const [pushSuccess, setPushSuccess] = useState('')
-
-  if (!isOpen) return null
-
-  const handleCreateCategory = async () => {
-    if (!newCatName.trim()) return
-    await createCategory(`${newCatEmoji} ${newCatName}`, newCatColor)
-    setNewCatName('')
-    setShowNewCategory(false)
-  }
-
-  const handleAddSong = async (categoryId) => {
-    const videoId = extractVideoId(songInput.trim())
+  const handleAddSong = async () => {
+    const videoId = extractVideoId(urlInput)
     if (!videoId) { setError('Invalid YouTube URL'); return }
-    setError('')
-    setAddingToCategory(categoryId)
+    setLoading(true); setError('')
     try {
       const title = await fetchTitle(videoId)
-      await addSong(categoryId, videoId, title)
-      setSongInput('')
-    } catch (e) {
-      setError(e.message)
-    } finally {
-      setAddingToCategory(null)
-    }
+      await onAddSong(crate.id, videoId, title)
+      setUrlInput('')
+      showToast('Song added!')
+    } catch (e) { setError(e.message) }
+    finally { setLoading(false) }
   }
 
-  // Fetch playlist from server
-  const fetchPlaylist = async (playlistId) => {
-    const res = await fetch(
-      `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'}/youtube/playlist?playlistId=${playlistId}`,
-      { credentials: 'include' }
-    )
-    const data = await res.json()
-    if (!res.ok) throw new Error(data.error || 'Failed to fetch playlist')
-    return data
-  }
-
-  // Actually add songs to library category
-  const doImportToLibrary = async (categoryId, songs) => {
-    setWarningData(null)
-    setImportProgress(`Adding ${songs.length} songs to library...`)
-    let added = 0
-    for (const song of songs) {
-      try {
-        await addSong(categoryId, song.videoId, song.title)
-        added++
-        if (added % 10 === 0) setImportProgress(`Added ${added}/${songs.length} songs...`)
-      } catch (e) {
-        // Skip duplicates silently
-      }
-    }
-    setImportProgress(null)
-    setPlaylistInput('')
-    setAddTab('song')
-    setPushSuccess(`✅ Imported ${added} songs!`)
-    setTimeout(() => setPushSuccess(''), 3000)
-  }
-
-  const handleImportPlaylist = async (categoryId) => {
-    const trimmed = playlistInput.trim()
-    if (!trimmed) return
-    const playlistId = extractPlaylistId(trimmed)
-    if (!playlistId) { setError('Please paste a valid YouTube playlist URL'); return }
-
-    setImportingPlaylist(true)
-    setError('')
-    setImportProgress('Fetching playlist info...')
-
+  const handleImportPlaylist = async () => {
+    const playlistId = extractPlaylistId(urlInput)
+    if (!playlistId) { setError('Invalid playlist URL'); return }
+    setImporting(true); setError('')
+    setImportProgress('Fetching playlist...')
     try {
-      const data = await fetchPlaylist(playlistId)
-
-      if (data.total > 200) {
-        // Show warning modal with full songs list
-        setImportProgress(null)
-        setImportingPlaylist(false)
-        setWarningData({ songs: data.songs, total: data.total, categoryId })
-        return
+      const res = await fetch(`${BACKEND}/youtube/playlist?playlistId=${playlistId}`, { credentials: 'include' })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+      setImportProgress(`Adding ${data.total} songs...`)
+      let added = 0
+      for (const song of data.songs) {
+        try { await onAddSong(crate.id, song.videoId, song.title); added++ } catch {}
+        if (added % 10 === 0) setImportProgress(`Added ${added}/${data.total}...`)
       }
-
-      // Under 200 — import directly
-      await doImportToLibrary(categoryId, data.songs)
-    } catch (e) {
-      setError(e.message)
-      setImportProgress(null)
-    } finally {
-      setImportingPlaylist(false)
-    }
+      setUrlInput(''); setImportProgress('')
+      showToast(`✅ Imported ${added} songs!`)
+    } catch (e) { setError(e.message || 'Import failed'); setImportProgress('') }
+    finally { setImporting(false) }
   }
-
-  const handlePushToQueue = (category) => {
-    if (!category.songs.length) return
-    socket.emit('push-category', {
-      roomId, songs: category.songs,
-      categoryName: category.name, username
-    })
-    setPushSuccess(`${category.name} pushed to queue!`)
-    setTimeout(() => setPushSuccess(''), 3000)
-  }
-
-  const activeCat = categories.find(c => c.id === activeCategory)
 
   return (
-    <>
-      <div className="library-overlay" onClick={onClose}>
-        <div className="library-panel" onClick={e => e.stopPropagation()}>
-
-          <div className="library-header">
-            <span>📚 My Library</span>
-            <button className="lib-close" onClick={onClose}>×</button>
-          </div>
-
-          {pushSuccess && <div className="push-success">{pushSuccess}</div>}
-
-          {!activeCategory ? (
-            // ── Category Grid ──
-            <div className="library-body">
-              {loading ? (
-                <div className="lib-loading">Loading your library...</div>
-              ) : (
-                <>
-                  <div className="category-grid">
-                    {categories.map(cat => (
-                      <div key={cat.id} className="category-card"
-                        style={{ '--cat-color': cat.color }}
-                        onClick={() => setActiveCategory(cat.id)}>
-                        <div className="cat-card-top">
-                          <span className="cat-name">{cat.name}</span>
-                          <button className="cat-delete" onClick={e => {
-                            e.stopPropagation(); deleteCategory(cat.id)
-                          }}>×</button>
-                        </div>
-                        <p className="cat-count">{cat.songs.length} songs</p>
-                        <button className="cat-push-btn" onClick={e => {
-                          e.stopPropagation(); handlePushToQueue(cat)
-                        }} disabled={!cat.songs.length}>
-                          ▶ Push to Queue
-                        </button>
-                      </div>
-                    ))}
-
-                    <div className="category-card new-card" onClick={() => setShowNewCategory(true)}>
-                      <span className="new-cat-plus">+</span>
-                      <span className="new-cat-label">New Category</span>
-                    </div>
-                  </div>
-
-                  {showNewCategory && (
-                    <div className="new-cat-form">
-                      <h3>Create Category</h3>
-                      <div className="emoji-row">
-                        {CATEGORY_EMOJIS.map(e => (
-                          <button key={e}
-                            className={`emoji-opt ${newCatEmoji === e ? 'selected' : ''}`}
-                            onClick={() => setNewCatEmoji(e)}>{e}</button>
-                        ))}
-                      </div>
-                      <input type="text" placeholder="Category name (e.g. Sad, Hype, Late Night)"
-                        value={newCatName} onChange={e => setNewCatName(e.target.value)}
-                        onKeyDown={e => e.key === 'Enter' && handleCreateCategory()} autoFocus />
-                      <div className="color-row">
-                        {CATEGORY_COLORS.map(c => (
-                          <button key={c}
-                            className={`color-opt ${newCatColor === c ? 'selected' : ''}`}
-                            style={{ background: c }} onClick={() => setNewCatColor(c)} />
-                        ))}
-                      </div>
-                      <div className="new-cat-actions">
-                        <button className="btn-cancel" onClick={() => setShowNewCategory(false)}>Cancel</button>
-                        <button className="btn-create" onClick={handleCreateCategory}>Create</button>
-                      </div>
-                    </div>
-                  )}
-                </>
-              )}
-            </div>
-          ) : (
-            // ── Category Detail ──
-            <div className="library-body">
-              <div className="cat-detail-header">
-                <button className="back-btn" onClick={() => { setActiveCategory(null); setError(''); setAddTab('song') }}>← Back</button>
-                <span className="cat-detail-name" style={{ color: activeCat?.color }}>{activeCat?.name}</span>
-                <button className="cat-push-full-btn"
-                  onClick={() => handlePushToQueue(activeCat)}
-                  disabled={!activeCat?.songs.length}>
-                  ▶ Push All
-                </button>
-              </div>
-
-              {/* Add tabs */}
-              <div className="queue-tabs">
-                <button className={`queue-tab ${addTab === 'song' ? 'active' : ''}`}
-                  onClick={() => { setAddTab('song'); setError('') }}>Add Song</button>
-                <button className={`queue-tab ${addTab === 'playlist' ? 'active' : ''}`}
-                  onClick={() => { setAddTab('playlist'); setError('') }}>🎵 Import Playlist</button>
-              </div>
-
-              {/* Single song */}
-              {addTab === 'song' && (
-                <div className="cat-add-song">
-                  <input type="text" placeholder="Paste YouTube URL..."
-                    value={songInput} onChange={e => setSongInput(e.target.value)}
-                    onKeyDown={e => e.key === 'Enter' && handleAddSong(activeCategory)} />
-                  <button className="add-btn"
-                    onClick={() => handleAddSong(activeCategory)}
-                    disabled={addingToCategory === activeCategory}>
-                    {addingToCategory === activeCategory
-                      ? <span className="loading-spinner" /> : '+'}
-                  </button>
-                  {error && <p className="error">{error}</p>}
-                </div>
-              )}
-
-              {/* Playlist import */}
-              {addTab === 'playlist' && (
-                <div className="playlist-import">
-                  <p className="playlist-hint">Import all songs from a YouTube playlist into this category</p>
-                  <div className="cat-add-song">
-                    <input type="text" placeholder="https://youtube.com/playlist?list=..."
-                      value={playlistInput} onChange={e => setPlaylistInput(e.target.value)}
-                      onKeyDown={e => e.key === 'Enter' && handleImportPlaylist(activeCategory)}
-                      disabled={importingPlaylist} />
-                    <button className="add-btn"
-                      onClick={() => handleImportPlaylist(activeCategory)}
-                      disabled={importingPlaylist}>
-                      {importingPlaylist ? <span className="loading-spinner" /> : '+'}
-                    </button>
-                  </div>
-                  {importProgress && (
-                    <div className="import-progress">
-                      <span className="loading-spinner" />
-                      {importProgress}
-                    </div>
-                  )}
-                  {error && <p className="error">{error}</p>}
-                  <p className="playlist-note">⚠️ Only public playlists are supported</p>
-                </div>
-              )}
-
-              {/* Song list */}
-              <ul className="lib-song-list">
-                {activeCat?.songs.length === 0 && (
-                  <li className="lib-empty">No songs yet. Add a YouTube URL above!</li>
-                )}
-                {activeCat?.songs.map((song, i) => (
-                  <li key={song.videoId} className="lib-song-item">
-                    <span className="lib-num">{i + 1}</span>
-                    <img src={`https://img.youtube.com/vi/${song.videoId}/default.jpg`} alt="" />
-                    <div className="lib-song-info">
-                      <p className="lib-song-title">{song.title}</p>
-                      <p className="lib-song-id">youtu.be/{song.videoId}</p>
-                    </div>
-                    <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                      <button
-                        className={`lib-play-btn ${currentVideoId === song.videoId ? 'playing' : ''}`}
-                        onClick={() => onAddSongToQueue?.({ videoId: song.videoId, title: song.title })}
-                        title="Add to queue"
-                      >
-                        {currentVideoId === song.videoId ? '▶ Playing' : '+ Queue'}
-                      </button>
-                      <button className="lib-remove-btn"
-                        onClick={() => deleteSong(activeCategory, song.videoId)}>×</button>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
+    <div className="crate-detail" style={{ '--crate-accent': colorDef?.accent || '#7c6aff', '--crate-bg': colorDef?.bg }}>
+      {/* Header */}
+      <div className="cd-header">
+        <button className="cd-back" onClick={onBack}>
+          <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+          Back
+        </button>
+        <div className="cd-title-wrap">
+          <h2 className="cd-title">{crate.name}</h2>
+          <span className="cd-subtitle">{crate.songs.length} songs</span>
+        </div>
+        <div className="cd-header-actions">
+          <button className="cd-action-btn shuffle" onClick={onShuffle} disabled={!crate.songs.length}>🔀 Shuffle</button>
+          <button className="cd-action-btn play" onClick={() => onPushToQueue(crate)} disabled={!crate.songs.length}>▶ Play All</button>
         </div>
       </div>
 
-      {/* Warning Modal */}
-      {warningData && (
-        <PlaylistWarningModal
-          total={warningData.total}
-          onImportAll={() => doImportToLibrary(warningData.categoryId, warningData.songs)}
-          onImportFirst={(n) => doImportToLibrary(warningData.categoryId, warningData.songs.slice(0, n))}
-          onCancel={() => { setWarningData(null); setPlaylistInput('') }}
+      {/* Ambient header bg */}
+      <div className="cd-ambient" style={{ background: colorDef?.bg }} />
+
+      <div className="cd-body">
+        {/* Left — Song list */}
+        <div className="cd-left">
+          {/* Search */}
+          <div className="cd-search-wrap">
+            <svg className="cd-search-icon" viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+            <input className="cd-search" placeholder="Search songs..." value={search} onChange={e => setSearch(e.target.value)} />
+            {search && <button className="cd-search-clear" onClick={() => setSearch('')}>×</button>}
+          </div>
+
+          {/* Song list */}
+          <ul className="cd-song-list">
+            {filtered.length === 0 && (
+              <li className="cd-empty">
+                {search ? `No results for "${search}"` : 'No songs yet — add some below!'}
+              </li>
+            )}
+            {filtered.map((song, i) => (
+              <li
+                key={song.videoId}
+                className={`cd-song-item ${currentVideoId === song.videoId ? 'cd-now-playing' : ''}`}
+              >
+                <span className="cd-song-num">{i + 1}</span>
+                <div className="cd-song-thumb">
+                  <img src={`https://img.youtube.com/vi/${song.videoId}/default.jpg`} alt="" />
+                  {currentVideoId === song.videoId && (
+                    <div className="cd-playing-overlay">
+                      <div className="bars"><span /><span /><span /></div>
+                    </div>
+                  )}
+                </div>
+                <div className="cd-song-info">
+                  <p className="cd-song-title">{song.title}</p>
+                </div>
+                <div className="cd-song-actions">
+                  <button className="cd-queue-btn" onClick={() => onPlaySong(song)} title="Add to queue">
+                    + Queue
+                  </button>
+                  <button className="cd-remove-btn" onClick={() => onDeleteSong(crate.id, song.videoId)} title="Remove">×</button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        {/* Right — Add songs */}
+        <div className="cd-right">
+          <div className="cd-add-panel">
+            <h3 className="cd-add-title">Add Songs</h3>
+
+            <div className="cd-add-tabs">
+              <button className={`cd-add-tab ${addMode === 'url' ? 'active' : ''}`} onClick={() => setAddMode('url')}>Single Song</button>
+              <button className={`cd-add-tab ${addMode === 'playlist' ? 'active' : ''}`} onClick={() => setAddMode('playlist')}>Playlist</button>
+            </div>
+
+            <input
+              className="cd-url-input"
+              placeholder={addMode === 'url' ? 'Paste YouTube URL...' : 'Paste playlist URL...'}
+              value={urlInput}
+              onChange={e => { setUrlInput(e.target.value); setError('') }}
+              onKeyDown={e => {
+                if (e.key !== 'Enter') return
+                if (addMode === 'url') handleAddSong()
+                else handleImportPlaylist()
+              }}
+            />
+
+            {error && <p className="cd-error">{error}</p>}
+            {importProgress && <p className="cd-progress">{importProgress}</p>}
+
+            <button
+              className="cd-add-btn"
+              onClick={addMode === 'url' ? handleAddSong : handleImportPlaylist}
+              disabled={loading || importing || !urlInput.trim()}
+            >
+              {loading || importing
+                ? <span className="loading-spinner" />
+                : addMode === 'url' ? 'Add Song' : 'Import Playlist'
+              }
+            </button>
+
+            {/* Stats */}
+            <div className="cd-stats">
+              <div className="cd-stat">
+                <span className="cd-stat-val">{crate.songs.length}</span>
+                <span className="cd-stat-label">Songs</span>
+              </div>
+              <div className="cd-stat">
+                <span className="cd-stat-val">~{Math.round(crate.songs.length * 3.5)}m</span>
+                <span className="cd-stat-label">Est. Time</span>
+              </div>
+            </div>
+
+            {/* Toast */}
+            {toast && <div className="cd-toast">{toast}</div>}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Main Library Component ────────────────────────────────────
+export default function Library({ isOpen, onClose, socket, roomId, username, onAddSongToQueue, currentVideoId }) {
+  const { categories, loading, createCategory, deleteCategory, addSong, deleteSong, refetch } = useLibrary()
+  const [activeCrateId, setActiveCrateId] = useState(null)
+  const [showNewCrate, setShowNewCrate] = useState(false)
+  const [toast, setToast] = useState('')
+  const [colorMap, setColorMap] = useState({}) // crateId -> colorIdx
+
+  const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(''), 2500) }
+
+  useEffect(() => { if (isOpen) refetch() }, [isOpen])
+
+  if (!isOpen) return null
+
+  const activeCrate = categories.find(c => c.id === activeCrateId)
+  const activeCrateColorIdx = colorMap[activeCrateId] ?? 0
+  const activeCrateColor = CRATE_COLORS[activeCrateColorIdx]
+
+  const handleCreateCrate = async (name, color, colorIdx) => {
+    const cat = await createCategory(name, color)
+    setColorMap(prev => ({ ...prev, [cat.id]: colorIdx }))
+    setActiveCrateId(cat.id)
+  }
+
+  const handleDeleteCrate = async (id) => {
+    await deleteCategory(id)
+    if (activeCrateId === id) setActiveCrateId(null)
+  }
+
+  const handlePushToQueue = (crate, shuffled = false) => {
+    const songs = shuffled ? [...crate.songs].sort(() => Math.random() - 0.5) : crate.songs
+    socket.emit('push-category', { roomId, songs, categoryName: crate.name, username })
+    showToast(`${shuffled ? '🔀 Shuffled' : '▶ Playing'} ${crate.name}`)
+  }
+
+  const handlePlaySong = (song) => {
+    onAddSongToQueue?.({ videoId: song.videoId, title: song.title })
+    showToast(`+ ${song.title.slice(0, 30)}...`)
+  }
+
+  // Find which crate is currently playing
+  const playingCrateId = currentVideoId
+    ? categories.find(c => c.songs.some(s => s.videoId === currentVideoId))?.id
+    : null
+
+  return (
+    <div className="library-fullscreen">
+      {/* Ambient background */}
+      <div className="lib-ambient-bg" />
+
+      {/* Global toast */}
+      {toast && <div className="lib-toast">{toast}</div>}
+
+      {/* New Crate Modal */}
+      {showNewCrate && (
+        <NewCrateForm
+          onCreate={handleCreateCrate}
+          onCancel={() => setShowNewCrate(false)}
         />
       )}
-    </>
+
+      {activeCrate ? (
+        // ── Crate Detail ──────────────────────────────────────
+        <CrateDetail
+          crate={activeCrate}
+          colorDef={activeCrateColor}
+          onBack={() => setActiveCrateId(null)}
+          onAddSong={addSong}
+          onDeleteSong={deleteSong}
+          onPlaySong={handlePlaySong}
+          onPushToQueue={handlePushToQueue}
+          onShuffle={() => handlePushToQueue(activeCrate, true)}
+          currentVideoId={currentVideoId}
+          socket={socket}
+          roomId={roomId}
+          username={username}
+        />
+      ) : (
+        // ── Crate Grid ────────────────────────────────────────
+        <div className="lib-crate-view">
+          {/* Header */}
+          <div className="lib-header">
+            <button className="lib-back-room" onClick={onClose}>
+              <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+              Back to Room
+            </button>
+            <div className="lib-header-center">
+              <h1 className="lib-title">My Crates</h1>
+              <p className="lib-subtitle">{categories.length} crates · {categories.reduce((acc, c) => acc + c.songs.length, 0)} songs</p>
+            </div>
+            <button className="lib-new-btn" onClick={() => setShowNewCrate(true)}>
+              <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+              New Crate
+            </button>
+          </div>
+
+          {/* Crate grid */}
+          {loading ? (
+            <div className="lib-loading">
+              <div className="lib-loading-spinner" />
+              <p>Loading your crates...</p>
+            </div>
+          ) : categories.length === 0 ? (
+            <div className="lib-empty-state">
+              <div className="lib-empty-icon">📦</div>
+              <h2>No crates yet</h2>
+              <p>Create your first crate to start organizing your music</p>
+              <button className="lib-new-btn" onClick={() => setShowNewCrate(true)}>Create your first crate</button>
+            </div>
+          ) : (
+            <div className="lib-crate-grid">
+              {categories.map((crate, i) => (
+                <CrateCard
+                  key={crate.id}
+                  crate={crate}
+                  colorDef={CRATE_COLORS[colorMap[crate.id] ?? i % CRATE_COLORS.length]}
+                  isActive={crate.id === playingCrateId}
+                  onClick={() => {
+                    setActiveCrateId(crate.id)
+                    setColorMap(prev => ({ ...prev, [crate.id]: prev[crate.id] ?? i % CRATE_COLORS.length }))
+                  }}
+                  onPlay={() => handlePushToQueue(crate)}
+                  onShuffle={() => handlePushToQueue(crate, true)}
+                  onDelete={() => handleDeleteCrate(crate.id)}
+                />
+              ))}
+
+              {/* Add new crate card */}
+              <div className="crate-card crate-new-card" onClick={() => setShowNewCrate(true)}>
+                <div className="crate-new-icon">+</div>
+                <p className="crate-new-label">New Crate</p>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
   )
 }

@@ -527,7 +527,17 @@ function App() {
 
       <Chat socket={socket} roomId={roomId} username={user?.username} isOpen={chatOpen} onClose={() => setChatOpen(false)} />
       {showRecap && <SessionRecap recap={recap} onClose={() => setShowRecap(false)} />}
-      <Library isOpen={libraryOpen} onClose={() => setLibraryOpen(false)} socket={socket} roomId={roomId} username={user?.username} onAddSongToQueue={handleAddSong} currentVideoId={queue[currentIndex]?.videoId} />
+      {libraryOpen && (
+        <Library
+          isOpen={libraryOpen}
+          onClose={() => setLibraryOpen(false)}
+          socket={socket}
+          roomId={roomId}
+          username={user?.username}
+          onAddSongToQueue={handleAddSong}
+          currentVideoId={queue[currentIndex]?.videoId}
+        />
+      )}
     </div>
   )
 }

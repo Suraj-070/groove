@@ -1,12 +1,13 @@
 import { useState, useEffect, useCallback } from 'react'
 
-const API = 'http://localhost:3001'
+const API = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'
 
 export function useLibrary() {
   const [categories, setCategories] = useState([])
   const [loading, setLoading] = useState(true)
 
   const fetchLibrary = useCallback(async () => {
+    setLoading(true)
     try {
       const res = await fetch(`${API}/library`, { credentials: 'include' })
       if (!res.ok) throw new Error('Not authenticated')
@@ -29,7 +30,7 @@ export function useLibrary() {
       body: JSON.stringify({ name, color })
     })
     const category = await res.json()
-    setCategories(prev => [...prev, category])
+    setCategories(prev => [...prev, { ...category, songs: [] }])
     return category
   }
 
