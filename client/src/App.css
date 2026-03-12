@@ -189,7 +189,7 @@ body {
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   min-height: 66px;
-  z-index: 10;
+  z-index: 300;
 }
 
 .logo {
@@ -1632,7 +1632,10 @@ body {
 /* ── Full screen takeover ── */
 .library-fullscreen {
   position: fixed;
-  inset: 0;
+  top: 66px;
+  left: 0;
+  right: 0;
+  bottom: 0;
   z-index: 200;
   background: #0a0a0f;
   display: flex;
@@ -1694,20 +1697,17 @@ body {
   overflow: hidden;
 }
 
-/* ── Library header ── */
-.lib-header {
+/* ── Library subheader (sits below app header) ── */
+.lib-subheader {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 20px 32px 16px;
+  padding: 16px 32px 14px;
   border-bottom: 1px solid rgba(255,255,255,0.06);
   flex-shrink: 0;
   gap: 16px;
   position: relative;
   z-index: 2;
-  background: rgba(10,10,15,0.6);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
 }
 
 .lib-back-room {
@@ -2600,6 +2600,16 @@ body {
 .cd-playing-overlay .bars span:nth-child(1) { height: 8px; animation-delay: 0s; }
 .cd-playing-overlay .bars span:nth-child(2) { height: 14px; animation-delay: 0.2s; }
 .cd-playing-overlay .bars span:nth-child(3) { height: 10px; animation-delay: 0.4s; }
+
+/* ── URL smart hints ── */
+.cd-url-hint {
+  font-family: 'Outfit', sans-serif;
+  font-size: 0.78rem;
+  margin: 4px 0 0;
+  padding: 0;
+}
+.cd-url-hint--ok  { color: #6affb8; }
+.cd-url-hint--warn { color: #ffb86a; }
 
 /* ════════════════════════════════════════════
    RESPONSIVE — Mobile

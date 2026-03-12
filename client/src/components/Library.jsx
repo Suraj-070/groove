@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useLibrary } from '../hooks/useLibrary'
 
 const BACKEND = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'
@@ -111,7 +111,7 @@ function NewCrateForm({ onCreate, onCancel }) {
   return (
     <div className="new-crate-overlay" onClick={onCancel}>
       <div className="new-crate-modal" onClick={e => e.stopPropagation()}>
-        <h2 className="ncm-title">New Vibe</h2>
+        <h2 className="ncm-title">New Collection</h2>
 
         <div className="ncm-mood-row">
           {MOODS.map(m => (
@@ -121,7 +121,7 @@ function NewCrateForm({ onCreate, onCancel }) {
 
         <input
           className="ncm-input"
-          placeholder="Library name"
+          placeholder="Crate name (e.g. Late Night Drives)"
           value={name}
           onChange={e => setName(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && handleCreate()}
@@ -426,19 +426,15 @@ export default function Library({ isOpen, onClose, socket, roomId, username, onA
       ) : (
         // ── Crate Grid ────────────────────────────────────────
         <div className="lib-crate-view">
-          {/* Header */}
-          <div className="lib-header">
-            <button className="lib-back-room" onClick={onClose}>
-              <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
-              Back to Room
-            </button>
-            <div className="lib-header-center">
+          {/* Subheader */}
+          <div className="lib-subheader">
+            <div>
               <h1 className="lib-title">My Library</h1>
-              <p className="lib-subtitle">{categories.length} vibes · {categories.reduce((acc, c) => acc + (c.songs || []).length, 0)} songs</p>
+              <p className="lib-subtitle">{categories.length} collections · {categories.reduce((acc, c) => acc + (c.songs || []).length, 0)} songs</p>
             </div>
             <button className="lib-new-btn" onClick={() => setShowNewCrate(true)}>
               <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
-              New Library
+              New Collection
             </button>
           </div>
 
@@ -446,7 +442,7 @@ export default function Library({ isOpen, onClose, socket, roomId, username, onA
           {loading ? (
             <div className="lib-loading">
               <div className="lib-loading-spinner" />
-              <p>Loading your library...</p>
+              <p>Loading your crates...</p>
             </div>
           ) : authError ? (
             <div className="lib-empty-state">
@@ -457,9 +453,9 @@ export default function Library({ isOpen, onClose, socket, roomId, username, onA
           ) : categories.length === 0 ? (
             <div className="lib-empty-state">
               <div className="lib-empty-icon">📦</div>
-              <h2>No libraries yet</h2>
-              <p>Create your first library to start organizing your music</p>
-              <button className="lib-new-btn" onClick={() => setShowNewCrate(true)}>Create your first library</button>
+              <h2>No collections yet</h2>
+              <p>Create your first collection to start organizing your music</p>
+              <button className="lib-new-btn" onClick={() => setShowNewCrate(true)}>Create your first collection</button>
             </div>
           ) : (
             <div className="lib-crate-grid">
@@ -482,7 +478,7 @@ export default function Library({ isOpen, onClose, socket, roomId, username, onA
               {/* Add new crate card */}
               <div className="crate-card crate-new-card" onClick={() => setShowNewCrate(true)}>
                 <div className="crate-new-icon">+</div>
-                <p className="crate-new-label">New Library</p>
+                <p className="crate-new-label">New Collection</p>
               </div>
             </div>
           )}

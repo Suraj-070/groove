@@ -354,7 +354,7 @@ function App() {
 
           <button className={`recap-btn party-btn ${partyMode ? 'party-active' : ''}`} onClick={() => setPartyMode(p => !p)} title="Party Mode">🎊</button>
           <button className="recap-btn" onClick={handleGetRecap} title="Session Recap">📊</button>
-          <button className="recap-btn" onClick={() => setLibraryOpen(true)} title="My Library">📚</button>
+          <button className={`recap-btn ${libraryOpen ? "active" : ""}`} onClick={() => setLibraryOpen(p => !p)} title="My Library">📚</button>
 
           <button className="chat-toggle-btn" onClick={() => { setChatOpen(true); setUnread(0) }}>
             💬
