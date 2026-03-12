@@ -223,25 +223,25 @@ function App() {
   }, [roomId, user])
 
   useEffect(() => {
-    socket.on('room-state', ({ queue, currentIndex, currentTime, isPlaying, users, djId, djMode }) => {
+    socket.on('room-state', (data) => {
+      if (!data || typeof data !== 'object') return
+      const { queue, currentIndex, currentTime, isPlaying, users, djId, djMode } = data
       setQueue(Array.isArray(queue) ? queue : [])
-      setCurrentIndex(currentIndex ?? 0)
+      setCurrentIndex(typeof currentIndex === 'number' ? currentIndex : 0)
       setUsers(Array.isArray(users) ? users : [])
-      setDjId(djId)
-      setDjMode(djMode)
-      setInitialTime(currentTime)
-      setInitialPlaying(isPlaying)
-      setIsPlaying(isPlaying)
+      if (djId !== undefined) setDjId(djId)
+      if (djMode !== undefined) setDjMode(djMode)
+      if (typeof currentTime === 'number') setInitialTime(currentTime)
+      if (isPlaying !== undefined) { setInitialPlaying(isPlaying); setIsPlaying(isPlaying) }
     })
     socket.on('queue-updated', ({ queue }) => setQueue(Array.isArray(queue) ? queue : []))
     socket.on('load-song', ({ index, queue: updatedQueue }) => {
       if (updatedQueue) setQueue(Array.isArray(updatedQueue) ? updatedQueue : [])
-      setCurrentIndex(index)
-      // Don't set isPlaying here — Player's onStateChange handles it
+      if (typeof index === 'number' && !isNaN(index)) setCurrentIndex(index)
     })
     socket.on('user-joined', ({ users }) => setUsers(Array.isArray(users) ? users : []))
     socket.on('user-left', ({ users }) => setUsers(Array.isArray(users) ? users : []))
-    socket.on('dj-mode-changed', ({ djMode, djId }) => { setDjMode(djMode); setDjId(djId) })
+    socket.on('dj-mode-changed', ({ djMode, djId }) => { if (djMode !== undefined) setDjMode(djMode); if (djId !== undefined) setDjId(djId) })
     socket.on('recap-data', (data) => {
       if (!data) return
       // Ensure arrays are never null
