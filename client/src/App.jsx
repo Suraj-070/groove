@@ -197,6 +197,22 @@ function App() {
     return () => socket.off('chat-msg', handleNewMsg)
   }, [chatOpen])
 
+  // ── Rejoin room if socket reconnects (e.g. server restart) ─
+  useEffect(() => {
+    const handleReconnect = () => {
+      if (roomId && user) {
+        socket.emit('join-room', {
+          roomId,
+          username: user.username,
+          avatar: user.avatar,
+          discordId: user.id
+        })
+      }
+    }
+    socket.on('connect', handleReconnect)
+    return () => socket.off('connect', handleReconnect)
+  }, [roomId, user])
+
   useEffect(() => {
     socket.on('room-state', ({ queue, currentIndex, currentTime, isPlaying, users, djId, djMode }) => {
       setQueue(queue)
@@ -212,7 +228,7 @@ function App() {
     socket.on('load-song', ({ index, queue: updatedQueue }) => {
       if (updatedQueue) setQueue(updatedQueue)
       setCurrentIndex(index)
-      setIsPlaying(true)
+      // Don't set isPlaying here — Player's onStateChange handles it
     })
     socket.on('user-joined', ({ users }) => setUsers(users))
     socket.on('user-left', ({ users }) => setUsers(users))
@@ -268,7 +284,7 @@ function App() {
           <span className="auth-title-big">GROOVE</span>
           <span className="auth-title-small">· together ·</span>
         </div>
-        <p className="auth-status">{IS_DISCORD ? 'Loading Activity...' : 'Connecting with Discord...'}</p>
+        <p className="auth-status">{IS_DISCORD ? 'Loading Activity...' : 'Checking session...'}</p>
       </div>
     )
   }

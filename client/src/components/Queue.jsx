@@ -1,22 +1,19 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 
-async function fetchTitle(videoId) {
-  try {
-    const res = await fetch(
-      `https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`
-    )
-    const data = await res.json()
-    return data.title
-  } catch { return `Song (${videoId})` }
-}
-
+// ── More robust YouTube ID extraction ────────────────────────
 function extractVideoId(url) {
+  if (!url) return null
+  const trimmed = url.trim()
+  // Direct 11-char ID
+  if (/^[a-zA-Z0-9_-]{11}$/.test(trimmed)) return trimmed
   const patterns = [
-    /(?:v=)([a-zA-Z0-9_-]{11})/,
-    /(?:youtu\.be\/)([a-zA-Z0-9_-]{11})/,
-    /(?:embed\/)([a-zA-Z0-9_-]{11})/,
+    /[?&]v=([a-zA-Z0-9_-]{11})/,
+    /youtu\.be\/([a-zA-Z0-9_-]{11})/,
+    /embed\/([a-zA-Z0-9_-]{11})/,
+    /shorts\/([a-zA-Z0-9_-]{11})/,
+    /watch\?.*v=([a-zA-Z0-9_-]{11})/,
   ]
-  for (const p of patterns) { const m = url.match(p); if (m) return m[1] }
+  for (const p of patterns) { const m = trimmed.match(p); if (m) return m[1] }
   return null
 }
 
@@ -25,26 +22,58 @@ function extractPlaylistId(url) {
   return match ? match[1] : null
 }
 
+// ── Fetch title with timeout + fallback ──────────────────────
+async function fetchTitle(videoId) {
+  try {
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 5000)
+    const res = await fetch(
+      `https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`,
+      { signal: controller.signal }
+    )
+    clearTimeout(timeout)
+    if (!res.ok) throw new Error('oEmbed failed')
+    const data = await res.json()
+    return data.title || `Song (${videoId})`
+  } catch {
+    return `Song (${videoId})`
+  }
+}
+
 export default function Queue({ queue, currentIndex, onAddSong, onSelectSong, onRemoveSong }) {
   const [input, setInput] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [importing, setImporting] = useState(false)
   const [importProgress, setImportProgress] = useState(null)
-  const [tab, setTab] = useState('song') // 'song' | 'playlist'
+  const [tab, setTab] = useState('song')
   const [playlistInput, setPlaylistInput] = useState('')
+  const [addedFlash, setAddedFlash] = useState(false)
+  const inputRef = useRef(null)
 
   const handleAddSong = async () => {
     const trimmed = input.trim()
-    if (!trimmed) return
+    if (!trimmed) { setError('Paste a YouTube URL first'); return }
     const videoId = extractVideoId(trimmed)
-    if (!videoId) { setError('Please paste a valid YouTube URL'); return }
+    if (!videoId) { setError('Invalid YouTube URL — try a different format'); return }
+
+    // Check duplicate
+    if (queue.some(s => s.videoId === videoId)) {
+      setError('This song is already in the queue'); return
+    }
+
     setLoading(true)
     setError('')
+
     const title = await fetchTitle(videoId)
     onAddSong({ videoId, title })
     setInput('')
     setLoading(false)
+
+    // Flash feedback
+    setAddedFlash(true)
+    setTimeout(() => setAddedFlash(false), 1500)
+    inputRef.current?.focus()
   }
 
   const handleImportPlaylist = async () => {
@@ -52,10 +81,7 @@ export default function Queue({ queue, currentIndex, onAddSong, onSelectSong, on
     if (!trimmed) return
 
     const playlistId = extractPlaylistId(trimmed)
-    if (!playlistId) {
-      setError('Please paste a valid YouTube playlist URL')
-      return
-    }
+    if (!playlistId) { setError('Please paste a valid YouTube playlist URL'); return }
 
     setImporting(true)
     setError('')
@@ -63,28 +89,21 @@ export default function Queue({ queue, currentIndex, onAddSong, onSelectSong, on
 
     try {
       const res = await fetch(
-        `http://localhost:3001/youtube/playlist?playlistId=${playlistId}`,
+        `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'}/youtube/playlist?playlistId=${playlistId}`,
         { credentials: 'include' }
       )
       const data = await res.json()
-
-      if (!res.ok) {
-        setError(data.error || 'Failed to fetch playlist')
-        return
-      }
+      if (!res.ok) { setError(data.error || 'Failed to fetch playlist'); return }
 
       setImportProgress(`Adding ${data.total} songs...`)
-
-      // Add all songs to queue
       for (const song of data.songs) {
         onAddSong({ videoId: song.videoId, title: song.title })
       }
-
       setPlaylistInput('')
       setImportProgress(null)
       setTab('song')
-    } catch (e) {
-      setError('Failed to import playlist')
+    } catch {
+      setError('Failed to import playlist — check the URL and try again')
       setImportProgress(null)
     } finally {
       setImporting(false)
@@ -98,34 +117,33 @@ export default function Queue({ queue, currentIndex, onAddSong, onSelectSong, on
         <span className="queue-count">{queue.length} songs</span>
       </div>
 
-      {/* Tabs */}
       <div className="queue-tabs">
-        <button
-          className={`queue-tab ${tab === 'song' ? 'active' : ''}`}
-          onClick={() => { setTab('song'); setError('') }}
-        >
+        <button className={`queue-tab ${tab === 'song' ? 'active' : ''}`}
+          onClick={() => { setTab('song'); setError('') }}>
           Add Song
         </button>
-        <button
-          className={`queue-tab ${tab === 'playlist' ? 'active' : ''}`}
-          onClick={() => { setTab('playlist'); setError('') }}
-        >
+        <button className={`queue-tab ${tab === 'playlist' ? 'active' : ''}`}
+          onClick={() => { setTab('playlist'); setError('') }}>
           🎵 Import Playlist
         </button>
       </div>
 
-      {/* Add single song */}
       {tab === 'song' && (
         <div className="add-song">
           <input
+            ref={inputRef}
             type="text"
             placeholder="Paste YouTube URL..."
             value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleAddSong()}
+            onChange={(e) => { setInput(e.target.value); setError('') }}
+            onKeyDown={(e) => e.key === 'Enter' && !loading && handleAddSong()}
           />
-          <button className="add-btn" onClick={handleAddSong} disabled={loading}>
-            {loading ? <span className="loading-spinner" /> : (
+          <button className={`add-btn ${addedFlash ? 'flash' : ''}`} onClick={handleAddSong} disabled={loading}>
+            {loading ? <span className="loading-spinner" /> : addedFlash ? (
+              <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20">
+                <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+              </svg>
+            ) : (
               <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20">
                 <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/>
               </svg>
@@ -135,19 +153,16 @@ export default function Queue({ queue, currentIndex, onAddSong, onSelectSong, on
         </div>
       )}
 
-      {/* Import playlist */}
       {tab === 'playlist' && (
         <div className="playlist-import">
-          <p className="playlist-hint">
-            Paste a YouTube playlist URL to add all songs at once
-          </p>
+          <p className="playlist-hint">Paste a YouTube playlist URL to add all songs at once</p>
           <div className="add-song">
             <input
               type="text"
               placeholder="https://youtube.com/playlist?list=..."
               value={playlistInput}
-              onChange={(e) => setPlaylistInput(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleImportPlaylist()}
+              onChange={(e) => { setPlaylistInput(e.target.value); setError('') }}
+              onKeyDown={(e) => e.key === 'Enter' && !importing && handleImportPlaylist()}
               disabled={importing}
             />
             <button className="add-btn" onClick={handleImportPlaylist} disabled={importing}>
@@ -169,7 +184,6 @@ export default function Queue({ queue, currentIndex, onAddSong, onSelectSong, on
         </div>
       )}
 
-      {/* Song list */}
       <ul className="song-list">
         {queue.length === 0 && (
           <li className="empty">
@@ -180,15 +194,12 @@ export default function Queue({ queue, currentIndex, onAddSong, onSelectSong, on
         )}
         {queue.map((song, i) => (
           <li
-            key={i}
+            key={`${song.videoId}-${i}`}
             className={`song-item ${i === currentIndex ? 'active' : ''}`}
             onClick={() => onSelectSong(i)}
           >
             <div className="song-thumb">
-              <img
-                src={`https://img.youtube.com/vi/${song.videoId}/default.jpg`}
-                alt=""
-              />
+              <img src={`https://img.youtube.com/vi/${song.videoId}/default.jpg`} alt="" />
               {i === currentIndex && (
                 <div className="now-playing-overlay">
                   <div className="bars"><span /><span /><span /></div>
@@ -199,10 +210,7 @@ export default function Queue({ queue, currentIndex, onAddSong, onSelectSong, on
               <p className="song-name">{song.title}</p>
               {song.addedBy && <p className="song-id">by {song.addedBy}</p>}
             </div>
-            <button
-              className="remove-btn"
-              onClick={(e) => { e.stopPropagation(); onRemoveSong(i) }}
-            >×</button>
+            <button className="remove-btn" onClick={(e) => { e.stopPropagation(); onRemoveSong(i) }}>×</button>
           </li>
         ))}
       </ul>

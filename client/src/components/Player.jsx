@@ -1,6 +1,24 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 
 let YT = null
+let ytApiLoading = false
+const ytReadyCallbacks = []
+
+// ── Load YouTube API once globally ───────────────────────────
+function loadYouTubeAPI(cb) {
+  if (window.YT && window.YT.Player) { YT = window.YT; cb(); return }
+  ytReadyCallbacks.push(cb)
+  if (ytApiLoading) return
+  ytApiLoading = true
+  const tag = document.createElement('script')
+  tag.src = 'https://www.youtube.com/iframe_api'
+  document.body.appendChild(tag)
+  window.onYouTubeIframeAPIReady = () => {
+    YT = window.YT
+    ytReadyCallbacks.forEach(fn => fn())
+    ytReadyCallbacks.length = 0
+  }
+}
 
 const PALETTES = [
   ['#7c6aff', '#ff6a8a', '#6affb8', '#ffb86a'],
@@ -102,138 +120,175 @@ function BeatBorder({ isPlaying }) {
 }
 
 export default function Player({ socket, roomId, videoId, title, onEnded, onSkip, onPrev, isDJ, djMode, initialTime, initialPlaying, onPlayStateChange, hasPrev }) {
-  const playerRef = useRef(null)
+  const playerContainerRef = useRef(null)
   const playerInstanceRef = useRef(null)
   const isSyncingRef = useRef(false)
   const isPlayingRef = useRef(false)
-  const initialSyncDone = useRef(false)
+  const lastVideoIdRef = useRef(null)
+  const pendingSongRef = useRef(null)
+  const [ytReady, setYtReady] = useState(false)
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentTime, setCurrentTime] = useState(0)
   const [duration, setDuration] = useState(0)
-  const [isReady, setIsReady] = useState(false)
   const [volume, setVolume] = useState(80)
   const [showVolume, setShowVolume] = useState(false)
+  const [playerStatus, setPlayerStatus] = useState('loading') // loading | ready | playing | buffering
 
   const onEndedRef = useRef(onEnded)
   useEffect(() => { onEndedRef.current = onEnded }, [onEnded])
 
+  const setPlay = useCallback((playing) => {
+    setIsPlaying(playing)
+    isPlayingRef.current = playing
+    onPlayStateChange?.(playing)
+  }, [onPlayStateChange])
+
+  // ── Init YouTube player ONCE ──────────────────────────────
   useEffect(() => {
     let destroyed = false
-    const initPlayer = () => {
-      if (!playerRef.current || destroyed) return
-      if (playerInstanceRef.current && typeof playerInstanceRef.current.destroy === 'function') {
-        playerInstanceRef.current.destroy()
-        playerInstanceRef.current = null
-      }
-      playerInstanceRef.current = new YT.Player(playerRef.current, {
+
+    const init = () => {
+      if (destroyed || !playerContainerRef.current) return
+      const div = document.createElement('div')
+      playerContainerRef.current.appendChild(div)
+
+      playerInstanceRef.current = new YT.Player(div, {
         height: '100%', width: '100%', videoId: '',
-        playerVars: { autoplay: 0, controls: 0, rel: 0, modestbranding: 1 },
+        playerVars: { autoplay: 0, controls: 0, rel: 0, modestbranding: 1, enablejsapi: 1 },
         events: {
-          onReady: () => { if (!destroyed) setIsReady(true) },
-          onStateChange: (e) => { if (e.data === YT.PlayerState.ENDED) onEndedRef.current?.() }
+          onReady: () => {
+            if (destroyed) return
+            playerInstanceRef.current.setVolume(volume)
+            setYtReady(true)
+            setPlayerStatus('ready')
+            // Load pending song if any
+            if (pendingSongRef.current) {
+              const { vid, time, playing } = pendingSongRef.current
+              pendingSongRef.current = null
+              playerInstanceRef.current.loadVideoById({ videoId: vid, startSeconds: time || 0 })
+              if (!playing) setTimeout(() => playerInstanceRef.current?.pauseVideo(), 1000)
+            }
+          },
+          onStateChange: (e) => {
+            if (destroyed) return
+            if (e.data === YT.PlayerState.PLAYING) {
+              setPlay(true); setPlayerStatus('playing')
+            } else if (e.data === YT.PlayerState.PAUSED) {
+              setPlay(false); setPlayerStatus('ready')
+            } else if (e.data === YT.PlayerState.BUFFERING) {
+              setPlayerStatus('buffering')
+            } else if (e.data === YT.PlayerState.ENDED) {
+              setPlay(false)
+              onEndedRef.current?.()
+            }
+          },
+          onError: (e) => {
+            console.warn('YouTube player error:', e.data)
+            setPlayerStatus('ready')
+          }
         }
       })
     }
-    if (window.YT && window.YT.Player) { YT = window.YT; initPlayer() }
-    else {
-      if (!document.querySelector('script[src*="youtube.com/iframe_api"]')) {
-        const tag = document.createElement('script')
-        tag.src = 'https://www.youtube.com/iframe_api'
-        document.body.appendChild(tag)
-      }
-      window.onYouTubeIframeAPIReady = () => { YT = window.YT; initPlayer() }
-    }
+
+    loadYouTubeAPI(init)
+
     return () => {
       destroyed = true
-      if (playerInstanceRef.current && typeof playerInstanceRef.current.destroy === 'function') {
-        playerInstanceRef.current.destroy()
-        playerInstanceRef.current = null
-      }
+      try { playerInstanceRef.current?.destroy() } catch {}
+      playerInstanceRef.current = null
     }
-  }, [])
+  }, []) // eslint-disable-line
 
+  // ── Load new video when videoId changes ───────────────────
   useEffect(() => {
+    if (!videoId || videoId === lastVideoIdRef.current) return
+    lastVideoIdRef.current = videoId
+
     const p = playerInstanceRef.current
-    if (!p || !isReady || !videoId) return
-    if (typeof p.loadVideoById !== 'function') return
-    p.loadVideoById(videoId)
-    if (!initialSyncDone.current && initialTime && initialTime > 0) {
-      initialSyncDone.current = true
-      setTimeout(() => {
-        const pi = playerInstanceRef.current
-        if (!pi || typeof pi.seekTo !== 'function') return
-        pi.seekTo(initialTime, true)
-        if (initialPlaying) { pi.playVideo(); setIsPlaying(true); onPlayStateChange?.(true) }
-        else { pi.pauseVideo(); setIsPlaying(false); onPlayStateChange?.(false) }
-      }, 800)
-    } else {
-      setTimeout(() => {
-        const pi = playerInstanceRef.current
-        if (pi && typeof pi.playVideo === 'function') { pi.playVideo(); setIsPlaying(true); onPlayStateChange?.(true) }
-      }, 300)
+    if (!ytReady || !p || typeof p.loadVideoById !== 'function') {
+      // Queue it for when player is ready
+      pendingSongRef.current = { vid: videoId, time: initialTime || 0, playing: initialPlaying ?? true }
+      return
     }
-  }, [videoId, isReady])
 
+    p.loadVideoById({ videoId, startSeconds: 0 })
+    // Don't force play here — server sync-heartbeat / room-state will handle timing
+  }, [videoId, ytReady]) // eslint-disable-line
+
+  // ── Socket events ─────────────────────────────────────────
   useEffect(() => {
-    socket.on('play', ({ time }) => {
+    const safeSeek = (time) => {
       const p = playerInstanceRef.current
-      if (!p || typeof p.seekTo !== 'function') return
+      if (p && typeof p.seekTo === 'function') p.seekTo(time, true)
+    }
+
+    const onPlay = ({ time }) => {
       isSyncingRef.current = true
-      p.seekTo(time, true); p.playVideo()
-      setIsPlaying(true); onPlayStateChange?.(true)
-      setTimeout(() => { isSyncingRef.current = false }, 500)
-    })
-    socket.on('pause', ({ time }) => {
-      const p = playerInstanceRef.current
-      if (!p || typeof p.seekTo !== 'function') return
+      safeSeek(time)
+      playerInstanceRef.current?.playVideo()
+      setPlay(true)
+      setTimeout(() => { isSyncingRef.current = false }, 600)
+    }
+
+    const onPause = ({ time }) => {
       isSyncingRef.current = true
-      p.seekTo(time, true); p.pauseVideo()
-      setIsPlaying(false); onPlayStateChange?.(false)
-      setTimeout(() => { isSyncingRef.current = false }, 500)
-    })
-    socket.on('seek', ({ time }) => {
-      const p = playerInstanceRef.current
-      if (!p || typeof p.seekTo !== 'function') return
+      safeSeek(time)
+      playerInstanceRef.current?.pauseVideo()
+      setPlay(false)
+      setTimeout(() => { isSyncingRef.current = false }, 600)
+    }
+
+    const onSeek = ({ time }) => {
       isSyncingRef.current = true
-      p.seekTo(time, true); setCurrentTime(time)
-      setTimeout(() => { isSyncingRef.current = false }, 500)
-    })
-    socket.on('load-song', ({ videoId }) => {
-      const p = playerInstanceRef.current
-      if (videoId && p && typeof p.loadVideoById === 'function') p.loadVideoById(videoId)
-      setIsPlaying(true); onPlayStateChange?.(true)
-    })
-    socket.on('sync-check', ({ time }) => {
+      safeSeek(time)
+      setCurrentTime(time)
+      setTimeout(() => { isSyncingRef.current = false }, 600)
+    }
+
+    const onSyncCheck = ({ time }) => {
       const p = playerInstanceRef.current
       if (!p || typeof p.getCurrentTime !== 'function') return
       const current = p.getCurrentTime() || 0
-      if (Math.abs(current - time) > 1.5) p.seekTo(time, true)
-    })
-    return () => { socket.off('play'); socket.off('pause'); socket.off('seek'); socket.off('load-song'); socket.off('sync-check') }
-  }, [socket])
+      if (Math.abs(current - time) > 2) p.seekTo(time, true)
+    }
 
+    socket.on('play', onPlay)
+    socket.on('pause', onPause)
+    socket.on('seek', onSeek)
+    socket.on('sync-check', onSyncCheck)
+
+    return () => {
+      socket.off('play', onPlay)
+      socket.off('pause', onPause)
+      socket.off('seek', onSeek)
+      socket.off('sync-check', onSyncCheck)
+    }
+  }, [socket, setPlay])
+
+  // ── Progress ticker ───────────────────────────────────────
   useEffect(() => {
     const interval = setInterval(() => {
       const p = playerInstanceRef.current
       if (p && typeof p.getCurrentTime === 'function') {
-        setCurrentTime(p.getCurrentTime() || 0); setDuration(p.getDuration() || 0)
+        setCurrentTime(p.getCurrentTime() || 0)
+        setDuration(p.getDuration() || 0)
       }
     }, 500)
     return () => clearInterval(interval)
   }, [])
 
-  useEffect(() => { isPlayingRef.current = isPlaying }, [isPlaying])
-
+  // ── Sync heartbeat (every 10s) ────────────────────────────
   useEffect(() => {
     const interval = setInterval(() => {
       const p = playerInstanceRef.current
-      if (isPlayingRef.current && p && typeof p.getCurrentTime === 'function')
+      if (isPlayingRef.current && p && typeof p.getCurrentTime === 'function') {
         socket.emit('sync-heartbeat', { roomId, time: p.getCurrentTime() || 0 })
+      }
     }, 10000)
     return () => clearInterval(interval)
   }, [roomId, socket])
 
-  // Apply volume whenever it changes
+  // ── Volume ────────────────────────────────────────────────
   useEffect(() => {
     const p = playerInstanceRef.current
     if (p && typeof p.setVolume === 'function') p.setVolume(volume)
@@ -241,7 +296,7 @@ export default function Player({ socket, roomId, videoId, title, onEnded, onSkip
 
   const getTime = () => {
     const p = playerInstanceRef.current
-    return (p && typeof p.getCurrentTime === 'function') ? p.getCurrentTime() || 0 : 0
+    return (p && typeof p.getCurrentTime === 'function') ? (p.getCurrentTime() || 0) : 0
   }
 
   const handlePlay = () => {
@@ -249,17 +304,21 @@ export default function Player({ socket, roomId, videoId, title, onEnded, onSkip
     const p = playerInstanceRef.current
     if (!p || typeof p.playVideo !== 'function') return
     const time = getTime()
-    p.playVideo(); setIsPlaying(true); onPlayStateChange?.(true)
+    p.playVideo()
+    setPlay(true)
     socket.emit('play', { roomId, time })
   }
+
   const handlePause = () => {
     if (isSyncingRef.current) return
     const p = playerInstanceRef.current
     if (!p || typeof p.pauseVideo !== 'function') return
     const time = getTime()
-    p.pauseVideo(); setIsPlaying(false); onPlayStateChange?.(false)
+    p.pauseVideo()
+    setPlay(false)
     socket.emit('pause', { roomId, time })
   }
+
   const handleSeek = (e) => {
     const p = playerInstanceRef.current
     const time = parseFloat(e.target.value)
@@ -267,10 +326,7 @@ export default function Player({ socket, roomId, videoId, title, onEnded, onSkip
     setCurrentTime(time)
     socket.emit('seek', { roomId, time })
   }
-  const handleVolumeChange = (e) => {
-    const v = parseInt(e.target.value)
-    setVolume(v)
-  }
+
   const formatTime = (s) => {
     if (!s || isNaN(s)) return '0:00'
     return `${Math.floor(s / 60)}:${Math.floor(s % 60).toString().padStart(2, '0')}`
@@ -282,7 +338,9 @@ export default function Player({ socket, roomId, videoId, title, onEnded, onSkip
   return (
     <div className="player" style={{ position: 'relative', overflow: 'visible' }}>
       <BeatBorder isPlaying={isPlaying} />
-      <div ref={playerRef} style={{ display: 'none' }} />
+
+      {/* Hidden YouTube player container */}
+      <div ref={playerContainerRef} style={{ display: 'none' }} />
 
       {djMode && (
         <div className={`dj-badge ${isDJ ? 'is-dj' : 'not-dj'}`}>
@@ -295,7 +353,9 @@ export default function Player({ socket, roomId, videoId, title, onEnded, onSkip
           ? <img src={`https://img.youtube.com/vi/${videoId}/hqdefault.jpg`} alt="thumbnail" className="art-img" />
           : <div className="art-placeholder"><span>🎵</span></div>}
         {isPlaying && <div className="art-pulse" />}
-        {!isReady && <div className="art-loading"><div className="art-loading-spinner" /></div>}
+        {playerStatus === 'buffering' && (
+          <div className="art-loading"><div className="art-loading-spinner" /></div>
+        )}
       </div>
 
       <div className="player-info">
@@ -314,7 +374,6 @@ export default function Player({ socket, roomId, videoId, title, onEnded, onSkip
       </div>
 
       <div className="player-controls-wrap">
-        {/* Left slot — Prev */}
         <div className="ctrl-slot ctrl-left">
           <button className="ctrl-btn prev-btn" onClick={onPrev} disabled={!hasPrev || isLocked} title="Previous">
             <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20">
@@ -323,7 +382,6 @@ export default function Player({ socket, roomId, videoId, title, onEnded, onSkip
           </button>
         </div>
 
-        {/* Center slot — Play/Pause */}
         <div className="ctrl-slot ctrl-center">
           <button className={`play-btn ${isPlaying ? 'playing' : ''}`}
             onClick={isPlaying ? handlePause : handlePlay} disabled={!videoId || isLocked}>
@@ -333,7 +391,6 @@ export default function Player({ socket, roomId, videoId, title, onEnded, onSkip
           </button>
         </div>
 
-        {/* Right slot — Next + Volume */}
         <div className="ctrl-slot ctrl-right">
           <button className="ctrl-btn skip-btn" onClick={onSkip} disabled={!videoId || isLocked} title="Next">
             <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20">
@@ -352,7 +409,7 @@ export default function Player({ socket, roomId, videoId, title, onEnded, onSkip
             {showVolume && (
               <div className="volume-popup">
                 <input type="range" min={0} max={100} value={volume}
-                  onChange={handleVolumeChange} className="volume-slider" orient="vertical" />
+                  onChange={(e) => setVolume(parseInt(e.target.value))} className="volume-slider" orient="vertical" />
                 <span className="volume-label">{volume}%</span>
               </div>
             )}
@@ -361,8 +418,8 @@ export default function Player({ socket, roomId, videoId, title, onEnded, onSkip
       </div>
 
       <div className="sync-badge">
-        <span className="sync-dot" />
-        {isLocked ? 'Listening' : 'Synced'}
+        <span className={`sync-dot ${playerStatus === 'buffering' ? 'buffering' : ''}`} />
+        {playerStatus === 'buffering' ? 'Buffering...' : isLocked ? 'Listening' : 'Synced'}
       </div>
     </div>
   )
