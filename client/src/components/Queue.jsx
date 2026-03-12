@@ -1,6 +1,6 @@
 
 // ── Now Playing Box ───────────────────────────────────────────
-function NowPlayingBox({ queue, currentIndex, onPrev, onNext, onSelectSong }) {
+function NowPlayingBox({ queue = [], currentIndex = 0, onPrev, onNext, onSelectSong }) {
   const song = queue[currentIndex]
   if (!song) return null
   return (
@@ -63,7 +63,7 @@ async function fetchTitle(videoId) {
   }
 }
 
-export default function Queue({ queue, currentIndex, onAddSong, onSelectSong, onRemoveSong, onNext, onPrev, socket, roomId, username }) {
+export default function Queue({ queue = [], currentIndex = 0, onAddSong, onSelectSong, onRemoveSong, onNext, onPrev, socket, roomId, username }) {
   // ── shared URL state across both tabs ────────────────────
   const [sharedUrl, setSharedUrl] = useState('')
   const [error, setError] = useState('')

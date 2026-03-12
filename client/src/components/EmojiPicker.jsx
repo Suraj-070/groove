@@ -1,14 +1,15 @@
-// Standalone emoji picker — no external dependencies
 import { useState, useEffect, useRef } from 'react'
 
 const EMOJI_CATEGORIES = [
   { label: '😀', name: 'Faces', emojis: ['😀','😂','🥹','😍','🤩','😎','🥳','😭','😤','🤯','😱','🤣','😅','🫶','😌','🥺','😏','😒','😔','🤔','😶','🙄','😬','🤐','😴','🤤','🥴','😵','🤠','🤡'] },
-  { label: '👍', name: 'Gestures', emojis: ['👍','👎','👏','🙌','🤝','🫵','☝️','✌️','🤞','🤟','🤘','💪','🦾','🙏','👋','🤙','💅','🫶','❤️','🧡','💛','💚','💙','💜','🖤','🤍','💔','❣️','💕','💞'] },
-  { label: '🔥', name: 'Symbols', emojis: ['🔥','💯','✨','⭐','🌟','💫','⚡','💥','🎉','🎊','🎵','🎶','🎸','🥁','🎹','🎺','🎻','🎤','🎧','🎼','🎮','🕹️','🎲','🃏','♟️','🎯','🏆','🥇','🎖️','🏅'] },
-  { label: '😂', name: 'Reactions', emojis: ['💀','👻','👽','🤖','🎃','💩','🙈','🙉','🙊','🐵','🐶','🐱','🐭','🐹','🦊','🐻','🐼','🐨','🐯','🦁','🐸','🐧','🐦','🦆','🦉','🦇','🐺','🦄','🐉','🔮'] },
+  { label: '👍', name: 'Gestures', emojis: ['👍','👎','👏','🙌','🤝','✌️','🤞','🤟','🤘','💪','🦾','🙏','👋','🤙','💅','🫶','❤️','🧡','💛','💚','💙','💜','🖤','🤍','💔','❣️','💕','💞'] },
+  { label: '🔥', name: 'Symbols', emojis: ['🔥','💯','✨','⭐','🌟','💫','⚡','💥','🎉','🎊','🎵','🎶','🎸','🥁','🎹','🎺','🎻','🎤','🎧','🎼','🎮','🕹️','🎲','🃏','🎯','🏆','🥇','🎖️','🏅'] },
+  { label: '🐶', name: 'Animals', emojis: ['💀','👻','👽','🤖','🎃','💩','🙈','🙉','🙊','🐵','🐶','🐱','🐭','🐹','🦊','🐻','🐼','🐨','🐯','🦁','🐸','🐧','🐦','🦆','🦉','🦇','🐺','🦄','🐉','🔮'] },
   { label: '🍕', name: 'Food', emojis: ['🍕','🍔','🌮','🌯','🍜','🍣','🍱','🍛','🍝','🥗','🍿','🧃','☕','🍺','🍻','🥤','🧋','🍰','🎂','🍩','🍪','🍫','🍬','🍭','🍦','🥐','🥨','🥞','🧇','🥓'] },
-  { label: '🌊', name: 'Nature', emojis: ['🌊','🔥','🌈','⛈️','🌙','☀️','🌸','🌺','🌻','🍀','🌴','🌵','🍄','🌾','🍁','🍂','🌍','🌏','🏔️','🗻','🌋','🏖️','🏜️','🌅','🌄','🌠','🌌','🌃','🏙️','🌉'] },
+  { label: '🌊', name: 'Nature', emojis: ['🌊','🌈','🌙','☀️','🌸','🌺','🌻','🍀','🌴','🌵','🍄','🌾','🍁','🍂','🌍','🌏','🏔️','🗻','🌋','🏖️','🏜️','🌅','🌄','🌠','🌌','🌃','🏙️','🌉'] },
 ]
+
+const ALL_EMOJIS = EMOJI_CATEGORIES.flatMap(c => c.emojis)
 
 export default function EmojiPicker({ onSelect, onClose }) {
   const [tab, setTab] = useState(0)
@@ -16,24 +17,23 @@ export default function EmojiPicker({ onSelect, onClose }) {
   const ref = useRef(null)
 
   useEffect(() => {
-    const handleClick = (e) => { if (ref.current && !ref.current.contains(e.target)) onClose?.() }
+    const handleClick = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) onClose?.()
+    }
     document.addEventListener('mousedown', handleClick)
     return () => document.removeEventListener('mousedown', handleClick)
   }, [onClose])
 
-  const allEmojis = EMOJI_CATEGORIES.flatMap(c => c.emojis)
-  const searchResults = search
-    ? allEmojis.filter((_, i) => {
-        // Simple search by index label — just show all when searching
-        return true
-      }).filter(e => e.includes(search))
-    : null
-
-  const displayed = searchResults || EMOJI_CATEGORIES[tab].emojis
+  // Safe display — always an array, never null
+  const displayed = search.trim()
+    ? ALL_EMOJIS.filter(e => {
+        // Search by name via codepoint — fallback to showing all
+        try { return e.codePointAt(0).toString(16).includes(search) } catch { return true }
+      }).slice(0, 48)
+    : (EMOJI_CATEGORIES[tab]?.emojis ?? EMOJI_CATEGORIES[0].emojis)
 
   return (
     <div className="ep-picker" ref={ref}>
-      {/* Search */}
       <div className="ep-search-wrap">
         <input
           className="ep-search"
@@ -42,10 +42,11 @@ export default function EmojiPicker({ onSelect, onClose }) {
           onChange={e => setSearch(e.target.value)}
           autoFocus
         />
-        {search && <button className="ep-search-clear" onClick={() => setSearch('')}>×</button>}
+        {search && (
+          <button className="ep-search-clear" onClick={() => setSearch('')}>×</button>
+        )}
       </div>
 
-      {/* Category tabs */}
       {!search && (
         <div className="ep-tabs">
           {EMOJI_CATEGORIES.map((cat, i) => (
@@ -61,14 +62,19 @@ export default function EmojiPicker({ onSelect, onClose }) {
         </div>
       )}
 
-      {/* Emoji grid */}
       <div className="ep-grid">
-        {displayed.map((emoji, i) => (
-          <button key={i} className="ep-emoji-btn" onClick={() => onSelect(emoji)}>
-            {emoji}
-          </button>
-        ))}
-        {displayed.length === 0 && <p className="ep-no-results">No results</p>}
+        {displayed.length === 0
+          ? <p className="ep-no-results">No results</p>
+          : displayed.map((emoji, i) => (
+              <button
+                key={i}
+                className="ep-emoji-btn"
+                onClick={() => onSelect(emoji)}
+              >
+                {emoji}
+              </button>
+            ))
+        }
       </div>
     </div>
   )
