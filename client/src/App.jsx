@@ -224,25 +224,35 @@ function App() {
 
   useEffect(() => {
     socket.on('room-state', ({ queue, currentIndex, currentTime, isPlaying, users, djId, djMode }) => {
-      setQueue(queue)
-      setCurrentIndex(currentIndex)
-      setUsers(users)
+      setQueue(Array.isArray(queue) ? queue : [])
+      setCurrentIndex(currentIndex ?? 0)
+      setUsers(Array.isArray(users) ? users : [])
       setDjId(djId)
       setDjMode(djMode)
       setInitialTime(currentTime)
       setInitialPlaying(isPlaying)
       setIsPlaying(isPlaying)
     })
-    socket.on('queue-updated', ({ queue }) => setQueue(queue))
+    socket.on('queue-updated', ({ queue }) => setQueue(Array.isArray(queue) ? queue : []))
     socket.on('load-song', ({ index, queue: updatedQueue }) => {
-      if (updatedQueue) setQueue(updatedQueue)
+      if (updatedQueue) setQueue(Array.isArray(updatedQueue) ? updatedQueue : [])
       setCurrentIndex(index)
       // Don't set isPlaying here — Player's onStateChange handles it
     })
-    socket.on('user-joined', ({ users }) => setUsers(users))
-    socket.on('user-left', ({ users }) => setUsers(users))
+    socket.on('user-joined', ({ users }) => setUsers(Array.isArray(users) ? users : []))
+    socket.on('user-left', ({ users }) => setUsers(Array.isArray(users) ? users : []))
     socket.on('dj-mode-changed', ({ djMode, djId }) => { setDjMode(djMode); setDjId(djId) })
-    socket.on('recap-data', (data) => { setRecap(data); setShowRecap(true) })
+    socket.on('recap-data', (data) => {
+      if (!data) return
+      // Ensure arrays are never null
+      const safeRecap = {
+        ...data,
+        songsPlayed: Array.isArray(data.songsPlayed) ? data.songsPlayed : [],
+        users: Array.isArray(data.users) ? data.users : []
+      }
+      setRecap(safeRecap)
+      setShowRecap(true)
+    })
     socket.on('play', () => setIsPlaying(true))
     socket.on('pause', () => setIsPlaying(false))
 

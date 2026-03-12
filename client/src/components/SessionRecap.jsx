@@ -1,7 +1,9 @@
 export default function SessionRecap({ recap, onClose }) {
   if (!recap) return null
 
-  const { songsPlayed, sessionStart, sessionDuration, users } = recap
+  const songsPlayed = Array.isArray(recap.songsPlayed) ? recap.songsPlayed : []
+  const users = Array.isArray(recap.users) ? recap.users : []
+  const { sessionStart, sessionDuration } = recap
 
   const formatDuration = (ms) => {
     const totalMin = Math.floor(ms / 60000)

@@ -1,4 +1,5 @@
-export default function UserList({ users, currentUser, djId }) {
+export default function UserList({ users: rawUsers, currentUser, djId }) {
+  const users = Array.isArray(rawUsers) ? rawUsers : []
   const colors = ['#7c6aff', '#ff6a8a', '#6affb8', '#ffb86a', '#6ab8ff', '#ff6aff']
 
   const getColor = (id) => {
