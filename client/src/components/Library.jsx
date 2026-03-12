@@ -428,7 +428,11 @@ export default function Library({ isOpen, onClose, socket, roomId, username, onA
         <div className="lib-crate-view">
           {/* Subheader */}
           <div className="lib-subheader">
-            <div>
+            <button className="lib-back-room" onClick={onClose}>
+              <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+              Back to Room
+            </button>
+            <div className="lib-header-center">
               <h1 className="lib-title">My Library</h1>
               <p className="lib-subtitle">{categories.length} collections · {categories.reduce((acc, c) => acc + (c.songs || []).length, 0)} songs</p>
             </div>

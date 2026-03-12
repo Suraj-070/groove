@@ -189,7 +189,7 @@ body {
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   min-height: 66px;
-  z-index: 300;
+  z-index: 150;
 }
 
 .logo {
@@ -1636,7 +1636,7 @@ body {
   left: 0;
   right: 0;
   bottom: 0;
-  z-index: 200;
+  z-index: 99;
   background: #0a0a0f;
   display: flex;
   flex-direction: column;
