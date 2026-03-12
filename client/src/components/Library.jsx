@@ -43,7 +43,8 @@ async function fetchTitle(videoId) {
 
 // ── Crate Card ────────────────────────────────────────────────
 function CrateCard({ crate, colorDef, onClick, onPlay, onShuffle, onDelete, isActive }) {
-  const thumbs = crate.songs.slice(0, 3).map(s => `https://img.youtube.com/vi/${s.videoId}/default.jpg`)
+  const songs = crate.songs || []
+  const thumbs = songs.slice(0, 3).map(s => `https://img.youtube.com/vi/${s.videoId}/default.jpg`)
 
   return (
     <div
@@ -68,15 +69,15 @@ function CrateCard({ crate, colorDef, onClick, onPlay, onShuffle, onDelete, isAc
       {/* Info */}
       <div className="crate-info">
         <p className="crate-name">{crate.name}</p>
-        <p className="crate-count">{crate.songs.length} songs</p>
+        <p className="crate-count">{songs.length} songs</p>
       </div>
 
       {/* Actions */}
       <div className="crate-actions">
-        <button className="crate-action-btn play" onClick={e => { e.stopPropagation(); onPlay() }} disabled={!crate.songs.length}>
+        <button className="crate-action-btn play" onClick={e => { e.stopPropagation(); onPlay() }} disabled={!songs.length}>
           ▶ Play All
         </button>
-        <button className="crate-action-btn shuffle" onClick={e => { e.stopPropagation(); onShuffle() }} disabled={!crate.songs.length}>
+        <button className="crate-action-btn shuffle" onClick={e => { e.stopPropagation(); onShuffle() }} disabled={!songs.length}>
           🔀
         </button>
       </div>
@@ -153,7 +154,7 @@ function CrateDetail({ crate, colorDef, onBack, onAddSong, onDeleteSong, onPlayS
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(''), 2500) }
 
-  const filtered = crate.songs.filter(s => s.title.toLowerCase().includes(search.toLowerCase()))
+  const filtered = (crate.songs || []).filter(s => s.title.toLowerCase().includes(search.toLowerCase()))
 
   const handleAddSong = async () => {
     const videoId = extractVideoId(urlInput)
@@ -199,11 +200,11 @@ function CrateDetail({ crate, colorDef, onBack, onAddSong, onDeleteSong, onPlayS
         </button>
         <div className="cd-title-wrap">
           <h2 className="cd-title">{crate.name}</h2>
-          <span className="cd-subtitle">{crate.songs.length} songs</span>
+          <span className="cd-subtitle">{(crate.songs || []).length} songs</span>
         </div>
         <div className="cd-header-actions">
-          <button className="cd-action-btn shuffle" onClick={onShuffle} disabled={!crate.songs.length}>🔀 Shuffle</button>
-          <button className="cd-action-btn play" onClick={() => onPushToQueue(crate)} disabled={!crate.songs.length}>▶ Play All</button>
+          <button className="cd-action-btn shuffle" onClick={onShuffle} disabled={!(crate.songs || []).length}>🔀 Shuffle</button>
+          <button className="cd-action-btn play" onClick={() => onPushToQueue(crate)} disabled={!(crate.songs || []).length}>▶ Play All</button>
         </div>
       </div>
 
@@ -294,11 +295,11 @@ function CrateDetail({ crate, colorDef, onBack, onAddSong, onDeleteSong, onPlayS
             {/* Stats */}
             <div className="cd-stats">
               <div className="cd-stat">
-                <span className="cd-stat-val">{crate.songs.length}</span>
+                <span className="cd-stat-val">{(crate.songs || []).length}</span>
                 <span className="cd-stat-label">Songs</span>
               </div>
               <div className="cd-stat">
-                <span className="cd-stat-val">~{Math.round(crate.songs.length * 3.5)}m</span>
+                <span className="cd-stat-val">~{Math.round((crate.songs || []).length * 3.5)}m</span>
                 <span className="cd-stat-label">Est. Time</span>
               </div>
             </div>
@@ -349,7 +350,7 @@ export default function Library({ isOpen, onClose, socket, roomId, username, onA
   }
 
   const handlePushToQueue = (crate, shuffled = false) => {
-    const songs = shuffled ? [...crate.songs].sort(() => Math.random() - 0.5) : crate.songs
+    const songs = shuffled ? [...(crate.songs || [])].sort(() => Math.random() - 0.5) : (crate.songs || [])
     socket.emit('push-category', { roomId, songs, categoryName: crate.name, username })
     showToast(`${shuffled ? '🔀 Shuffled' : '▶ Playing'} ${crate.name}`)
   }
@@ -361,7 +362,7 @@ export default function Library({ isOpen, onClose, socket, roomId, username, onA
 
   // Find which crate is currently playing
   const playingCrateId = currentVideoId
-    ? categories.find(c => c.songs.some(s => s.videoId === currentVideoId))?.id
+    ? categories.find(c => (c.songs || []).some(s => s.videoId === currentVideoId))?.id
     : null
 
   return (
@@ -407,7 +408,7 @@ export default function Library({ isOpen, onClose, socket, roomId, username, onA
             </button>
             <div className="lib-header-center">
               <h1 className="lib-title">My Crates</h1>
-              <p className="lib-subtitle">{categories.length} crates · {categories.reduce((acc, c) => acc + c.songs.length, 0)} songs</p>
+              <p className="lib-subtitle">{categories.length} crates · {categories.reduce((acc, c) => acc + (c.songs || []).length, 0)} songs</p>
             </div>
             <button className="lib-new-btn" onClick={() => setShowNewCrate(true)}>
               <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>

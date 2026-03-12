@@ -12,7 +12,12 @@ export function useLibrary() {
       const res = await fetch(`${API}/library`, { credentials: 'include' })
       if (!res.ok) throw new Error('Not authenticated')
       const data = await res.json()
-      setCategories(data.categories || [])
+      // Normalize — ensure every category has songs as an array
+      const normalized = (data.categories || []).map(c => ({
+        ...c,
+        songs: Array.isArray(c.songs) ? c.songs : []
+      }))
+      setCategories(normalized)
     } catch (e) {
       console.error('Failed to fetch library:', e)
     } finally {
@@ -30,7 +35,7 @@ export function useLibrary() {
       body: JSON.stringify({ name, color })
     })
     const category = await res.json()
-    setCategories(prev => [...prev, { ...category, songs: [] }])
+    setCategories(prev => [...prev, { ...category, songs: Array.isArray(category.songs) ? category.songs : [] }])
     return category
   }
 
