@@ -1689,7 +1689,8 @@ body {
   z-index: 1;
   display: flex;
   flex-direction: column;
-  height: 100%;
+  flex: 1;
+  min-height: 0;
   overflow: hidden;
 }
 
@@ -1702,6 +1703,11 @@ body {
   border-bottom: 1px solid rgba(255,255,255,0.06);
   flex-shrink: 0;
   gap: 16px;
+  position: relative;
+  z-index: 2;
+  background: rgba(10,10,15,0.6);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
 }
 
 .lib-back-room {
@@ -1777,6 +1783,7 @@ body {
   padding: 28px 32px;
   overflow-y: auto;
   flex: 1;
+  min-height: 0;
   align-content: start;
 }
 .lib-crate-grid::-webkit-scrollbar { width: 4px; }
