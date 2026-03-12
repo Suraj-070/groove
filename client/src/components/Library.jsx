@@ -73,7 +73,7 @@ function PlaylistWarningModal({ total, onImportAll, onImportFirst, onCancel }) {
 }
 
 // ─── Main Component ───────────────────────────────────────────
-export default function Library({ isOpen, onClose, socket, roomId, username }) {
+export default function Library({ isOpen, onClose, socket, roomId, username, onAddSongToQueue, currentVideoId }) {
   const { categories, loading, createCategory, deleteCategory, addSong, deleteSong } = useLibrary()
   const [activeCategory, setActiveCategory] = useState(null)
   const [showNewCategory, setShowNewCategory] = useState(false)
@@ -125,7 +125,7 @@ export default function Library({ isOpen, onClose, socket, roomId, username }) {
   // Fetch playlist from server
   const fetchPlaylist = async (playlistId) => {
     const res = await fetch(
-      `http://localhost:3001/youtube/playlist?playlistId=${playlistId}`,
+      `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'}/youtube/playlist?playlistId=${playlistId}`,
       { credentials: 'include' }
     )
     const data = await res.json()
@@ -330,7 +330,7 @@ export default function Library({ isOpen, onClose, socket, roomId, username }) {
                     </div>
                   )}
                   {error && <p className="error">{error}</p>}
-                  <p className="playlist-note">⚠️ Only public YouTube playlists are supported. To import a private playlist, make it public or unlisted first.</p>
+                  <p className="playlist-note">⚠️ Only public playlists are supported</p>
                 </div>
               )}
 
@@ -347,8 +347,17 @@ export default function Library({ isOpen, onClose, socket, roomId, username }) {
                       <p className="lib-song-title">{song.title}</p>
                       <p className="lib-song-id">youtu.be/{song.videoId}</p>
                     </div>
-                    <button className="lib-remove-btn"
-                      onClick={() => deleteSong(activeCategory, song.videoId)}>×</button>
+                    <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                      <button
+                        className={`lib-play-btn ${currentVideoId === song.videoId ? 'playing' : ''}`}
+                        onClick={() => onAddSongToQueue?.({ videoId: song.videoId, title: song.title })}
+                        title="Add to queue"
+                      >
+                        {currentVideoId === song.videoId ? '▶ Playing' : '+ Queue'}
+                      </button>
+                      <button className="lib-remove-btn"
+                        onClick={() => deleteSong(activeCategory, song.videoId)}>×</button>
+                    </div>
                   </li>
                 ))}
               </ul>
