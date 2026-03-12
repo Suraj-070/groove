@@ -1,18 +1,22 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import EmojiPicker from './EmojiPicker'
 
-const SPAM_LIMIT = 4
-const SPAM_WINDOW = 1000
+const SPAM_LIMIT = 8
+const SPAM_WINDOW = 2000
 const QUICK_EMOJIS = ['🔥','💯','🎵','❤️','😂','👏','🚀','✨','💀','🤩']
+const HOLD_DELAY = 350   // ms before spam starts
+const SPAM_INTERVAL = 180 // ms between spam sends
 
 export default function ReactionBurst({ socket, roomId, username }) {
   const [bursts, setBursts] = useState([])
   const [showPicker, setShowPicker] = useState(false)
   const [recentEmojis, setRecentEmojis] = useState([])
-  const spamCountRef = useRef(0)
-  const spamTimerRef = useRef(null)
+
+  const spamCountRef    = useRef(0)
+  const spamTimerRef    = useRef(null)
   const spamIntervalRef = useRef(null)
-  const pickerRef = useRef(null)
+  const holdTimerRef    = useRef(null)
+  const isHoldingRef    = useRef(false)
 
   useEffect(() => {
     socket.on('reaction', ({ emoji, username: from }) => spawnBurst(emoji, from, false))
@@ -31,7 +35,10 @@ export default function ReactionBurst({ socket, roomId, username }) {
   const sendReaction = useCallback((emoji) => {
     spamCountRef.current++
     if (!spamTimerRef.current) {
-      spamTimerRef.current = setTimeout(() => { spamCountRef.current = 0; spamTimerRef.current = null }, SPAM_WINDOW)
+      spamTimerRef.current = setTimeout(() => {
+        spamCountRef.current = 0
+        spamTimerRef.current = null
+      }, SPAM_WINDOW)
     }
     if (spamCountRef.current > SPAM_LIMIT) return
     spawnBurst(emoji, username, true)
@@ -39,15 +46,16 @@ export default function ReactionBurst({ socket, roomId, username }) {
     setRecentEmojis(prev => [emoji, ...prev.filter(e => e !== emoji)].slice(0, 8))
   }, [socket, roomId, username, spawnBurst])
 
-  const holdTimerRef = useRef(null)
-  const isHoldingRef = useRef(false)
-
+  // ── Hold-to-spam logic ─────────────────────────────────────
   const startHold = (emoji) => {
     isHoldingRef.current = false
+    clearTimeout(holdTimerRef.current)
+    clearInterval(spamIntervalRef.current)
+
     holdTimerRef.current = setTimeout(() => {
       isHoldingRef.current = true
-      spamIntervalRef.current = setInterval(() => sendReaction(emoji), 200)
-    }, 300) // 300ms delay before spam kicks in
+      spamIntervalRef.current = setInterval(() => sendReaction(emoji), SPAM_INTERVAL)
+    }, HOLD_DELAY)
   }
 
   const stopHold = () => {
@@ -57,10 +65,12 @@ export default function ReactionBurst({ socket, roomId, username }) {
     spamIntervalRef.current = null
   }
 
-  const handleEmojiClick = (emoji) => {
-    if (!isHoldingRef.current) sendReaction(emoji)
-    isHoldingRef.current = false
+  // Called on release — only sends ONE reaction if it was a tap, not a hold
+  const handleRelease = (emoji) => {
+    const wasHolding = isHoldingRef.current
     stopHold()
+    isHoldingRef.current = false
+    if (!wasHolding) sendReaction(emoji)
   }
 
   const quickEmojis = recentEmojis.length > 0 ? recentEmojis : QUICK_EMOJIS
@@ -77,7 +87,7 @@ export default function ReactionBurst({ socket, roomId, username }) {
         ))}
       </div>
 
-      <div className="reaction-trigger" ref={pickerRef}>
+      <div className="reaction-trigger">
         <button className={`react-btn ${showPicker ? 'active' : ''}`}
           onClick={() => setShowPicker(p => !p)} title="Send reactions">
           <span>🎉</span>
@@ -89,19 +99,21 @@ export default function ReactionBurst({ socket, roomId, username }) {
               <span className="quick-label">⚡ Hold to spam</span>
               <div className="quick-emoji-row">
                 {quickEmojis.map((emoji, i) => (
-                  <button key={i} className="reaction-emoji-btn"
-                    onClick={() => handleEmojiClick(emoji)}
+                  <button
+                    key={i}
+                    className="reaction-emoji-btn"
                     onMouseDown={() => startHold(emoji)}
-                    onMouseUp={() => handleEmojiClick(emoji)}
+                    onMouseUp={() => handleRelease(emoji)}
                     onMouseLeave={stopHold}
                     onTouchStart={(e) => { e.preventDefault(); startHold(emoji) }}
-                    onTouchEnd={(e) => { e.preventDefault(); handleEmojiClick(emoji) }}>
+                    onTouchEnd={(e) => { e.preventDefault(); handleRelease(emoji) }}
+                  >
                     {emoji}
                   </button>
                 ))}
               </div>
             </div>
-            <EmojiPicker onSelect={(emoji) => sendReaction(emoji)} onClose={() => setShowPicker(false)} />
+            <EmojiPicker onSelect={(emoji) => { sendReaction(emoji) }} onClose={() => setShowPicker(false)} />
           </div>
         )}
       </div>
