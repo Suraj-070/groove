@@ -409,10 +409,108 @@ body {
   background: var(--surface2);
 }
 
-/* emoji-mart dark theme overrides */
-em-emoji-picker {
-  --border-radius: 12px;
-  --font-family: 'Outfit', sans-serif;
+/* ─── SELF-CONTAINED EMOJI PICKER ─────────────── */
+.ep-picker {
+  background: #13111f;
+  border: 1px solid rgba(124,106,255,0.25);
+  border-radius: 14px;
+  overflow: hidden;
+  width: 320px;
+  box-shadow: 0 16px 48px rgba(0,0,0,0.6);
+  display: flex;
+  flex-direction: column;
+  max-height: 340px;
+}
+
+.ep-search-wrap {
+  position: relative;
+  padding: 10px 10px 6px;
+  flex-shrink: 0;
+}
+.ep-search {
+  width: 100%;
+  background: rgba(255,255,255,0.07);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 8px;
+  padding: 7px 32px 7px 10px;
+  color: #fff;
+  font-family: 'Outfit', sans-serif;
+  font-size: 0.82rem;
+  box-sizing: border-box;
+  transition: border-color 0.15s;
+}
+.ep-search:focus { outline: none; border-color: var(--accent); }
+.ep-search::placeholder { color: rgba(255,255,255,0.25); }
+.ep-search-clear {
+  position: absolute;
+  right: 16px;
+  top: 50%;
+  transform: translateY(-25%);
+  background: none;
+  border: none;
+  color: var(--muted2);
+  font-size: 1rem;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+}
+
+.ep-tabs {
+  display: flex;
+  padding: 0 8px 6px;
+  gap: 2px;
+  flex-shrink: 0;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+.ep-tab {
+  flex: 1;
+  background: none;
+  border: none;
+  border-radius: 7px;
+  font-size: 1rem;
+  padding: 5px 4px;
+  cursor: pointer;
+  transition: background 0.15s;
+  line-height: 1;
+}
+.ep-tab:hover { background: rgba(255,255,255,0.07); }
+.ep-tab.active { background: rgba(124,106,255,0.2); }
+
+.ep-grid {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 1px;
+  padding: 8px;
+  overflow-y: auto;
+  flex: 1;
+}
+.ep-grid::-webkit-scrollbar { width: 3px; }
+.ep-grid::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
+
+.ep-emoji-btn {
+  background: none;
+  border: none;
+  border-radius: 7px;
+  font-size: 1.3rem;
+  padding: 5px 3px;
+  cursor: pointer;
+  line-height: 1;
+  transition: background 0.1s, transform 0.1s;
+  text-align: center;
+}
+.ep-emoji-btn:hover {
+  background: rgba(255,255,255,0.1);
+  transform: scale(1.2);
+}
+
+.ep-no-results {
+  grid-column: 1 / -1;
+  text-align: center;
+  color: var(--muted2);
+  font-family: 'Outfit', sans-serif;
+  font-size: 0.82rem;
+  padding: 16px;
+  margin: 0;
 }
 
 .chat-input-row {
