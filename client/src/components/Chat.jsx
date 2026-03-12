@@ -1,11 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
-
-const EMOJIS = [
-  '😀','😂','🥹','😍','🤩','😎','🥳','😭','😤','🤯',
-  '👍','👎','❤️','🔥','💯','✨','🎵','🎶','🎸','🥁',
-  '🎉','🎊','💃','🕺','👏','🙌','💀','😱','🤣','😅',
-  '🫶','💜','🖤','⚡','🌊','🍕','🧃','☕','🍻','🎮'
-]
+import data from '@emoji-mart/data'
+import Picker from '@emoji-mart/react'
 
 export default function Chat({ socket, roomId, username, isOpen, onClose }) {
   const [messages, setMessages] = useState([])
@@ -13,11 +8,10 @@ export default function Chat({ socket, roomId, username, isOpen, onClose }) {
   const [showPicker, setShowPicker] = useState(false)
   const bottomRef = useRef(null)
   const inputRef = useRef(null)
+  const pickerRef = useRef(null)
 
   useEffect(() => {
-    socket.on('chat-msg', (msg) => {
-      setMessages((prev) => [...prev, msg])
-    })
+    socket.on('chat-msg', (msg) => setMessages(prev => [...prev, msg]))
     return () => socket.off('chat-msg')
   }, [socket])
 
@@ -29,6 +23,16 @@ export default function Chat({ socket, roomId, username, isOpen, onClose }) {
     if (isOpen) setTimeout(() => inputRef.current?.focus(), 100)
   }, [isOpen])
 
+  // Close picker on outside click
+  useEffect(() => {
+    const handleClick = (e) => {
+      if (pickerRef.current && !pickerRef.current.contains(e.target))
+        setShowPicker(false)
+    }
+    if (showPicker) document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [showPicker])
+
   const sendMessage = (text) => {
     if (!text.trim()) return
     const msg = {
@@ -38,12 +42,12 @@ export default function Chat({ socket, roomId, username, isOpen, onClose }) {
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     }
     socket.emit('chat-msg', { roomId, msg })
-    setMessages((prev) => [...prev, { ...msg, self: true }])
+    setMessages(prev => [...prev, { ...msg, self: true }])
     setInput('')
   }
 
-  const addEmoji = (emoji) => {
-    setInput((prev) => prev + emoji)
+  const handleEmojiSelect = (emojiObj) => {
+    setInput(prev => prev + emojiObj.native)
     setShowPicker(false)
     inputRef.current?.focus()
   }
@@ -74,22 +78,28 @@ export default function Chat({ socket, roomId, username, isOpen, onClose }) {
         <div ref={bottomRef} />
       </div>
 
+      {/* emoji-mart picker */}
       {showPicker && (
-        <div className="emoji-picker-wrap">
-          <div className="emoji-grid">
-            {EMOJIS.map((emoji) => (
-              <button key={emoji} className="emoji-btn" onClick={() => addEmoji(emoji)}>
-                {emoji}
-              </button>
-            ))}
-          </div>
+        <div className="emoji-picker-wrap" ref={pickerRef}>
+          <Picker
+            data={data}
+            onEmojiSelect={handleEmojiSelect}
+            theme="dark"
+            previewPosition="none"
+            skinTonePosition="search"
+            searchPosition="sticky"
+            navPosition="bottom"
+            perLine={8}
+            emojiSize={20}
+            emojiButtonSize={32}
+          />
         </div>
       )}
 
       <div className="chat-input-row">
         <button
           className={`emoji-toggle-btn ${showPicker ? 'active' : ''}`}
-          onClick={() => setShowPicker((p) => !p)}
+          onClick={() => setShowPicker(p => !p)}
         >
           😊
         </button>

@@ -398,42 +398,21 @@ body {
 .emoji-picker-wrap {
   position: absolute;
   bottom: 64px;
-  left: 8px;
-  right: 8px;
+  left: 0;
   z-index: 200;
-  background: var(--surface);
-  border: 1px solid var(--border);
   border-radius: 14px;
   overflow: hidden;
-  box-shadow: 0 16px 40px rgba(0,0,0,0.5);
-  padding: 10px;
-}
-
-.emoji-grid {
-  display: grid;
-  grid-template-columns: repeat(8, 1fr);
-  gap: 4px;
-}
-
-.emoji-btn {
-  background: none;
-  border: none;
-  font-size: 1.4rem;
-  cursor: pointer;
-  padding: 6px 4px;
-  border-radius: 8px;
-  transition: background 0.15s, transform 0.1s;
-  line-height: 1;
-  text-align: center;
-}
-
-.emoji-btn:hover {
-  background: var(--surface2);
-  transform: scale(1.2);
+  box-shadow: 0 16px 40px rgba(0,0,0,0.6);
 }
 
 .emoji-toggle-btn.active {
   background: var(--surface2);
+}
+
+/* emoji-mart dark theme overrides */
+em-emoji-picker {
+  --border-radius: 12px;
+  --font-family: 'Outfit', sans-serif;
 }
 
 .chat-input-row {
@@ -3795,14 +3774,33 @@ h1, h2, h3 {
   position: absolute;
   bottom: 56px;
   right: 0;
-  width: 300px;
+  width: 352px;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 16px;
   box-shadow: 0 20px 50px rgba(0,0,0,0.6);
   overflow: hidden;
   z-index: 300;
-  padding-bottom: 6px;
+}
+
+.quick-emoji-bar {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+.quick-label {
+  font-size: 0.68rem;
+  color: var(--muted2);
+  font-family: 'Outfit', sans-serif;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  display: block;
+  margin-bottom: 5px;
+}
+.quick-emoji-row {
+  display: flex;
+  gap: 2px;
+  flex-wrap: wrap;
 }
 
 .recent-emojis {
