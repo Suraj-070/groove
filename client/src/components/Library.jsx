@@ -329,14 +329,14 @@ export default function Library({ isOpen, onClose, socket, roomId, username, onA
 
   const activeCrate = categories.find(c => c.id === activeCrateId)
   const getCrateColorIdx = (id, fallbackIdx = 0) => {
+    if (!id) return fallbackIdx
     if (colorMap[id] !== undefined) return colorMap[id]
-    // Deterministic from id string so crates always have consistent colors
     let hash = 0
     for (let i = 0; i < id.length; i++) hash = (hash * 31 + id.charCodeAt(i)) & 0xff
     return hash % CRATE_COLORS.length
   }
-  const activeCrateColorIdx = getCrateColorIdx(activeCrateId)
-  const activeCrateColor = CRATE_COLORS[activeCrateColorIdx]
+  const activeCrateColorIdx = activeCrateId ? getCrateColorIdx(activeCrateId) : 0
+  const activeCrateColor = CRATE_COLORS[activeCrateColorIdx] || CRATE_COLORS[0]
 
   const handleCreateCrate = async (name, color, colorIdx) => {
     const cat = await createCategory(name, color)
