@@ -433,7 +433,7 @@ export default function Library({ isOpen, onClose, socket, roomId, username, onA
               Back to Room
             </button>
             <div className="lib-header-center">
-              <h1 className="lib-title">My Vibes</h1>
+              <h1 className="lib-title">My Library</h1>
               <p className="lib-subtitle">{categories.length} vibes · {categories.reduce((acc, c) => acc + (c.songs || []).length, 0)} songs</p>
             </div>
             <button className="lib-new-btn" onClick={() => setShowNewCrate(true)}>
