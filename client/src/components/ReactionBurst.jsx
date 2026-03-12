@@ -39,11 +39,29 @@ export default function ReactionBurst({ socket, roomId, username }) {
     setRecentEmojis(prev => [emoji, ...prev.filter(e => e !== emoji)].slice(0, 8))
   }, [socket, roomId, username, spawnBurst])
 
-  const startSpam = (emoji) => {
-    sendReaction(emoji)
-    spamIntervalRef.current = setInterval(() => sendReaction(emoji), 280)
+  const holdTimerRef = useRef(null)
+  const isHoldingRef = useRef(false)
+
+  const startHold = (emoji) => {
+    isHoldingRef.current = false
+    holdTimerRef.current = setTimeout(() => {
+      isHoldingRef.current = true
+      spamIntervalRef.current = setInterval(() => sendReaction(emoji), 200)
+    }, 300) // 300ms delay before spam kicks in
   }
-  const stopSpam = () => clearInterval(spamIntervalRef.current)
+
+  const stopHold = () => {
+    clearTimeout(holdTimerRef.current)
+    clearInterval(spamIntervalRef.current)
+    holdTimerRef.current = null
+    spamIntervalRef.current = null
+  }
+
+  const handleEmojiClick = (emoji) => {
+    if (!isHoldingRef.current) sendReaction(emoji)
+    isHoldingRef.current = false
+    stopHold()
+  }
 
   const quickEmojis = recentEmojis.length > 0 ? recentEmojis : QUICK_EMOJIS
 
@@ -72,12 +90,12 @@ export default function ReactionBurst({ socket, roomId, username }) {
               <div className="quick-emoji-row">
                 {quickEmojis.map((emoji, i) => (
                   <button key={i} className="reaction-emoji-btn"
-                    onClick={() => sendReaction(emoji)}
-                    onMouseDown={() => startSpam(emoji)}
-                    onMouseUp={stopSpam}
-                    onMouseLeave={stopSpam}
-                    onTouchStart={(e) => { e.preventDefault(); startSpam(emoji) }}
-                    onTouchEnd={stopSpam}>
+                    onClick={() => handleEmojiClick(emoji)}
+                    onMouseDown={() => startHold(emoji)}
+                    onMouseUp={() => handleEmojiClick(emoji)}
+                    onMouseLeave={stopHold}
+                    onTouchStart={(e) => { e.preventDefault(); startHold(emoji) }}
+                    onTouchEnd={(e) => { e.preventDefault(); handleEmojiClick(emoji) }}>
                     {emoji}
                   </button>
                 ))}

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { useLibrary } from '../hooks/useLibrary'
 
 const BACKEND = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'
@@ -26,8 +26,17 @@ function extractVideoId(url) {
 }
 
 function extractPlaylistId(url) {
+  if (!url) return null
   const match = url.match(/[?&]list=([a-zA-Z0-9_-]+)/)
-  return match ? match[1] : null
+  if (!match) return null
+  const id = match[1]
+  // Only real playlists start with PL, RD, UU, FL, OL, LL, WL
+  if (/^(PL|RD|UU|FL|OL|LL|WL)/i.test(id)) return id
+  return null
+}
+
+function isVideoUrl(url) {
+  return !!(url && extractVideoId(url))
 }
 
 async function fetchTitle(videoId) {
@@ -102,7 +111,7 @@ function NewCrateForm({ onCreate, onCancel }) {
   return (
     <div className="new-crate-overlay" onClick={onCancel}>
       <div className="new-crate-modal" onClick={e => e.stopPropagation()}>
-        <h2 className="ncm-title">New Crate</h2>
+        <h2 className="ncm-title">New Vibe</h2>
 
         <div className="ncm-mood-row">
           {MOODS.map(m => (
@@ -112,7 +121,7 @@ function NewCrateForm({ onCreate, onCancel }) {
 
         <input
           className="ncm-input"
-          placeholder="Crate name (e.g. Late Night Drives)"
+          placeholder="Library name"
           value={name}
           onChange={e => setName(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && handleCreate()}
@@ -171,7 +180,11 @@ function CrateDetail({ crate, colorDef, onBack, onAddSong, onDeleteSong, onPlayS
 
   const handleImportPlaylist = async () => {
     const playlistId = extractPlaylistId(urlInput)
-    if (!playlistId) { setError('Invalid playlist URL'); return }
+    if (!playlistId) {
+      if (isVideoUrl(urlInput)) setError('That\'s a video URL — use the Single Song tab instead')
+      else setError('Invalid playlist URL. Paste a YouTube playlist link (youtube.com/playlist?list=...)')
+      return
+    }
     setImporting(true); setError('')
     setImportProgress('Fetching playlist...')
     try {
@@ -277,6 +290,17 @@ function CrateDetail({ crate, colorDef, onBack, onAddSong, onDeleteSong, onPlayS
                 else handleImportPlaylist()
               }}
             />
+            {urlInput && addMode === 'playlist' && isVideoUrl(urlInput) && (
+              <p className="cd-url-hint cd-url-hint--warn">
+                ⚠️ That looks like a video — use <strong>Single Song</strong> tab
+              </p>
+            )}
+            {urlInput && addMode === 'playlist' && extractPlaylistId(urlInput) && (
+              <p className="cd-url-hint cd-url-hint--ok">✓ Playlist detected</p>
+            )}
+            {urlInput && addMode === 'url' && extractVideoId(urlInput) && (
+              <p className="cd-url-hint cd-url-hint--ok">✓ Valid video</p>
+            )}
 
             {error && <p className="cd-error">{error}</p>}
             {importProgress && <p className="cd-progress">{importProgress}</p>}
@@ -409,12 +433,12 @@ export default function Library({ isOpen, onClose, socket, roomId, username, onA
               Back to Room
             </button>
             <div className="lib-header-center">
-              <h1 className="lib-title">My Crates</h1>
-              <p className="lib-subtitle">{categories.length} crates · {categories.reduce((acc, c) => acc + (c.songs || []).length, 0)} songs</p>
+              <h1 className="lib-title">My Vibes</h1>
+              <p className="lib-subtitle">{categories.length} vibes · {categories.reduce((acc, c) => acc + (c.songs || []).length, 0)} songs</p>
             </div>
             <button className="lib-new-btn" onClick={() => setShowNewCrate(true)}>
               <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
-              New Crate
+              New Library
             </button>
           </div>
 
@@ -422,7 +446,7 @@ export default function Library({ isOpen, onClose, socket, roomId, username, onA
           {loading ? (
             <div className="lib-loading">
               <div className="lib-loading-spinner" />
-              <p>Loading your crates...</p>
+              <p>Loading your library...</p>
             </div>
           ) : authError ? (
             <div className="lib-empty-state">
@@ -433,9 +457,9 @@ export default function Library({ isOpen, onClose, socket, roomId, username, onA
           ) : categories.length === 0 ? (
             <div className="lib-empty-state">
               <div className="lib-empty-icon">📦</div>
-              <h2>No crates yet</h2>
-              <p>Create your first crate to start organizing your music</p>
-              <button className="lib-new-btn" onClick={() => setShowNewCrate(true)}>Create your first crate</button>
+              <h2>No libraries yet</h2>
+              <p>Create your first library to start organizing your music</p>
+              <button className="lib-new-btn" onClick={() => setShowNewCrate(true)}>Create your first library</button>
             </div>
           ) : (
             <div className="lib-crate-grid">
@@ -458,7 +482,7 @@ export default function Library({ isOpen, onClose, socket, roomId, username, onA
               {/* Add new crate card */}
               <div className="crate-card crate-new-card" onClick={() => setShowNewCrate(true)}>
                 <div className="crate-new-icon">+</div>
-                <p className="crate-new-label">New Crate</p>
+                <p className="crate-new-label">New Library</p>
               </div>
             </div>
           )}
