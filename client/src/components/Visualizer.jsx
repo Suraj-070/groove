@@ -112,11 +112,14 @@ function VisualizerCanvas({ isPlaying, partyMode }) {
       if (!playing) {
         beat *= 0.70      // fast decay when paused
         gridPulse *= 0.70
+        window.__grooveBeatEnergy = beat
         // Slam bars to near-zero quickly
         for (let i = 0; i < N; i++) bt[i] = 0.01
       } else {
         beat *= 0.88
         gridPulse *= 0.82
+      // Publish to global so Player card reads energy
+      window.__grooveBeatEnergy = beat
       }
 
       // ── Clear ──────────────────────────────────────

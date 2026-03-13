@@ -2611,6 +2611,40 @@ body {
 .cd-url-hint--ok  { color: #6affb8; }
 .cd-url-hint--warn { color: #ffb86a; }
 
+/* ── BPM badge ── */
+.player-sub-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.bpm-badge {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.68rem;
+  color: var(--accent);
+  background: rgba(124,106,255,0.12);
+  border: 1px solid rgba(124,106,255,0.25);
+  border-radius: 6px;
+  padding: 1px 7px;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+  animation: bpmFadeIn 0.4s ease;
+}
+.bpm-badge.bpm-loading {
+  color: var(--muted2);
+  background: rgba(255,255,255,0.04);
+  border-color: rgba(255,255,255,0.08);
+  animation: bpmPulse 1.2s ease infinite;
+}
+@keyframes bpmFadeIn {
+  from { opacity: 0; transform: scale(0.85); }
+  to   { opacity: 1; transform: scale(1); }
+}
+@keyframes bpmPulse {
+  0%, 100% { opacity: 0.4; }
+  50%       { opacity: 0.9; }
+}
+
 /* ════════════════════════════════════════════
    RESPONSIVE — Mobile
    ════════════════════════════════════════════ */
