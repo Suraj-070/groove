@@ -3667,6 +3667,26 @@ body {
     overflow-x: hidden !important;
     padding: 8px 16px 20px !important;
     -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+  }
+
+  /* GPU-accelerate the list for smooth scrolling */
+  .song-list {
+    transform: translateZ(0);
+  }
+
+  /* Layout containment per row — browser skips layout for other rows on change */
+  .song-item {
+    contain: layout style;
+    padding: 11px 12px !important;
+    min-height: 58px !important;
+    border-radius: 12px !important;
+    -webkit-tap-highlight-color: transparent;
+    transition: background 0.12s ease !important;
+  }
+
+  .song-item:active {
+    background: rgba(255,255,255,0.06) !important;
   }
 
   .queue-collapse-btn { display: none !important; }

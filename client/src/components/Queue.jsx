@@ -1,32 +1,5 @@
-// ── Now Playing Box ───────────────────────────────────────────
-function NowPlayingBox({ queue = [], currentIndex = 0, onPrev, onNext, loop, onToggleLoop, onShuffle }) {
-  const song = queue[currentIndex]
-  if (!song) return null
-  return (
-    <div className="now-playing-box">
-      <div className="now-playing-box-header">
-        <span>▶ Now Playing</span>
-        <span>{currentIndex + 1} / {queue.length}</span>
-      </div>
-      <div className="now-playing-box-song">
-        <div className="now-playing-box-thumb">
-          <img src={`https://img.youtube.com/vi/${song.videoId}/hqdefault.jpg`} alt="" />
-        </div>
-        <MarqueeText className="now-playing-box-title">{song.title}</MarqueeText>
-      </div>
-      <div className="now-playing-nav">
-        <button onClick={onPrev} disabled={currentIndex === 0}>⏮ Prev</button>
-        <button className={`npb-icon-btn ${loop ? 'active' : ''}`} onClick={onToggleLoop} title={loop ? 'Loop: On' : 'Loop: Off'}>🔁</button>
-        <button className="npb-icon-btn" onClick={onShuffle} title="Shuffle queue">🔀</button>
-        <button onClick={onNext} disabled={currentIndex >= queue.length - 1}>Next ⏭</button>
-      </div>
-    </div>
-  )
-}
-
-import { useState, useRef, useCallback, useEffect } from 'react'
+import { useState, useRef, useCallback, useEffect, memo, useMemo, forwardRef } from 'react'
 import { createPortal } from 'react-dom'
-import MarqueeText from './MarqueeText'
 
 const BACKEND = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'
 
@@ -66,37 +39,44 @@ async function fetchTitle(videoId) {
   }
 }
 
-// ── Song preview tooltip (portal-based to escape overflow) ───
+// ── Now Playing Box — fully memoized ─────────────────────────
+const NowPlayingBox = memo(function NowPlayingBox({ queue, currentIndex, onPrev, onNext, loop, onToggleLoop, onShuffle }) {
+  const song = queue[currentIndex]
+  if (!song) return null
+  return (
+    <div className="now-playing-box">
+      <div className="now-playing-box-header">
+        <span>▶ Now Playing</span>
+        <span>{currentIndex + 1} / {queue.length}</span>
+      </div>
+      <div className="now-playing-box-song">
+        <div className="now-playing-box-thumb">
+          <img src={`https://img.youtube.com/vi/${song.videoId}/hqdefault.jpg`} alt="" loading="lazy" />
+        </div>
+        <p className="now-playing-box-title" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, margin: 0, fontSize: '0.88rem', fontWeight: 600 }}>
+          {song.title}
+        </p>
+      </div>
+      <div className="now-playing-nav">
+        <button onClick={onPrev} disabled={currentIndex === 0}>⏮ Prev</button>
+        <button className={`npb-icon-btn ${loop ? 'active' : ''}`} onClick={onToggleLoop}>🔁</button>
+        <button className="npb-icon-btn" onClick={onShuffle}>🔀</button>
+        <button onClick={onNext} disabled={currentIndex >= queue.length - 1}>Next ⏭</button>
+      </div>
+    </div>
+  )
+})
 
-
-function SongPreview({ song, visible, anchorRef }) {
-  const [pos, setPos] = useState({ top: 0, left: 0, above: true })
-
-  useEffect(() => {
-    if (!visible || !anchorRef?.current) return
-    const rect = anchorRef.current.getBoundingClientRect()
-    const tooltipH = 90
-    const above = rect.top > tooltipH + 16
-    setPos({
-      top: above ? rect.top - tooltipH - 8 : rect.bottom + 8,
-      left: Math.min(rect.left + rect.width / 2, window.innerWidth - 310),
-      above,
-    })
-  }, [visible, anchorRef])
-
-  if (!visible || !song) return null
-
+// ── Single global preview tooltip ────────────────────────────
+function SongPreview({ song, pos }) {
+  if (!song || !pos) return null
   return createPortal(
-    <div
-      className="song-preview-tooltip"
-      style={{ top: pos.top, left: pos.left, transform: 'translateX(-50%)' }}
-    >
-      <img src={`https://img.youtube.com/vi/${song.videoId}/hqdefault.jpg`} alt="" className="song-preview-thumb" />
+    <div className="song-preview-tooltip" style={{ top: pos.top, left: pos.left, transform: 'translateX(-50%)', position: 'fixed' }}>
+      <img src={`https://img.youtube.com/vi/${song.videoId}/hqdefault.jpg`} alt="" className="song-preview-thumb" loading="lazy" />
       <div className="song-preview-info">
         <p className="song-preview-title">{song.title}</p>
         {song.addedBy && <p className="song-preview-by">Added by {song.addedBy}</p>}
-        <a href={`https://www.youtube.com/watch?v=${song.videoId}`} target="_blank" rel="noopener noreferrer"
-          className="song-preview-link" onClick={e => e.stopPropagation()}>
+        <a href={`https://www.youtube.com/watch?v=${song.videoId}`} target="_blank" rel="noopener noreferrer" className="song-preview-link" onClick={e => e.stopPropagation()}>
           ▶ Open on YouTube
         </a>
       </div>
@@ -105,65 +85,135 @@ function SongPreview({ song, visible, anchorRef }) {
   )
 }
 
-// ── Per-song reactions ────────────────────────────────────────
+// ── Reactions — memoized ──────────────────────────────────────
 const REACTION_EMOJIS = ['❤️', '🔥', '😂', '😮', '👏', '💀']
+const EMPTY_OBJ = {}
 
-function SongReactions({ reactions = {}, videoId, onReact }) {
+const SongReactions = memo(function SongReactions({ reactions, videoId, onReact }) {
   const [open, setOpen] = useState(false)
-  const total = Object.values(reactions).reduce((a, b) => a + b, 0)
+  const total = useMemo(() => Object.values(reactions).reduce((a, b) => a + b, 0), [reactions])
   return (
     <div className="song-reactions" onClick={e => e.stopPropagation()}>
       {total > 0 && (
         <div className="song-reaction-counts">
           {Object.entries(reactions).map(([emoji, count]) =>
-            count > 0 ? (
-              <span key={emoji} className="song-reaction-pill" onClick={() => onReact(videoId, emoji)}>
-                {emoji} {count}
-              </span>
-            ) : null
+            count > 0 ? <span key={emoji} className="song-reaction-pill" onClick={() => onReact(videoId, emoji)}>{emoji} {count}</span> : null
           )}
         </div>
       )}
-      <button className="song-react-btn" onClick={() => setOpen(p => !p)} title="React">
-        {open ? '✕' : '😊'}
-      </button>
+      <button className="song-react-btn" onClick={() => setOpen(p => !p)}>{open ? '✕' : '😊'}</button>
       {open && (
         <div className="song-react-picker">
-          {REACTION_EMOJIS.map(e => (
-            <button key={e} onClick={() => { onReact(videoId, e); setOpen(false) }}>{e}</button>
-          ))}
+          {REACTION_EMOJIS.map(e => <button key={e} onClick={() => { onReact(videoId, e); setOpen(false) }}>{e}</button>)}
         </div>
       )}
     </div>
   )
-}
+})
 
+// ── Song row — fully memoized, uses forwardRef for hover positioning ──
+const SongItem = memo(forwardRef(function SongItem(
+  { song, index, currentIndex, selected, selectMode, dragOverIndex, dragIndex,
+    onSelect, onDragStart, onDragOver, onDrop, onDragEnd,
+    onMouseEnter, onMouseLeave, onRemove, reactions, onReact },
+  ref
+) {
+  const isActive   = index === currentIndex
+  const isSelected = selected.has(index)
+
+  const className = [
+    'song-item',
+    isActive             ? 'active'      : '',
+    isSelected           ? 'selected'    : '',
+    selectMode           ? 'select-mode' : '',
+    dragOverIndex === index ? 'drag-over'   : '',
+    dragIndex === index  ? 'dragging'    : '',
+  ].filter(Boolean).join(' ')
+
+  return (
+    <li
+      ref={ref}
+      className={className}
+      draggable={!selectMode}
+      onDragStart={e => onDragStart(e, index)}
+      onDragOver={e => onDragOver(e, index)}
+      onDrop={e => onDrop(e, index)}
+      onDragEnd={onDragEnd}
+      onMouseEnter={() => onMouseEnter(index)}
+      onMouseLeave={onMouseLeave}
+      onClick={() => onSelect(index)}
+      style={{ position: 'relative' }}
+    >
+      {!selectMode && <div className="drag-handle">⠿</div>}
+      {selectMode && (
+        <div className={`song-check ${isSelected ? 'checked' : ''}`}>
+          {isSelected && <svg viewBox="0 0 24 24" fill="currentColor" width="12" height="12"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>}
+        </div>
+      )}
+
+      <div className="song-thumb">
+        <img
+          src={`https://img.youtube.com/vi/${song.videoId}/default.jpg`}
+          alt=""
+          loading="lazy"
+          decoding="async"
+          width="60"
+          height="45"
+        />
+        {isActive && <div className="now-playing-overlay"><div className="bars"><span /><span /><span /></div></div>}
+      </div>
+
+      <div className="song-info">
+        <p className="song-name" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', margin: 0 }}>
+          {song.title}
+        </p>
+        {song.addedBy && <p className="song-id">by {song.addedBy}</p>}
+      </div>
+
+      {!selectMode && <SongReactions reactions={reactions[song.videoId] || EMPTY_OBJ} videoId={song.videoId} onReact={onReact} />}
+
+      {!selectMode && (
+        <button className="remove-btn" onClick={e => { e.stopPropagation(); onRemove(index) }} title="Remove">
+          <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14">
+            <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+          </svg>
+        </button>
+      )}
+    </li>
+  )
+}))
+
+// ── Main Queue ────────────────────────────────────────────────
 export default function Queue({
   queue = [], currentIndex = 0,
   onAddSong, onSelectSong, onRemoveSong, onNext, onPrev,
   socket, roomId, username,
   loop, onToggleLoop,
 }) {
-  const [sharedUrl, setSharedUrl] = useState('')
-  const [error, setError] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [importing, setImporting] = useState(false)
+  const [sharedUrl, setSharedUrl]           = useState('')
+  const [error, setError]                   = useState('')
+  const [loading, setLoading]               = useState(false)
+  const [importing, setImporting]           = useState(false)
   const [importProgress, setImportProgress] = useState(null)
-  const [tab, setTab] = useState('song')
-  const [addedFlash, setAddedFlash] = useState(false)
-  const [selected, setSelected] = useState(new Set())
-  const [selectMode, setSelectMode] = useState(false)
-  const [lastImported, setLastImported] = useState(null)
-  const [savingLibrary, setSavingLibrary] = useState(false)
-  const [saveSuccess, setSaveSuccess] = useState(false)
-  const [dragIndex, setDragIndex] = useState(null)
-  const [dragOverIndex, setDragOverIndex] = useState(null)
-  const [hoverIndex, setHoverIndex] = useState(null)
-  const [reactions, setReactions] = useState({})
-  const [toast, setToast] = useState(null)
-  const hoverTimer = useRef(null)
-  const toastTimer = useRef(null)
-  const inputRef = useRef(null)
+  const [tab, setTab]                       = useState('song')
+  const [addedFlash, setAddedFlash]         = useState(false)
+  const [selected, setSelected]             = useState(new Set())
+  const [selectMode, setSelectMode]         = useState(false)
+  const [lastImported, setLastImported]     = useState(null)
+  const [savingLibrary, setSavingLibrary]   = useState(false)
+  const [saveSuccess, setSaveSuccess]       = useState(false)
+  const [dragIndex, setDragIndex]           = useState(null)
+  const [dragOverIndex, setDragOverIndex]   = useState(null)
+  const [reactions, setReactions]           = useState({})
+  const [toast, setToast]                   = useState(null)
+  const [hoverSong, setHoverSong]           = useState(null)
+  const [hoverPos, setHoverPos]             = useState(null)
+
+  const hoverTimer   = useRef(null)
+  const toastTimer   = useRef(null)
+  const inputRef     = useRef(null)
+  const itemRefs     = useRef({})
+  const lastDragOver = useRef(-1)
 
   const showToast = useCallback((msg) => {
     setToast(msg)
@@ -171,7 +221,6 @@ export default function Queue({
     toastTimer.current = setTimeout(() => setToast(null), 3000)
   }, [])
 
-  // Listen for song-added notifications from other users
   useEffect(() => {
     if (!socket) return
     const handler = ({ title, addedBy }) => {
@@ -181,7 +230,6 @@ export default function Queue({
     return () => socket.off('song-added-notify', handler)
   }, [socket, username, showToast])
 
-  // Listen for reactions from other users
   useEffect(() => {
     if (!socket) return
     const handler = ({ videoId, emoji }) => {
@@ -194,40 +242,38 @@ export default function Queue({
     return () => socket.off('song-reaction', handler)
   }, [socket])
 
-  const handleReact = (videoId, emoji) => {
+  const handleReact = useCallback((videoId, emoji) => {
     setReactions(prev => ({
       ...prev,
       [videoId]: { ...(prev[videoId] || {}), [emoji]: ((prev[videoId]?.[emoji]) || 0) + 1 }
     }))
     socket?.emit('song-react', { roomId, videoId, emoji, username })
-  }
+  }, [socket, roomId, username])
 
-  const videoId = extractVideoId(sharedUrl)
-  const playlistId = extractPlaylistId(sharedUrl)
-  const isValidSong = !!videoId
+  const videoId         = extractVideoId(sharedUrl)
+  const playlistId      = extractPlaylistId(sharedUrl)
+  const isValidSong     = !!videoId
   const isValidPlaylist = !!playlistId
 
   const handleAddSong = async () => {
     if (!sharedUrl.trim()) { setError('Paste a YouTube URL first'); return }
-    if (!videoId) { setError('Invalid YouTube URL — could not extract video ID'); return }
+    if (!videoId) { setError('Invalid YouTube URL'); return }
     const dupeCount = queue.filter(s => s.videoId === videoId).length
-    if (dupeCount >= 3) { setError('Already in queue 3 times — not adding more'); return }
+    if (dupeCount >= 3) { setError('Already in queue 3 times'); return }
     if (dupeCount > 0) setError(`⚠️ Already in queue (${dupeCount}x) — added again`)
     else setError('')
     setLoading(true)
     const title = await fetchTitle(videoId)
     onAddSong({ videoId, title })
-    setSharedUrl('')
-    setLoading(false)
-    setAddedFlash(true)
+    setSharedUrl(''); setLoading(false); setAddedFlash(true)
     showToast(`✅ Added "${title}"`)
     setTimeout(() => { setAddedFlash(false); setError('') }, 2000)
     inputRef.current?.focus()
   }
 
   const handleImportPlaylist = async () => {
-    if (!sharedUrl.trim()) { setError('Paste a YouTube playlist URL first'); return }
-    if (!playlistId) { setError('Could not find a playlist ID in this URL'); return }
+    if (!sharedUrl.trim()) { setError('Paste a playlist URL first'); return }
+    if (!playlistId) { setError('Could not find a playlist ID'); return }
     setImporting(true); setError(''); setImportProgress('Fetching playlist...'); setLastImported(null)
     try {
       const res = await fetch(`${BACKEND}/youtube/playlist?playlistId=${playlistId}`, { credentials: 'include' })
@@ -239,47 +285,90 @@ export default function Queue({
       showToast(`🎵 Imported ${data.total} songs!`)
       setSharedUrl(''); setImportProgress(null)
     } catch {
-      setError('Failed to import playlist — check the URL'); setImportProgress(null)
+      setError('Failed to import playlist'); setImportProgress(null)
     } finally { setImporting(false) }
   }
 
-  // Shuffle remaining queue after current song
-  const handleShuffle = () => {
+  const handleShuffle = useCallback(() => {
     if (queue.length < 2) return
     const before = queue.slice(0, currentIndex + 1)
-    const after = queue.slice(currentIndex + 1)
+    const after  = [...queue.slice(currentIndex + 1)]
     for (let i = after.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [after[i], after[j]] = [after[j], after[i]]
     }
     socket?.emit('reorder-queue', { roomId, queue: [...before, ...after] })
     showToast('🔀 Queue shuffled!')
-  }
+  }, [queue, currentIndex, socket, roomId, showToast])
 
-  // Drag to reorder
-  const handleDragStart = (e, index) => { setDragIndex(index); e.dataTransfer.effectAllowed = 'move' }
-  const handleDragOver = (e, index) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setDragOverIndex(index) }
-  const handleDrop = (e, dropIndex) => {
-    e.preventDefault()
-    if (dragIndex === null || dragIndex === dropIndex) { setDragIndex(null); setDragOverIndex(null); return }
-    const newQueue = [...queue]
-    const [moved] = newQueue.splice(dragIndex, 1)
-    newQueue.splice(dropIndex, 0, moved)
-    socket?.emit('reorder-queue', { roomId, queue: newQueue })
-    setDragIndex(null); setDragOverIndex(null)
-  }
-  const handleDragEnd = () => { setDragIndex(null); setDragOverIndex(null) }
-
-  // Hover preview (delay 600ms)
-  const handleMouseEnter = (index) => { hoverTimer.current = setTimeout(() => setHoverIndex(index), 600) }
-  const handleMouseLeave = () => { clearTimeout(hoverTimer.current); setHoverIndex(null) }
-
-  const toggleSelect = useCallback((i) => {
-    setSelected(prev => { const next = new Set(prev); if (next.has(i)) next.delete(i); else next.add(i); return next })
+  const handleDragStart = useCallback((e, index) => {
+    setDragIndex(index); e.dataTransfer.effectAllowed = 'move'
   }, [])
-  const selectAll = () => { if (selected.size === queue.length) setSelected(new Set()); else setSelected(new Set(queue.map((_, i) => i))) }
-  const removeSelected = () => { [...selected].sort((a, b) => b - a).forEach(i => onRemoveSong(i)); setSelected(new Set()); setSelectMode(false) }
-  const exitSelectMode = () => { setSelectMode(false); setSelected(new Set()) }
+
+  const handleDragOver = useCallback((e, index) => {
+    e.preventDefault(); e.dataTransfer.dropEffect = 'move'
+    if (lastDragOver.current !== index) {
+      lastDragOver.current = index
+      setDragOverIndex(index)
+    }
+  }, [])
+
+  const handleDrop = useCallback((e, dropIndex) => {
+    e.preventDefault()
+    setDragIndex(prev => {
+      if (prev === null || prev === dropIndex) { setDragOverIndex(null); return null }
+      const newQ = [...queue]
+      const [moved] = newQ.splice(prev, 1)
+      newQ.splice(dropIndex, 0, moved)
+      socket?.emit('reorder-queue', { roomId, queue: newQ })
+      setDragOverIndex(null)
+      return null
+    })
+    lastDragOver.current = -1
+  }, [queue, socket, roomId])
+
+  const handleDragEnd = useCallback(() => {
+    setDragIndex(null); setDragOverIndex(null); lastDragOver.current = -1
+  }, [])
+
+  const handleMouseEnter = useCallback((index) => {
+    clearTimeout(hoverTimer.current)
+    hoverTimer.current = setTimeout(() => {
+      const el = itemRefs.current[index]
+      if (!el) return
+      const rect = el.getBoundingClientRect()
+      const above = rect.top > 106
+      setHoverSong(queue[index])
+      setHoverPos({
+        top:  above ? rect.top - 98 : rect.bottom + 8,
+        left: Math.min(rect.left + rect.width / 2, window.innerWidth - 310),
+      })
+    }, 600)
+  }, [queue])
+
+  const handleMouseLeave = useCallback(() => {
+    clearTimeout(hoverTimer.current)
+    setHoverSong(null); setHoverPos(null)
+  }, [])
+
+  const handleSelect = useCallback((index) => {
+    if (selectMode) {
+      setSelected(prev => {
+        const next = new Set(prev)
+        if (next.has(index)) next.delete(index); else next.add(index)
+        return next
+      })
+    } else {
+      onSelectSong(index)
+    }
+  }, [selectMode, onSelectSong])
+
+  const selectAll    = useCallback(() => setSelected(prev => prev.size === queue.length ? new Set() : new Set(queue.map((_, i) => i))), [queue])
+  const removeSelected = useCallback(() => {
+    [...selected].sort((a, b) => b - a).forEach(i => onRemoveSong(i))
+    setSelected(new Set()); setSelectMode(false)
+  }, [selected, onRemoveSong])
+  const exitSelectMode = useCallback(() => { setSelectMode(false); setSelected(new Set()) }, [])
 
   const handleSaveToLibrary = async () => {
     if (!lastImported) return
@@ -313,6 +402,9 @@ export default function Queue({
     <div className="queue">
       {toast && <div className="queue-toast">{toast}</div>}
 
+      {/* Single global hover preview — not one per song row */}
+      <SongPreview song={hoverSong} pos={hoverPos} />
+
       <div className="queue-header">
         <h2>Queue</h2>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -337,8 +429,8 @@ export default function Queue({
       <div className="add-song">
         <input ref={inputRef} type="text"
           placeholder={tab === 'song' ? 'Paste YouTube URL...' : 'Paste YouTube playlist URL...'}
-          value={sharedUrl} onChange={(e) => { setSharedUrl(e.target.value); setError('') }}
-          onKeyDown={(e) => { if (e.key !== 'Enter') return; if (tab === 'song') handleAddSong(); else handleImportPlaylist() }}
+          value={sharedUrl} onChange={e => { setSharedUrl(e.target.value); setError('') }}
+          onKeyDown={e => { if (e.key !== 'Enter') return; if (tab === 'song') handleAddSong(); else handleImportPlaylist() }}
         />
         {tab === 'song' ? (
           <button className={`add-btn ${addedFlash ? 'flash' : ''}`} onClick={handleAddSong} disabled={loading} title="Add song">
@@ -395,53 +487,29 @@ export default function Queue({
             <p className="empty-sub">Add a song or import a playlist above</p>
           </li>
         )}
-        {queue.map((song, i) => {
-          const itemRef = { current: null }
-          return (
-          <li
+        {queue.map((song, i) => (
+          <SongItem
             key={`${song.videoId}-${i}`}
-            ref={el => itemRef.current = el}
-            className={['song-item', i === currentIndex ? 'active' : '', selected.has(i) ? 'selected' : '', selectMode ? 'select-mode' : '', dragOverIndex === i ? 'drag-over' : '', dragIndex === i ? 'dragging' : ''].filter(Boolean).join(' ')}
-            draggable={!selectMode}
-            onDragStart={(e) => handleDragStart(e, i)}
-            onDragOver={(e) => handleDragOver(e, i)}
-            onDrop={(e) => handleDrop(e, i)}
+            ref={el => { if (el) itemRefs.current[i] = el; else delete itemRefs.current[i] }}
+            song={song}
+            index={i}
+            currentIndex={currentIndex}
+            selected={selected}
+            selectMode={selectMode}
+            dragOverIndex={dragOverIndex}
+            dragIndex={dragIndex}
+            onSelect={handleSelect}
+            onDragStart={handleDragStart}
+            onDragOver={handleDragOver}
+            onDrop={handleDrop}
             onDragEnd={handleDragEnd}
-            onMouseEnter={() => !selectMode && handleMouseEnter(i)}
+            onMouseEnter={handleMouseEnter}
             onMouseLeave={handleMouseLeave}
-            onClick={() => selectMode ? toggleSelect(i) : onSelectSong(i)}
-            style={{ position: 'relative' }}
-          >
-            {!selectMode && <div className="drag-handle" title="Drag to reorder">⠿</div>}
-
-            {selectMode && (
-              <div className={`song-check ${selected.has(i) ? 'checked' : ''}`}>
-                {selected.has(i) && <svg viewBox="0 0 24 24" fill="currentColor" width="12" height="12"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>}
-              </div>
-            )}
-
-            <div className="song-thumb">
-              <img src={`https://img.youtube.com/vi/${song.videoId}/default.jpg`} alt="" />
-              {i === currentIndex && <div className="now-playing-overlay"><div className="bars"><span /><span /><span /></div></div>}
-            </div>
-
-            <div className="song-info">
-              <MarqueeText className="song-name">{song.title}</MarqueeText>
-              {song.addedBy && <p className="song-id">by {song.addedBy}</p>}
-            </div>
-
-            {!selectMode && <SongReactions reactions={reactions[song.videoId] || {}} videoId={song.videoId} onReact={handleReact} />}
-
-            {!selectMode && (
-              <button className="remove-btn" onClick={(e) => { e.stopPropagation(); onRemoveSong(i) }} title="Remove">
-                <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
-              </button>
-            )}
-
-            <SongPreview song={song} visible={hoverIndex === i} anchorRef={itemRef} />
-          </li>
-        )})}
-
+            onRemove={onRemoveSong}
+            reactions={reactions}
+            onReact={handleReact}
+          />
+        ))}
       </ul>
     </div>
   )
