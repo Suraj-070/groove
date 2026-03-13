@@ -76,6 +76,16 @@ const librarySchema = new mongoose.Schema({
 
 const Library = mongoose.models.Library || mongoose.model('Library', librarySchema);
 
+// ─── ROOM SCHEMA ──────────────────────────────────────────────
+const roomSchema = new mongoose.Schema({
+  roomId:       { type: String, required: true, unique: true, index: true },
+  queue:        { type: Array, default: [] },
+  currentIndex: { type: Number, default: 0 },
+  updatedAt:    { type: Number, default: () => Date.now() }
+});
+
+const Room = mongoose.models.Room || mongoose.model('Room', roomSchema);
+
 // In-memory fallback when MongoDB is not connected
 const memLibraries = {};
 
@@ -300,15 +310,57 @@ app.get('/youtube/playlist', requireAuth, async (req, res) => {
 // ─── ROOM STATE ───────────────────────────────────────────────
 const rooms = {};
 
-function getRoom(roomId) {
-  if (!rooms[roomId]) {
-    rooms[roomId] = {
-      queue: [], currentIndex: 0, currentTime: 0,
-      isPlaying: false, users: {}, djId: null, djMode: false,
-      sessionStart: Date.now(), songsPlayed: []
-    };
+// Load room from memory, or restore queue from MongoDB if server restarted
+async function getRoom(roomId) {
+  if (rooms[roomId]) return rooms[roomId];
+
+  // Try to restore queue from DB after a server restart
+  if (MONGO_URI) {
+    try {
+      const saved = await Room.findOne({ roomId });
+      if (saved) {
+        console.log(`🔄 Restored room "${roomId}" from DB (${saved.queue.length} songs)`);
+        rooms[roomId] = {
+          queue: saved.queue,
+          currentIndex: saved.currentIndex,
+          currentTime: 0,    // can't restore — ephemeral
+          isPlaying: false,  // same
+          users: {},
+          djId: null,
+          djMode: false,
+          sessionStart: Date.now(),
+          songsPlayed: []
+        };
+        return rooms[roomId];
+      }
+    } catch (e) {
+      console.error('getRoom DB error:', e.message);
+    }
   }
+
+  // Fresh room
+  rooms[roomId] = {
+    queue: [], currentIndex: 0, currentTime: 0,
+    isPlaying: false, users: {}, djId: null, djMode: false,
+    sessionStart: Date.now(), songsPlayed: []
+  };
   return rooms[roomId];
+}
+
+// Save only queue + currentIndex to MongoDB (not ephemeral playback state)
+async function saveRoom(roomId) {
+  if (!MONGO_URI) return;
+  const room = rooms[roomId];
+  if (!room) return;
+  try {
+    await Room.findOneAndUpdate(
+      { roomId },
+      { queue: room.queue, currentIndex: room.currentIndex, updatedAt: Date.now() },
+      { upsert: true }
+    );
+  } catch (e) {
+    console.error('saveRoom error:', e.message);
+  }
 }
 
 // ─── SOCKET.IO ────────────────────────────────────────────────
@@ -318,11 +370,11 @@ const io = new Server(server, {
 });
 
 io.on('connection', (socket) => {
-  socket.on('join-room', ({ roomId, username, avatar, discordId }) => {
+  socket.on('join-room', async ({ roomId, username, avatar, discordId }) => {
     socket.join(roomId);
     socket.roomId = roomId;
     socket.username = username;
-    const room = getRoom(roomId);
+    const room = await getRoom(roomId);
     const isFirstUser = Object.keys(room.users).length === 0;
     room.users[socket.id] = { id: socket.id, discordId, username, avatar, joinedAt: Date.now() };
     if (isFirstUser) room.djId = socket.id;
@@ -336,67 +388,71 @@ io.on('connection', (socket) => {
     socket.to(roomId).emit('user-joined', { user: room.users[socket.id], users: Object.values(room.users) });
   });
 
-  socket.on('play', ({ roomId, time }) => {
-    const room = getRoom(roomId);
+  socket.on('play', async ({ roomId, time }) => {
+    const room = await getRoom(roomId);
     if (room.djMode && socket.id !== room.djId) return;
     room.isPlaying = true; room.currentTime = time;
     socket.to(roomId).emit('play', { time });
   });
 
-  socket.on('pause', ({ roomId, time }) => {
-    const room = getRoom(roomId);
+  socket.on('pause', async ({ roomId, time }) => {
+    const room = await getRoom(roomId);
     if (room.djMode && socket.id !== room.djId) return;
     room.isPlaying = false; room.currentTime = time;
     socket.to(roomId).emit('pause', { time });
   });
 
-  socket.on('seek', ({ roomId, time }) => {
-    const room = getRoom(roomId);
+  socket.on('seek', async ({ roomId, time }) => {
+    const room = await getRoom(roomId);
     if (room.djMode && socket.id !== room.djId) return;
     room.currentTime = time;
     socket.to(roomId).emit('seek', { time });
   });
 
-  socket.on('add-song', ({ roomId, videoId, title, addedBy }) => {
-    const room = getRoom(roomId);
+  socket.on('add-song', async ({ roomId, videoId, title, addedBy }) => {
+    const room = await getRoom(roomId);
     room.queue.push({ videoId, title, addedBy });
     io.to(roomId).emit('queue-updated', { queue: room.queue });
+    await saveRoom(roomId);
   });
 
-  socket.on('load-song', ({ roomId, index }) => {
-    const room = getRoom(roomId);
+  socket.on('load-song', async ({ roomId, index }) => {
+    const room = await getRoom(roomId);
     if (room.djMode && socket.id !== room.djId) return;
     const prev = room.queue[room.currentIndex];
     if (prev && !room.songsPlayed.find(s => s.videoId === prev.videoId))
       room.songsPlayed.push({ ...prev, playedAt: Date.now() });
     room.currentIndex = index; room.currentTime = 0; room.isPlaying = true;
     io.to(roomId).emit('load-song', { index, videoId: room.queue[index]?.videoId, title: room.queue[index]?.title, queue: room.queue });
+    await saveRoom(roomId);
   });
 
-  socket.on('remove-song', ({ roomId, index }) => {
-    const room = getRoom(roomId);
+  socket.on('remove-song', async ({ roomId, index }) => {
+    const room = await getRoom(roomId);
     room.queue.splice(index, 1);
     if (room.currentIndex >= room.queue.length)
       room.currentIndex = Math.max(0, room.queue.length - 1);
     io.to(roomId).emit('queue-updated', { queue: room.queue });
+    await saveRoom(roomId);
   });
 
-  socket.on('push-category', ({ roomId, songs, categoryName, username }) => {
-    const room = getRoom(roomId);
+  socket.on('push-category', async ({ roomId, songs, categoryName, username }) => {
+    const room = await getRoom(roomId);
     songs.forEach(song => room.queue.push({ ...song, addedBy: username }));
     io.to(roomId).emit('queue-updated', { queue: room.queue });
     io.to(roomId).emit('category-pushed', { categoryName, username, count: songs.length });
+    await saveRoom(roomId);
   });
 
-  socket.on('toggle-dj-mode', ({ roomId }) => {
-    const room = getRoom(roomId);
+  socket.on('toggle-dj-mode', async ({ roomId }) => {
+    const room = await getRoom(roomId);
     if (socket.id !== room.djId) return;
     room.djMode = !room.djMode;
     io.to(roomId).emit('dj-mode-changed', { djMode: room.djMode, djId: room.djId });
   });
 
-  socket.on('sync-heartbeat', ({ roomId, time }) => {
-    const room = getRoom(roomId);
+  socket.on('sync-heartbeat', async ({ roomId, time }) => {
+    const room = await getRoom(roomId);
     room.currentTime = time;
     socket.to(roomId).emit('sync-check', { time });
   });
@@ -404,8 +460,8 @@ io.on('connection', (socket) => {
   socket.on('chat-msg', ({ roomId, msg }) => socket.to(roomId).emit('chat-msg', msg));
   socket.on('reaction', ({ roomId, emoji, username }) => socket.to(roomId).emit('reaction', { emoji, username }));
 
-  socket.on('get-recap', ({ roomId }) => {
-    const room = getRoom(roomId);
+  socket.on('get-recap', async ({ roomId }) => {
+    const room = await getRoom(roomId);
     const currentSong = room.queue[room.currentIndex];
     const allSongs = [...room.songsPlayed];
     if (currentSong && !allSongs.find(s => s.videoId === currentSong.videoId))
@@ -418,17 +474,31 @@ io.on('connection', (socket) => {
     });
   });
 
-  socket.on('disconnect', () => {
+  socket.on('disconnect', async () => {
     const { roomId, username } = socket;
     if (roomId && rooms[roomId]) {
       delete rooms[roomId].users[socket.id];
       const users = Object.values(rooms[roomId].users);
+
       if (rooms[roomId].djId === socket.id && users.length > 0) {
         rooms[roomId].djId = users[0].id;
         io.to(roomId).emit('dj-mode-changed', { djMode: rooms[roomId].djMode, djId: rooms[roomId].djId });
       }
+
       io.to(roomId).emit('user-left', { userId: socket.id, username, users });
-      if (users.length === 0) delete rooms[roomId];
+
+      // If room is empty, remove from memory AND clean up from DB
+      if (users.length === 0) {
+        delete rooms[roomId];
+        if (MONGO_URI) {
+          try {
+            await Room.deleteOne({ roomId });
+            console.log(`🗑  Room "${roomId}" deleted from DB (empty)`);
+          } catch (e) {
+            console.error('Room cleanup error:', e.message);
+          }
+        }
+      }
     }
   });
 });

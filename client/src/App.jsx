@@ -139,6 +139,24 @@ function App() {
     initAuth()
   }, [])
 
+  // ── Auto-rejoin saved room after page reload ──────────────
+  // Runs whenever user is set (after auth resolves).
+  // If the user was in a room before they reloaded, we restore it.
+  useEffect(() => {
+    if (!user || IS_DISCORD) return           // Discord handles its own join
+    if (roomId) return                        // already in a room
+    const savedRoomId = localStorage.getItem('groove_roomId')
+    if (!savedRoomId) return
+    setRoomId(savedRoomId)
+    if (!socket.connected) socket.connect()
+    socket.emit('join-room', {
+      roomId: savedRoomId,
+      username: user.username,
+      avatar: user.avatar,
+      discordId: user.id
+    })
+  }, [user])
+
 
   const handleGuestLogin = async ({ username }) => {
     try {
@@ -156,6 +174,7 @@ function App() {
 
   const handleJoin = ({ roomId }) => {
     setRoomId(roomId)
+    localStorage.setItem('groove_roomId', roomId)   // ← persist across reloads
     if (!socket.connected) socket.connect()
     socket.emit('join-room', {
       roomId,
@@ -194,6 +213,7 @@ function App() {
 
   const handleLogout = async () => {
     await fetch(`${BACKEND}/auth/logout`, { credentials: 'include' })
+    localStorage.removeItem('groove_roomId')   // ← clear saved room on logout
     setUser(null)
     setRoomId(null)
   }
