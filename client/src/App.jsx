@@ -163,6 +163,7 @@ function App() {
   const [profileOpen, setProfileOpen] = useState(false)
   const profileRef = useRef(null)
   const [windowWidth, setWindowWidth] = useState(window.innerWidth)
+  const touchStartY = useRef(null)
 
   // ── New feature state ─────────────────────────────────────
   const [loop, setLoop] = useState(false)
@@ -706,7 +707,16 @@ function App() {
           />
         )}
 
-        <div className={`right-panel ${!isMobileView && queueCollapsed ? 'collapsed' : ''} ${isMobileView && mobileTab === 'queue' ? 'mobile-open' : ''}`}>
+        <div
+          className={`right-panel ${!isMobileView && queueCollapsed ? 'collapsed' : ''} ${isMobileView && mobileTab === 'queue' ? 'mobile-open' : ''}`}
+          onTouchStart={isMobileView ? (e) => { touchStartY.current = e.touches[0].clientY } : undefined}
+          onTouchEnd={isMobileView ? (e) => {
+            if (touchStartY.current === null) return
+            const dy = e.changedTouches[0].clientY - touchStartY.current
+            if (dy > 60) setMobileTab('player') // swipe down to close
+            touchStartY.current = null
+          } : undefined}
+        >
           <Queue
             queue={queue}
             currentIndex={currentIndex}
@@ -750,27 +760,49 @@ function App() {
 
       {isMobileView && (
         <nav className="mobile-bottom-nav">
-          <button className={`mobile-nav-btn ${mobileTab === 'player' ? 'active' : ''}`} onClick={() => setMobileTab('player')}>
+          <button
+            className={`mobile-nav-btn ${mobileTab === 'player' ? 'active' : ''}`}
+            onClick={() => setMobileTab('player')}
+          >
             <span className="nav-icon">🎵</span>
             <span className="nav-label">Player</span>
           </button>
-          <button className={`mobile-nav-btn ${mobileTab === 'queue' ? 'active' : ''}`} onClick={() => setMobileTab(t => t === 'queue' ? 'player' : 'queue')}>
+
+          <button
+            className={`mobile-nav-btn ${mobileTab === 'queue' ? 'active' : ''}`}
+            onClick={() => setMobileTab(t => t === 'queue' ? 'player' : 'queue')}
+          >
             <span className="nav-icon">🎶</span>
             <span className="nav-label">Queue</span>
             {queue.length > 0 && <span className="nav-badge" />}
           </button>
-          <button className={`mobile-nav-btn ${partyMode ? 'active' : ''}`} onClick={() => setPartyMode(p => !p)}>
-            <span className="nav-icon">🎊</span>
-            <span className="nav-label">Party</span>
-          </button>
-          <button className="mobile-nav-btn" onClick={() => { setChatOpen(true); setUnread(0) }}>
+
+          <button
+            className={`mobile-nav-btn ${chatOpen ? 'active' : ''}`}
+            onClick={() => { setChatOpen(true); setUnread(0) }}
+          >
             <span className="nav-icon">💬</span>
             <span className="nav-label">Chat</span>
             {unread > 0 && <span className="nav-badge" />}
           </button>
-          <button className="mobile-nav-btn" onClick={handleGetRecap}>
-            <span className="nav-icon">📊</span>
-            <span className="nav-label">Recap</span>
+
+          <button
+            className={`mobile-nav-btn ${libraryOpen ? 'active' : ''}`}
+            onClick={() => setLibraryOpen(p => !p)}
+          >
+            <span className="nav-icon">📚</span>
+            <span className="nav-label">Library</span>
+          </button>
+
+          <button
+            className="mobile-nav-btn"
+            onClick={() => setProfileOpen(p => !p)}
+          >
+            {user?.avatar
+              ? <img src={user.avatar} alt="" style={{ width: 24, height: 24, borderRadius: '50%', objectFit: 'cover' }} />
+              : <span className="nav-icon">👤</span>
+            }
+            <span className="nav-label">Profile</span>
           </button>
         </nav>
       )}

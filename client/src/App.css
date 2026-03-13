@@ -3278,132 +3278,335 @@ body {
 }
 
 
-/* ═══════════════════════════════════════════════════════
-   MOBILE RESPONSIVE — Full UX redesign for ≤768px
-   Strategy:
-   - Bottom tab navigation (Player / Queue / Chat)
-   - Player takes full screen on mobile
-   - Queue becomes full-screen slide-up sheet
-   - Header collapses to essential elements only
-   - Touch-friendly hit targets (min 44px)
-   - Safe area insets for notched phones
-   ═══════════════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════════════
+   MOBILE — Complete redesign ≤768px
+   Philosophy:
+   • Full-screen Spotify-style player
+   • Bottom sheet queue (swipe up/down)
+   • 5-tab bottom nav with haptic feel
+   • All touch targets ≥ 44px
+   • Safe area insets for notched phones
+   • Spring animations on all transitions
+   • No layout jank — GPU-composited transforms only
+   ═══════════════════════════════════════════════════════════ */
 
 @media (max-width: 768px) {
 
-  /* ─── BASE ─────────────────────────────────── */
+  /* ── Base ─────────────────────────────────────────────── */
   body {
     overflow: hidden;
-    height: 100dvh; /* dynamic viewport height for mobile browsers */
+    overscroll-behavior: none;
+    -webkit-overflow-scrolling: touch;
   }
 
   .app {
     height: 100dvh;
     display: flex;
     flex-direction: column;
+    overflow: hidden;
+    position: fixed;
+    inset: 0;
   }
 
-  /* ─── ROOM JOIN ────────────────────────────── */
-  .room-join {
-    padding: 24px 16px;
-    align-items: center;
-    justify-content: center;
-  }
-
-  .join-card {
-    width: 100%;
-    max-width: 100%;
-    padding: 36px 20px;
-    border-radius: 20px;
-  }
-
-  .join-card h1 {
-    font-size: 1.6rem !important;
-    white-space: nowrap;
-  }
-
-  .join-title-big { font-size: 2.2rem; letter-spacing: 4px; }
-  .join-title-small { font-size: 0.7rem; letter-spacing: 6px; }
-  .join-sub { font-size: 0.88rem; }
-
-  /* ─── HEADER ───────────────────────────────── */
+  /* ── Header — slim, essential only ───────────────────── */
   .app-header {
-    padding: 10px 12px;
+    padding: 10px 14px 10px;
     min-height: 52px;
-    gap: 6px;
-    flex-wrap: nowrap;
+    flex-shrink: 0;
+    gap: 0;
+    justify-content: space-between;
   }
 
-  .logo {
-    font-size: 0.85rem;
-    white-space: nowrap;
-    flex-shrink: 0;
+  .logo-text .logo-big { font-size: 1rem; letter-spacing: 3px; }
+  .logo-text .logo-small { font-size: 0.5rem; letter-spacing: 4px; }
+  .logo svg { width: 26px; height: 26px; }
+  .logo { gap: 7px; }
+
+  /* Hide all header buttons except profile + room badge on mobile */
+  .recap-btn,
+  .chat-toggle-btn,
+  .dj-toggle-btn,
+  .party-btn {
+    display: none !important;
   }
 
   .room-badge {
     font-size: 0.68rem;
-    padding: 3px 8px;
+    padding: 4px 10px;
+    border-radius: 20px;
     white-space: nowrap;
-    flex-shrink: 0;
-  }
-
-  .header-right {
-    gap: 4px;
-    flex-shrink: 0;
-  }
-
-  /* Hide non-essential header buttons on mobile */
-  .dj-toggle-btn {
-    font-size: 0.68rem;
-    padding: 4px 8px;
-  }
-
-  .recap-btn,
-  .chat-toggle-btn {
-    width: 32px;
-    height: 32px;
-    font-size: 1rem;
-  }
-
-  /* Hide party/library/recap from header on mobile — they're in bottom nav */
-  .party-btn,
-  .recap-btn:not(.chat-toggle-btn) {
-    display: none;
   }
 
   .header-avatar {
-    width: 28px !important;
-    height: 28px !important;
+    width: 30px !important;
+    height: 30px !important;
   }
 
-  .logout-btn {
-    font-size: 0.8rem !important;
-    padding: 3px 6px !important;
+  .header-avatar-placeholder {
+    width: 30px !important;
+    height: 30px !important;
+    font-size: 0.7rem !important;
   }
 
-  /* ─── MAIN LAYOUT ──────────────────────────── */
+  .profile-trigger { gap: 4px; }
+  .profile-chevron { display: none; }
+
+  /* Profile dropdown — full width bottom of screen */
+  .profile-dropdown--portal {
+    position: fixed !important;
+    top: auto !important;
+    bottom: 76px !important;
+    left: 10px !important;
+    right: 10px !important;
+    width: auto !important;
+    max-height: 70dvh;
+    overflow-y: auto;
+    border-radius: 20px !important;
+  }
+
+  /* ── Main layout — full height below header ───────────── */
   .app-main {
     flex: 1;
+    display: flex;
     flex-direction: column;
     overflow: hidden;
     position: relative;
-    padding-bottom: 64px; /* space for bottom nav */
+    padding-bottom: 0;
   }
 
-  /* Left panel becomes full-width player view */
+  /* ── Left panel — full screen player ─────────────────── */
   .left-panel {
     width: 100% !important;
     min-width: unset !important;
     border-right: none !important;
-    padding: 16px !important;
-    gap: 14px !important;
     flex: 1;
-    overflow-y: auto;
-    overflow-x: hidden;
-    align-items: center;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 12px 20px !important;
+    gap: 0 !important;
+    overflow: hidden !important;
+    padding-bottom: 74px !important; /* space for bottom nav */
   }
 
-  /* Right panel (queue) becomes a slide-up sheet */
+  /* ── Player card — Spotify-style ─────────────────────── */
+  .player {
+    width: 100% !important;
+    max-width: 380px !important;
+    padding: 0 !important;
+    gap: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    animation: playerFadeIn 0.4s cubic-bezier(0.34, 1.2, 0.64, 1) both;
+  }
+
+  @keyframes playerFadeIn {
+    from { opacity: 0; transform: scale(0.97) translateY(20px); }
+    to   { opacity: 1; transform: scale(1)    translateY(0); }
+  }
+
+  /* Remove the beat border canvas on mobile (perf) */
+  .player canvas {
+    display: none !important;
+  }
+
+  /* Album art — big, centered, square with shadow */
+  .player-art {
+    width: 100% !important;
+    aspect-ratio: 1 / 1 !important;
+    max-height: 42vw !important;
+    border-radius: 20px !important;
+    margin: 0 auto 18px !important;
+    position: relative;
+    box-shadow: 0 24px 48px rgba(0,0,0,0.6), 0 8px 16px rgba(0,0,0,0.4) !important;
+    overflow: hidden !important;
+    transition: transform 0.3s cubic-bezier(0.34,1.2,0.64,1);
+    flex-shrink: 0;
+  }
+
+  /* Art pops when playing */
+  .player-art:has(~ .player-info .player-title) {
+    transform: scale(1);
+  }
+
+  .art-img {
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: cover !important;
+  }
+
+  /* Song info */
+  .player-info {
+    width: 100%;
+    margin-bottom: 10px !important;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .player-title {
+    font-size: 1.15rem !important;
+    font-weight: 700 !important;
+    text-align: left !important;
+    line-height: 1.3 !important;
+  }
+
+  .player-sub-row {
+    justify-content: flex-start !important;
+    gap: 8px;
+  }
+
+  .player-sub {
+    font-size: 0.8rem !important;
+    text-align: left !important;
+  }
+
+  .bpm-badge {
+    font-size: 0.68rem !important;
+  }
+
+  /* Progress bar — thicker, easier to scrub */
+  .player-progress {
+    margin-bottom: 14px !important;
+    gap: 8px !important;
+  }
+
+  .progress-track {
+    height: 4px !important;
+    border-radius: 4px;
+    transition: height 0.15s ease;
+  }
+
+  /* Expand on touch */
+  .player-progress:active .progress-track,
+  .player-progress:focus-within .progress-track {
+    height: 6px !important;
+  }
+
+  .progress-input {
+    height: 28px !important; /* bigger touch target */
+    top: 50%;
+    transform: translateY(-50%);
+  }
+
+  .time-label {
+    font-size: 0.72rem !important;
+    min-width: 32px !important;
+  }
+
+  /* Controls — bigger, spaced out, feels native */
+  .player-controls-wrap {
+    width: 100%;
+    gap: 0 !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    padding: 0 4px !important;
+  }
+
+  .ctrl-slot { flex: 1; display: flex; justify-content: center; }
+  .ctrl-slot.ctrl-center { flex: 1.4; }
+
+  .play-btn {
+    width: 64px !important;
+    height: 64px !important;
+    border-radius: 50% !important;
+  }
+
+  .ctrl-btn {
+    width: 48px !important;
+    height: 48px !important;
+    border-radius: 50% !important;
+    background: rgba(255,255,255,0.07) !important;
+    border: 1px solid rgba(255,255,255,0.1) !important;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .ctrl-btn:active {
+    transform: scale(0.9) !important;
+    transition: transform 0.1s ease !important;
+  }
+
+  .play-btn:active {
+    transform: scale(0.93) !important;
+    transition: transform 0.1s ease !important;
+  }
+
+  /* Volume — tucked into ctrl-right nicely */
+  .volume-wrap { position: relative; }
+  .volume-popup {
+    bottom: 56px !important;
+    right: -8px !important;
+  }
+
+  /* DJ badge */
+  .dj-badge {
+    font-size: 0.7rem !important;
+    padding: 4px 10px !important;
+    margin-bottom: 8px !important;
+  }
+
+  /* Sync badge */
+  .sync-badge {
+    margin-top: 10px !important;
+    font-size: 0.7rem !important;
+  }
+
+  /* ── User list — horizontal pill strip ────────────────── */
+  .user-list {
+    width: 100% !important;
+    max-width: 380px !important;
+    padding: 8px 0 0 !important;
+    border: none !important;
+    background: transparent !important;
+    border-radius: 0 !important;
+  }
+
+  .user-list-header {
+    display: none !important; /* save space */
+  }
+
+  .user-list-inner {
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    overflow-x: auto !important;
+    gap: 8px !important;
+    padding: 4px 0 !important;
+    scrollbar-width: none;
+  }
+
+  .user-list-inner::-webkit-scrollbar { display: none; }
+
+  .user-item {
+    flex-direction: column !important;
+    align-items: center !important;
+    gap: 3px !important;
+    padding: 6px 10px !important;
+    min-width: fit-content !important;
+    border-radius: 12px !important;
+    background: rgba(255,255,255,0.04) !important;
+    flex-shrink: 0 !important;
+  }
+
+  .user-avatar,
+  .user-avatar-placeholder {
+    width: 28px !important;
+    height: 28px !important;
+    font-size: 0.6rem !important;
+  }
+
+  .user-name {
+    font-size: 0.62rem !important;
+    max-width: 52px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* ── Right panel — bottom sheet queue ─────────────────── */
   .right-panel {
     position: fixed !important;
     bottom: 64px !important;
@@ -3411,141 +3614,100 @@ body {
     right: 0 !important;
     width: 100% !important;
     min-width: unset !important;
-    height: 70dvh !important;
+    height: 78dvh !important;
     flex: unset !important;
-    border-radius: 24px 24px 0 0 !important;
+    border-radius: 28px 28px 0 0 !important;
     border-left: none !important;
     border-top: 1px solid rgba(255,255,255,0.1) !important;
     transform: translateY(110%) !important;
-    transition: transform 0.38s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1) !important;
     z-index: 50 !important;
     overflow: hidden !important;
-    background: rgba(10,10,20,0.97) !important;
-    backdrop-filter: blur(24px) !important;
-    -webkit-backdrop-filter: blur(24px) !important;
+    background: rgba(10, 10, 20, 0.98) !important;
+    backdrop-filter: blur(28px) !important;
+    -webkit-backdrop-filter: blur(28px) !important;
     display: flex !important;
     flex-direction: column !important;
-  }
-
-  /* Override collapsed state on mobile — sheet handles its own show/hide */
-  .right-panel.collapsed {
-    flex: unset !important;
-    width: 100% !important;
-    min-width: unset !important;
-    overflow: hidden !important;
+    will-change: transform;
   }
 
   .right-panel.mobile-open {
     transform: translateY(0) !important;
+    transition: transform 0.42s cubic-bezier(0.34, 1.15, 0.64, 1) !important;
   }
 
-  /* Hide the desktop queue collapse button on mobile */
-  .queue-collapse-btn {
-    display: none !important;
-  }
-
-  /* ─── PLAYER CARD (mobile) ─────────────────── */
-  .player {
+  .right-panel.collapsed {
+    flex: unset !important;
     width: 100% !important;
-    max-width: 400px;
-    padding: 20px !important;
-    gap: 14px !important;
-    border-radius: 20px !important;
+    overflow: hidden !important;
   }
 
-  .player-art {
-    aspect-ratio: 1/1; /* square art on mobile — feels more native */
-    border-radius: 16px;
-    max-height: 220px;
-  }
-
-  .player-title {
-    font-size: 1rem !important;
-  }
-
-  .player-sub {
-    font-size: 0.75rem !important;
-  }
-
-  .play-btn {
-    width: 68px !important;
-    height: 68px !important;
-  }
-
-  .ctrl-btn {
-    width: 52px !important;
-    height: 52px !important;
-    background: rgba(255,255,255,0.09) !important;
-    border: 1px solid rgba(255,255,255,0.14) !important;
-  }
-
-  .player-controls-wrap {
-    gap: 16px !important;
-  }
-
-  /* ─── USER LIST (mobile) ───────────────────── */
-  .user-list {
-    width: 100% !important;
-    max-width: 400px;
-    padding: 12px 16px !important;
-  }
-
-  /* ─── QUEUE SHEET HANDLE ───────────────────── */
+  /* Drag handle pill on queue sheet */
   .right-panel::before {
     content: '';
     display: block;
-    width: 40px;
+    width: 36px;
     height: 4px;
-    background: rgba(255,255,255,0.18);
+    background: rgba(255,255,255,0.2);
     border-radius: 2px;
-    margin: 12px auto 8px;
+    margin: 14px auto 6px;
     flex-shrink: 0;
+    transition: width 0.3s ease, background 0.3s ease;
   }
 
+  .right-panel.mobile-open::before {
+    width: 48px;
+    background: rgba(124,106,255,0.6);
+  }
+
+  /* Queue inside the sheet */
   .queue {
-    padding: 12px 20px 20px !important;
-    height: calc(100% - 28px);
-    overflow-y: auto;
-  }
-
-  /* ─── BOTTOM NAV ───────────────────────────── */
-  .mobile-bottom-nav {
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    height: 64px;
-    background: rgba(8,8,16,0.97);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    border-top: 1px solid rgba(255,255,255,0.08);
-    display: flex;
-    align-items: stretch;
-    z-index: 100;
-    padding-bottom: env(safe-area-inset-bottom);
-  }
-
-  .mobile-nav-btn .nav-label {
-    font-size: 0.58rem;
-    font-weight: 700;
-    letter-spacing: 0.03em;
-    text-transform: uppercase;
-  }
-
-  /* Recap modal becomes bottom sheet on mobile */
-  .recap-overlay {
-    align-items: flex-end !important;
-    padding: 0 !important;
-  }
-
-  .recap-modal {
-    width: 100% !important;
-    max-width: 100% !important;
-    border-radius: 24px 24px 0 0 !important;
-    max-height: 88dvh !important;
+    flex: 1;
     overflow-y: auto !important;
-    margin: 0 !important;
+    overflow-x: hidden !important;
+    padding: 8px 16px 20px !important;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .queue-collapse-btn { display: none !important; }
+
+  /* ── Backdrop ─────────────────────────────────────────── */
+  .mobile-queue-backdrop {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.55);
+    z-index: 49;
+    backdrop-filter: blur(3px);
+    -webkit-backdrop-filter: blur(3px);
+    animation: fadeIn 0.2s ease;
+  }
+
+  .mobile-queue-backdrop.visible {
+    display: block;
+  }
+
+  /* ── Bottom Navigation ────────────────────────────────── */
+  .mobile-bottom-nav {
+    position: fixed !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    height: 64px !important;
+    background: rgba(8, 8, 18, 0.97) !important;
+    backdrop-filter: blur(24px) !important;
+    -webkit-backdrop-filter: blur(24px) !important;
+    border-top: 1px solid rgba(255,255,255,0.07) !important;
+    display: flex !important;
+    align-items: stretch !important;
+    z-index: 100 !important;
     padding-bottom: env(safe-area-inset-bottom) !important;
+    animation: navSlideUp 0.4s 0.15s cubic-bezier(0.34, 1.2, 0.64, 1) both;
+  }
+
+  @keyframes navSlideUp {
+    from { transform: translateY(100%); }
+    to   { transform: translateY(0); }
   }
 
   .mobile-nav-btn {
@@ -3554,342 +3716,271 @@ body {
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 4px;
+    gap: 3px;
     background: none;
     border: none;
-    color: var(--muted);
+    color: rgba(255,255,255,0.4);
     cursor: pointer;
-    transition: color 0.2s;
     padding: 8px 4px;
     font-family: 'Outfit', sans-serif;
     -webkit-tap-highlight-color: transparent;
+    position: relative;
+    transition: color 0.2s ease;
+    min-height: 44px;
   }
 
   .mobile-nav-btn.active {
-    color: var(--accent);
+    color: var(--accent, #7c6aff);
+  }
+
+  .mobile-nav-btn:active {
+    transform: scale(0.92);
+    transition: transform 0.1s ease;
   }
 
   .mobile-nav-btn .nav-icon {
-    font-size: 1.4rem;
+    font-size: 1.35rem;
     line-height: 1;
+    transition: transform 0.2s cubic-bezier(0.34,1.3,0.64,1);
+  }
+
+  .mobile-nav-btn.active .nav-icon {
+    transform: scale(1.15) translateY(-1px);
   }
 
   .mobile-nav-btn .nav-label {
-    font-size: 0.62rem;
+    font-size: 0.58rem;
     font-weight: 700;
-    letter-spacing: 0.04em;
+    letter-spacing: 0.05em;
     text-transform: uppercase;
+    line-height: 1;
   }
 
-  .mobile-nav-btn .nav-badge {
-    position: absolute;
-    top: 6px;
-    width: 8px;
-    height: 8px;
-    background: var(--accent2);
-    border-radius: 50%;
-    border: 2px solid var(--bg);
-  }
-
-  /* Active indicator dot */
+  /* Active indicator line */
   .mobile-nav-btn.active::after {
     content: '';
     position: absolute;
-    bottom: 6px;
-    width: 4px;
-    height: 4px;
-    background: var(--accent);
+    top: 0;
+    left: 25%;
+    right: 25%;
+    height: 2px;
+    background: var(--accent, #7c6aff);
+    border-radius: 0 0 2px 2px;
+  }
+
+  /* Notification badge */
+  .mobile-nav-btn .nav-badge {
+    position: absolute;
+    top: 7px;
+    right: calc(50% - 16px);
+    width: 7px;
+    height: 7px;
+    background: #ff6a8a;
     border-radius: 50%;
+    border: 2px solid rgba(8,8,18,0.97);
   }
 
-  /* ─── QUEUE OVERLAY BACKDROP ───────────────── */
-  .mobile-queue-backdrop {
-    display: none;
-    position: fixed;
-    inset: 0;
-    background: rgba(0,0,0,0.5);
-    z-index: 49;
-    backdrop-filter: blur(2px);
-  }
-
-  .mobile-queue-backdrop.visible {
-    display: block;
-  }
-
-  /* ─── CHAT (mobile) ────────────────────────── */
-  .chat-panel {
-    border-radius: 24px 24px 0 0 !important;
+  /* ── Mini Player ──────────────────────────────────────── */
+  .mini-player {
     bottom: 64px !important;
-    height: 75dvh !important;
-    padding-bottom: env(safe-area-inset-bottom);
+    left: 0 !important;
+    right: 0 !important;
+    border-radius: 0 !important;
+    padding: 10px 16px !important;
+    border-top: 1px solid rgba(255,255,255,0.07) !important;
+    background: rgba(14, 14, 26, 0.97) !important;
+    backdrop-filter: blur(20px) !important;
+    z-index: 51 !important;
+    animation: slideUp 0.3s cubic-bezier(0.34,1.2,0.64,1);
   }
 
-  /* ─── REACTION BUTTON (mobile) ─────────────── */
-  .reaction-trigger {
-    bottom: 76px !important; /* above bottom nav */
-  }
-
-  /* ─── LIBRARY (mobile) ─────────────────────── */
-  .library-panel {
-    width: 100% !important;
-    border-radius: 24px 24px 0 0 !important;
-    bottom: 0 !important;
-    height: 85dvh !important;
-    top: unset !important;
-  }
-
-  /* ─── SONG ITEMS (bigger touch targets) ────── */
-  .song-item {
-    padding: 12px 14px !important;
-    min-height: 60px;
-  }
-
-  .song-thumb {
-    width: 44px !important;
-    height: 33px !important;
-  }
-
-  /* ─── VOLUME POPUP (mobile) ─────────────────── */
-  .volume-popup {
-    bottom: 56px !important;
-  }
-
-  /* ─── SESSION RECAP (mobile) ────────────────── */
-  .recap-modal {
-    width: 100% !important;
-    max-width: 100% !important;
-    border-radius: 24px 24px 0 0 !important;
-    position: fixed !important;
-    bottom: 0 !important;
-    top: unset !important;
-    margin: 0 !important;
-    max-height: 85dvh;
-    overflow-y: auto;
-  }
-}
-
-/* Very small phones */
-@media (max-width: 375px) {
-  .player-art {
-    max-height: 180px;
-  }
-
-  .play-btn {
-    width: 56px !important;
-    height: 56px !important;
-  }
-
-  .app-header {
-    padding: 10px 12px;
-  }
-}
-
-
-/* ═══════════════════════════════════════════════════════
-   TOUCH INTERACTIONS & MOBILE ANIMATIONS
-   ═══════════════════════════════════════════════════════ */
-
-/* ─── REMOVE DEFAULT TAP HIGHLIGHT ─────────────────── */
-* {
-  -webkit-tap-highlight-color: transparent;
-  -webkit-touch-callout: none;
-}
-
-/* ─── BOTTOM NAV TAP FEEDBACK ───────────────────────── */
-.mobile-nav-btn {
-  position: relative;
-  overflow: hidden;
-}
-
-.mobile-nav-btn::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: radial-gradient(circle at center, rgba(124,106,255,0.3) 0%, transparent 70%);
-  transform: scale(0);
-  opacity: 0;
-  transition: transform 0.3s ease, opacity 0.3s ease;
-  border-radius: 12px;
-}
-
-.mobile-nav-btn:active::before {
-  transform: scale(2.5);
-  opacity: 1;
-  transition: transform 0s, opacity 0s;
-}
-
-.mobile-nav-btn .nav-icon {
-  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-
-.mobile-nav-btn:active .nav-icon {
-  transform: scale(0.82);
-}
-
-.mobile-nav-btn.active .nav-icon {
-  transform: scale(1.15);
-  filter: drop-shadow(0 0 6px var(--accent));
-}
-
-/* Active tab bounce in */
-@keyframes navTabIn {
-  0%   { transform: scale(0.85) translateY(3px); opacity: 0.6; }
-  60%  { transform: scale(1.18) translateY(-2px); }
-  100% { transform: scale(1.15) translateY(0); opacity: 1; }
-}
-
-.mobile-nav-btn.active .nav-icon {
-  animation: navTabIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
-}
-
-/* ─── PLAY BUTTON TOUCH FEEDBACK ───────────────────── */
-.play-btn {
-  transition: transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1),
-              box-shadow 0.15s ease !important;
-}
-
-.play-btn:active {
-  transform: scale(0.88) !important;
-  box-shadow: 0 2px 8px var(--accent-glow) !important;
-}
-
-/* ─── CTRL BUTTONS (prev/next/volume) ───────────────── */
-.ctrl-btn {
-  transition: transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1),
-              background 0.15s ease,
-              border-color 0.15s ease !important;
-}
-
-.ctrl-btn:active {
-  transform: scale(0.84) !important;
-  background: rgba(124,106,255,0.2) !important;
-  border-color: var(--accent) !important;
-}
-
-/* ─── SONG ITEMS SWIPE-FEEL ─────────────────────────── */
-.song-item {
-  transition: transform 0.12s ease, background 0.15s ease !important;
-  cursor: pointer;
-}
-
-.song-item:active {
-  transform: scale(0.97) !important;
-  background: rgba(124,106,255,0.12) !important;
-}
-
-/* ─── QUEUE SHEET DRAG HANDLE PULSE ─────────────────── */
-@media (max-width: 768px) {
-  .right-panel::before {
-    animation: handlePulse 2.5s ease-in-out infinite;
-  }
-
-  @keyframes handlePulse {
-    0%, 100% { background: rgba(255,255,255,0.15); width: 36px; }
-    50%       { background: rgba(124,106,255,0.5);  width: 48px; }
-  }
-
-  /* Sheet slides in with spring */
-  .right-panel.mobile-open {
-    transform: translateY(0) !important;
-    transition: transform 0.42s cubic-bezier(0.34, 1.2, 0.64, 1) !important;
-  }
-
-  /* Sheet slides out fast */
-  .right-panel:not(.mobile-open) {
-    transition: transform 0.28s cubic-bezier(0.4, 0, 1, 1) !important;
-  }
-
-  /* ─── PLAYER CARD ENTRANCE ─────────────────── */
-  .player {
-    animation: playerSlideUp 0.45s cubic-bezier(0.34, 1.2, 0.64, 1) both;
-  }
-
-  @keyframes playerSlideUp {
-    from { opacity: 0; transform: translateY(32px) scale(0.96); }
-    to   { opacity: 1; transform: translateY(0) scale(1); }
-  }
-
-  /* ─── USER LIST ENTRANCE ───────────────────── */
-  .user-list {
-    animation: fadeSlideUp 0.5s 0.1s cubic-bezier(0.34, 1.2, 0.64, 1) both;
-  }
-
-  @keyframes fadeSlideUp {
-    from { opacity: 0; transform: translateY(16px); }
-    to   { opacity: 1; transform: translateY(0); }
-  }
-
-  /* ─── BOTTOM NAV ENTRANCE ──────────────────── */
-  .mobile-bottom-nav {
-    animation: navSlideUp 0.4s 0.2s cubic-bezier(0.34, 1.2, 0.64, 1) both;
-  }
-
-  @keyframes navSlideUp {
+  @keyframes slideUp {
     from { transform: translateY(100%); opacity: 0; }
     to   { transform: translateY(0);    opacity: 1; }
   }
 
-  /* ─── REACT BUTTON BOUNCE ──────────────────── */
-  .react-btn:active {
-    transform: scale(0.9) translateY(1px) !important;
-    transition: transform 0.1s ease !important;
+  /* ── Chat ─────────────────────────────────────────────── */
+  .chat-panel {
+    border-radius: 28px 28px 0 0 !important;
+    bottom: 64px !important;
+    height: 78dvh !important;
+    padding-bottom: env(safe-area-inset-bottom) !important;
+    backdrop-filter: blur(28px) !important;
   }
 
-  /* ─── PROGRESS BAR TOUCH EXPAND ───────────── */
-  .progress-track {
-    transition: height 0.2s ease;
+  /* ── Library ──────────────────────────────────────────── */
+  .library-panel {
+    width: 100% !important;
+    border-radius: 28px 28px 0 0 !important;
+    bottom: 0 !important;
+    height: 88dvh !important;
+    top: unset !important;
+    padding-bottom: env(safe-area-inset-bottom) !important;
   }
 
-  .player:focus-within .progress-track,
-  .player:active .progress-track {
-    height: 6px;
+  /* ── Recap — bottom sheet ─────────────────────────────── */
+  .recap-overlay {
+    align-items: flex-end !important;
+    padding: 0 !important;
   }
 
-  /* ─── ALBUM ART TOUCH SHIMMER ──────────────── */
-  .player-art::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(
-      105deg,
-      transparent 40%,
-      rgba(255,255,255,0.08) 50%,
-      transparent 60%
-    );
-    background-size: 200% 100%;
-    border-radius: 16px;
-    opacity: 0;
-    pointer-events: none;
+  .recap-modal {
+    width: 100% !important;
+    max-width: 100% !important;
+    border-radius: 28px 28px 0 0 !important;
+    max-height: 88dvh !important;
+    overflow-y: auto !important;
+    margin: 0 !important;
+    padding-bottom: env(safe-area-inset-bottom) !important;
   }
 
-  .player-art:active::after {
-    opacity: 1;
-    animation: shimmer 0.5s ease forwards;
+  /* ── Song items — bigger touch targets ────────────────── */
+  .song-item {
+    padding: 11px 12px !important;
+    min-height: 58px !important;
+    border-radius: 12px !important;
+    -webkit-tap-highlight-color: transparent;
+    transition: background 0.15s ease !important;
   }
 
-  @keyframes shimmer {
-    from { background-position: 200% 0; opacity: 1; }
-    to   { background-position: -200% 0; opacity: 0; }
+  .song-item:active {
+    background: rgba(255,255,255,0.06) !important;
+    transform: scale(0.99) !important;
   }
 
-  /* ─── SONG ITEM ENTRANCE STAGGER ──────────── */
-  .song-item:nth-child(1)  { animation: fadeSlideUp 0.3s 0.05s both; }
-  .song-item:nth-child(2)  { animation: fadeSlideUp 0.3s 0.10s both; }
-  .song-item:nth-child(3)  { animation: fadeSlideUp 0.3s 0.15s both; }
-  .song-item:nth-child(4)  { animation: fadeSlideUp 0.3s 0.20s both; }
-  .song-item:nth-child(5)  { animation: fadeSlideUp 0.3s 0.25s both; }
-  .song-item:nth-child(n+6){ animation: fadeSlideUp 0.3s 0.28s both; }
+  .song-thumb {
+    width: 42px !important;
+    height: 32px !important;
+    border-radius: 6px !important;
+    flex-shrink: 0 !important;
+  }
+
+  /* ── Volume popup ─────────────────────────────────────── */
+  .volume-popup {
+    bottom: 60px !important;
+    right: 0 !important;
+  }
+
+  /* ── Reaction button ──────────────────────────────────── */
+  .reaction-trigger {
+    bottom: 76px !important;
+    right: 16px !important;
+  }
+
+  /* ── Keyboard shortcuts modal ─────────────────────────── */
+  .shortcuts-modal {
+    border-radius: 24px 24px 0 0 !important;
+    position: fixed !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    padding-bottom: calc(env(safe-area-inset-bottom) + 20px) !important;
+  }
+
+  .shortcuts-overlay {
+    align-items: flex-end !important;
+    padding: 0 !important;
+  }
+
+  /* ── Sleep timer modal ────────────────────────────────── */
+  .shortcuts-overlay .shortcuts-modal {
+    border-radius: 24px 24px 0 0 !important;
+  }
+
+  /* ── Queue header ─────────────────────────────────────── */
+  .queue-header h2 { font-size: 1rem !important; }
+
+  /* ── Now playing box ──────────────────────────────────── */
+  .now-playing-box {
+    border-radius: 14px !important;
+    padding: 12px !important;
+  }
+
+  .now-playing-box-thumb {
+    width: 52px !important;
+    height: 38px !important;
+  }
+
+  /* ── Add song input ───────────────────────────────────── */
+  .add-song input {
+    font-size: 0.85rem !important;
+  }
+
+  /* ── Room join ────────────────────────────────────────── */
+  .room-join {
+    padding: 20px 16px;
+    overflow-y: auto;
+  }
+
+  .join-card {
+    width: 100%;
+    max-width: 100%;
+    padding: 32px 20px 28px;
+    border-radius: 24px;
+  }
+
+  .join-title-big { font-size: 2rem !important; letter-spacing: 4px; }
+  .join-title-small { font-size: 0.68rem !important; letter-spacing: 5px; }
+
+  .discord-login-btn,
+  .google-login-btn,
+  .guest-login-btn {
+    padding: 14px 20px !important;
+    font-size: 0.9rem !important;
+    min-height: 50px;
+  }
+
+  /* ── Offline banner ───────────────────────────────────── */
+  .offline-banner {
+    font-size: 0.78rem !important;
+    padding: 7px 12px !important;
+  }
+
+  /* ── Sleep timer badge ────────────────────────────────── */
+  .sleep-timer-badge {
+    top: 52px !important;
+    right: 10px !important;
+  }
+
+  /* ── Song preview tooltip — disable on mobile (use tap) ── */
+  .song-preview-tooltip {
+    display: none !important;
+  }
 }
 
-/* ─── HAPTIC-FEEL PULSE ON BEAT BORDER ──────────────── */
-@keyframes beatPop {
-  0%   { transform: scale(1); }
-  40%  { transform: scale(1.012); }
-  100% { transform: scale(1); }
+/* ── Very small phones (iPhone SE etc) ───────────────────── */
+@media (max-width: 375px) {
+  .player-art {
+    max-height: 38vw !important;
+  }
+
+  .play-btn {
+    width: 58px !important;
+    height: 58px !important;
+  }
+
+  .ctrl-btn {
+    width: 44px !important;
+    height: 44px !important;
+  }
+
+  .mobile-nav-btn .nav-icon { font-size: 1.2rem; }
+  .mobile-nav-btn .nav-label { font-size: 0.52rem; }
 }
 
-.player.beat-pop {
-  animation: beatPop 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+/* ── Touch feedback animations ────────────────────────────── */
+@media (hover: none) and (pointer: coarse) {
+  /* Disable hover states on touch devices */
+  .song-item:hover { background: transparent !important; }
+  .ctrl-btn:hover  { background: rgba(255,255,255,0.07) !important; }
+  .play-btn:hover  { transform: none !important; }
+
+  /* Only show active states */
+  .song-item:active { background: rgba(255,255,255,0.06) !important; }
+}
+
 }
 
 
