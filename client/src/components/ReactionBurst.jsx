@@ -18,25 +18,28 @@ export default function ReactionBurst({ socket, roomId, username }) {
   const holdTimerRef    = useRef(null)
   const isHoldingRef    = useRef(false)
   const activeEmojiRef  = useRef(null)
+  const sendReactionRef = useRef(null)
 
-  // Single cleanup interval instead of one setTimeout per burst
+  // ── Burst cleanup: single interval instead of one setTimeout per burst ──
   useEffect(() => {
     const interval = setInterval(() => {
       const now = Date.now()
       setBursts(prev => {
         if (prev.length === 0) return prev
         const next = prev.filter(b => b.expiresAt > now)
-        return next.length === prev.length ? prev : next // avoid re-render if nothing expired
+        return next.length === prev.length ? prev : next
       })
     }, 500)
     return () => clearInterval(interval)
   }, [])
+
+  // ── Global pointer-up: stop spam no matter where pointer is released ──
+  useEffect(() => {
     const stopAll = () => {
       clearTimeout(holdTimerRef.current)
       clearInterval(spamIntervalRef.current)
       holdTimerRef.current = null
       spamIntervalRef.current = null
-      // If it was a tap (not a hold), send one reaction
       if (activeEmojiRef.current && !isHoldingRef.current) {
         sendReactionRef.current?.(activeEmojiRef.current)
       }
@@ -53,23 +56,24 @@ export default function ReactionBurst({ socket, roomId, username }) {
     }
   }, [])
 
-  useEffect(() => {
-    socket.on('reaction', ({ emoji, username: from }) => spawnBurst(emoji, from, false))
-    return () => socket.off('reaction')
-  }, [socket])
-
+  // ── spawnBurst defined before socket effect so reference is valid ──
   const spawnBurst = useCallback((emoji, from, isSelf) => {
     const id = Date.now() + Math.random()
     const x = 5 + Math.random() * 90
     const size = 1.2 + Math.random() * 1.0
     const duration = 2200 + Math.random() * 800
     const expiresAt = Date.now() + duration + 300
-    // Cap at 12 bursts on screen — drop oldest if over limit
     setBursts(prev => {
       const next = [...prev, { id, emoji, from, x, size, duration, isSelf, expiresAt }]
       return next.length > 12 ? next.slice(next.length - 12) : next
     })
   }, [])
+
+  // ── Socket listener — spawnBurst is now defined above ──
+  useEffect(() => {
+    socket.on('reaction', ({ emoji, username: from }) => spawnBurst(emoji, from, false))
+    return () => socket.off('reaction')
+  }, [socket, spawnBurst])
 
   const sendReaction = useCallback((emoji) => {
     spamCountRef.current++
@@ -85,17 +89,14 @@ export default function ReactionBurst({ socket, roomId, username }) {
     setRecentEmojis(prev => [emoji, ...prev.filter(e => e !== emoji)].slice(0, 8))
   }, [socket, roomId, username, spawnBurst])
 
-  // Store sendReaction in a ref so the document listener can access latest version
-  const sendReactionRef = useRef(sendReaction)
+  // Keep ref in sync so stopAll can always call the latest sendReaction
   useEffect(() => { sendReactionRef.current = sendReaction }, [sendReaction])
 
   const startHold = (emoji) => {
-    // Clear any previous hold that wasn't cleaned up
     clearTimeout(holdTimerRef.current)
     clearInterval(spamIntervalRef.current)
     isHoldingRef.current = false
     activeEmojiRef.current = emoji
-
     holdTimerRef.current = setTimeout(() => {
       isHoldingRef.current = true
       spamIntervalRef.current = setInterval(() => sendReactionRef.current(emoji), SPAM_INTERVAL)
