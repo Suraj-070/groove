@@ -162,7 +162,7 @@ function BpmBadge({ bpm, loading }) {
   return <span className="bpm-badge">♩ {bpm} BPM</span>
 }
 
-export default function Player({ socket, roomId, videoId, title, onEnded, onSkip, onPrev, isDJ, djMode, initialTime, initialPlaying, onPlayStateChange, hasPrev }) {
+export default function Player({ socket, roomId, videoId, title, onEnded, onSkip, onPrev, isDJ, djMode, initialTime, initialPlaying, onPlayStateChange, hasPrev, externalVolume, onVolumeChange, loop }) {
   const playerRef = useRef(null)
   const playerInstanceRef = useRef(null)
   const isSyncingRef = useRef(false)
@@ -172,7 +172,12 @@ export default function Player({ socket, roomId, videoId, title, onEnded, onSkip
   const [currentTime, setCurrentTime] = useState(0)
   const [duration, setDuration] = useState(0)
   const [isReady, setIsReady] = useState(false)
-  const [volume, setVolume] = useState(80)
+  const [volume, setVolume] = useState(externalVolume ?? 80)
+
+  // Sync with parent keyboard mute
+  useEffect(() => {
+    if (externalVolume !== undefined) setVolume(externalVolume)
+  }, [externalVolume])
   const [showVolume, setShowVolume] = useState(false)
   const [bpm, setBpm] = useState(null)
   const [bpmLoading, setBpmLoading] = useState(false)
@@ -344,7 +349,7 @@ export default function Player({ socket, roomId, videoId, title, onEnded, onSkip
     setCurrentTime(time)
     socket.emit('seek', { roomId, time })
   }
-  const handleVolumeChange = (e) => setVolume(parseInt(e.target.value))
+  const handleVolumeChange = (e) => { const v = parseInt(e.target.value); setVolume(v); onVolumeChange?.(v) }
 
   const formatTime = (s) => {
     if (!s || isNaN(s)) return '0:00'

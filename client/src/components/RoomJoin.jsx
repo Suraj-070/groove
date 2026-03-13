@@ -27,7 +27,10 @@ const GrooveLogo = () => (
 )
 
 export default function RoomJoin({ onJoin, user, onGuestLogin }) {
-  const [roomId, setRoomId] = useState('')
+  const [roomId, setRoomId] = useState(() => {
+    // Pre-fill from invite link (?room=...) stored in sessionStorage
+    return sessionStorage.getItem('groove_invite_room') || ''
+  })
   const [guestName, setGuestName] = useState('')
   const [showGuest, setShowGuest] = useState(false)
   const [guestError, setGuestError] = useState('')

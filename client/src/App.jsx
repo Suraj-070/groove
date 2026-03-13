@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { io } from 'socket.io-client'
 import { DiscordSDK } from '@discord/embedded-app-sdk'
@@ -16,17 +16,126 @@ import './App.css'
 // ── Detect Discord Activity context ──────────────────────────
 const IS_DISCORD = window.location.hostname.endsWith('.discordsays.com')
 
-// ── Backend URL: use /.proxy/api inside Discord, direct otherwise
 const BACKEND = IS_DISCORD
   ? '/.proxy/api'
   : (import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001')
 
 const socket = io(BACKEND, { withCredentials: true, autoConnect: false })
 
-// ── Discord SDK (only init inside Discord) ───────────────────
 let discordSdk = null
 if (IS_DISCORD) {
   discordSdk = new DiscordSDK(import.meta.env.VITE_DISCORD_CLIENT_ID)
+}
+
+// ── Keyboard shortcut handler (exported for App use) ─────────
+const SHORTCUTS_HELP = [
+  { key: 'Space', desc: 'Play / Pause' },
+  { key: '→', desc: 'Skip to next song' },
+  { key: '←', desc: 'Previous song' },
+  { key: 'M', desc: 'Mute / Unmute' },
+  { key: 'L', desc: 'Toggle loop' },
+  { key: '?', desc: 'Show this help' },
+]
+
+function ShortcutsModal({ onClose }) {
+  return (
+    <div className="shortcuts-overlay" onClick={onClose}>
+      <div className="shortcuts-modal" onClick={e => e.stopPropagation()}>
+        <div className="shortcuts-header">
+          <h3>⌨️ Keyboard Shortcuts</h3>
+          <button className="shortcuts-close" onClick={onClose}>✕</button>
+        </div>
+        <ul className="shortcuts-list">
+          {SHORTCUTS_HELP.map(s => (
+            <li key={s.key}>
+              <kbd>{s.key}</kbd>
+              <span>{s.desc}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>
+  )
+}
+
+// ── Sleep Timer ───────────────────────────────────────────────
+function SleepTimerModal({ onClose, onSet }) {
+  const [minutes, setMinutes] = useState(30)
+  const options = [5, 10, 15, 20, 30, 45, 60, 90]
+  return (
+    <div className="shortcuts-overlay" onClick={onClose}>
+      <div className="shortcuts-modal" onClick={e => e.stopPropagation()}>
+        <div className="shortcuts-header">
+          <h3>😴 Sleep Timer</h3>
+          <button className="shortcuts-close" onClick={onClose}>✕</button>
+        </div>
+        <div className="sleep-timer-body">
+          <p>Stop playback after:</p>
+          <div className="sleep-timer-options">
+            {options.map(m => (
+              <button
+                key={m}
+                className={`sleep-option ${minutes === m ? 'active' : ''}`}
+                onClick={() => setMinutes(m)}
+              >
+                {m}m
+              </button>
+            ))}
+          </div>
+          <button className="btn-primary" style={{ marginTop: 16, width: '100%' }} onClick={() => { onSet(minutes); onClose() }}>
+            Set Timer
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Offline Banner ────────────────────────────────────────────
+function OfflineBanner() {
+  const [offline, setOffline] = useState(!navigator.onLine)
+  useEffect(() => {
+    const goOffline = () => setOffline(true)
+    const goOnline  = () => setOffline(false)
+    window.addEventListener('offline', goOffline)
+    window.addEventListener('online',  goOnline)
+    return () => { window.removeEventListener('offline', goOffline); window.removeEventListener('online', goOnline) }
+  }, [])
+  if (!offline) return null
+  return (
+    <div className="offline-banner">
+      <span>⚠️ You're offline — music may stop syncing</span>
+    </div>
+  )
+}
+
+// ── Mobile Mini Player ────────────────────────────────────────
+function MiniPlayer({ title, videoId, isPlaying, onPlay, onPause, onSkip, onOpen }) {
+  if (!videoId) return null
+  return (
+    <div className="mini-player" onClick={onOpen}>
+      <img
+        src={`https://img.youtube.com/vi/${videoId}/default.jpg`}
+        alt=""
+        className="mini-player-thumb"
+      />
+      <p className="mini-player-title">{title || 'No song'}</p>
+      <div className="mini-player-controls" onClick={e => e.stopPropagation()}>
+        <button
+          className="mini-ctrl-btn"
+          onClick={isPlaying ? onPause : onPlay}
+        >
+          {isPlaying
+            ? <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>
+            : <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20"><path d="M8 5v14l11-7z"/></svg>
+          }
+        </button>
+        <button className="mini-ctrl-btn" onClick={onSkip}>
+          <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20"><path d="M6 18l8.5-6L6 6v12zm2-8.14L11.03 12 8 14.14V9.86zM16 6h2v12h-2z"/></svg>
+        </button>
+      </div>
+    </div>
+  )
 }
 
 function App() {
@@ -53,6 +162,15 @@ function App() {
   const profileRef = useRef(null)
   const [windowWidth, setWindowWidth] = useState(window.innerWidth)
 
+  // ── New feature state ─────────────────────────────────────
+  const [loop, setLoop] = useState(false)
+  const [showShortcuts, setShowShortcuts] = useState(false)
+  const [showSleepTimer, setShowSleepTimer] = useState(false)
+  const [sleepTimer, setSleepTimer] = useState(null)   // { endsAt: timestamp, label: '30m' }
+  const [volume, setVolume] = useState(80)             // lifted to App for keyboard mute
+  const sleepTimerRef = useRef(null)
+  const playerRef = useRef(null)  // ref to Player's imperative handle
+
   useEffect(() => {
     const onResize = () => setWindowWidth(window.innerWidth)
     window.addEventListener('resize', onResize)
@@ -62,19 +180,100 @@ function App() {
 
   const isDJ = socket.id === djId
 
+  // ── Browser tab title ─────────────────────────────────────
+  useEffect(() => {
+    const title = queue[currentIndex]?.title
+    if (title) {
+      document.title = `♪ ${title} — Groove`
+    } else if (roomId) {
+      document.title = `Groove · ${roomId}`
+    } else {
+      document.title = 'Groove Together'
+    }
+  }, [queue, currentIndex, roomId])
+
+  // ── Hotlink room joining (?room=ABC123) ───────────────────
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const roomParam = params.get('room')
+    if (roomParam) {
+      // Store it; will be picked up once user is authenticated
+      sessionStorage.setItem('groove_invite_room', roomParam.toUpperCase())
+      window.history.replaceState({}, '', '/')
+    }
+  }, [])
+
+  // ── Sleep timer countdown ─────────────────────────────────
+  useEffect(() => {
+    if (!sleepTimer) return
+    const remaining = sleepTimer.endsAt - Date.now()
+    if (remaining <= 0) { handleSleepExpire(); return }
+    const t = setTimeout(handleSleepExpire, remaining)
+    return () => clearTimeout(t)
+  }, [sleepTimer])
+
+  const handleSleepExpire = useCallback(() => {
+    socket.emit('pause', { roomId, time: 0 })
+    setSleepTimer(null)
+  }, [roomId])
+
+  const handleSetSleepTimer = (minutes) => {
+    setSleepTimer({ endsAt: Date.now() + minutes * 60 * 1000, label: `${minutes}m` })
+  }
+
+  const handleCancelSleepTimer = () => setSleepTimer(null)
+
+  // ── Keyboard shortcuts ────────────────────────────────────
+  useEffect(() => {
+    const handler = (e) => {
+      const tag = document.activeElement?.tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return
+
+      if (e.key === '?' || e.key === '/') { setShowShortcuts(p => !p); return }
+
+      const isLocked = djMode && !isDJ
+
+      if (e.code === 'Space') {
+        e.preventDefault()
+        if (isLocked) return
+        socket.emit(isPlaying ? 'pause' : 'play', { roomId, time: 0 })
+        setIsPlaying(p => !p)
+        return
+      }
+      if (e.key === 'ArrowRight') {
+        e.preventDefault()
+        if (!isLocked && currentIndex < queue.length - 1) handleLoadSong(currentIndex + 1)
+        return
+      }
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault()
+        if (!isLocked && currentIndex > 0) handleLoadSong(currentIndex - 1)
+        return
+      }
+      if (e.key === 'm' || e.key === 'M') {
+        setVolume(v => v === 0 ? 80 : 0)
+        return
+      }
+      if (e.key === 'l' || e.key === 'L') {
+        setLoop(p => !p)
+        return
+      }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [isPlaying, djMode, isDJ, currentIndex, queue.length, roomId])
+
   const handlePrev = () => {
     const prev = currentIndex - 1
     if (prev >= 0) handleLoadSong(prev)
   }
 
-  // ── Auth: Discord Activity vs Web ────────────────────────────
+  // ── Auth ─────────────────────────────────────────────────
   useEffect(() => {
     const initAuth = async () => {
       try {
         if (IS_DISCORD && discordSdk) {
-          // ── Discord Activity auth flow ──
           await discordSdk.ready()
-
           const { code } = await discordSdk.commands.authorize({
             client_id: import.meta.env.VITE_DISCORD_CLIENT_ID,
             response_type: 'code',
@@ -82,43 +281,28 @@ function App() {
             prompt: 'none',
             scope: ['identify']
           })
-
-          // Exchange code for token via our backend
           const res = await fetch(`${BACKEND}/auth/discord/token`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include',
             body: JSON.stringify({ code })
           })
-
           if (res.ok) {
             const userData = await res.json()
             setUser(userData)
-            // Auto-join a room based on Discord channel
             const channelId = discordSdk.channelId || 'discord-activity'
             setRoomId(channelId)
             if (!socket.connected) socket.connect()
-            socket.emit('join-room', {
-              roomId: channelId,
-              username: userData.username,
-              avatar: userData.avatar,
-              discordId: userData.id
-            })
+            socket.emit('join-room', { roomId: channelId, username: userData.username, avatar: userData.avatar, discordId: userData.id })
           }
         } else {
-          // ── Standard web auth flow ──
           try {
             const controller = new AbortController()
             const timeout = setTimeout(() => controller.abort(), 5000)
             const res = await fetch(`${BACKEND}/auth/me`, { credentials: 'include', signal: controller.signal })
             clearTimeout(timeout)
-            if (res.ok) {
-              const userData = await res.json()
-              setUser(userData)
-            }
-          } catch (e) {
-            // Session check failed or timed out — continue as guest
-          }
+            if (res.ok) setUser(await res.json())
+          } catch {}
 
           const params = new URLSearchParams(window.location.search)
           if (params.get('auth') === 'success') {
@@ -135,28 +319,23 @@ function App() {
         setAuthLoading(false)
       }
     }
-
     initAuth()
   }, [])
 
-  // ── Auto-rejoin saved room after page reload ──────────────
-  // Runs whenever user is set (after auth resolves).
-  // If the user was in a room before they reloaded, we restore it.
+  // ── Auto-rejoin on reload + invite room handling ──────────
   useEffect(() => {
-    if (!user || IS_DISCORD) return           // Discord handles its own join
-    if (roomId) return                        // already in a room
-    const savedRoomId = localStorage.getItem('groove_roomId')
-    if (!savedRoomId) return
-    setRoomId(savedRoomId)
+    if (!user || IS_DISCORD) return
+    if (roomId) return
+    // Check invite link first, then saved room
+    const inviteRoom = sessionStorage.getItem('groove_invite_room')
+    const savedRoom  = localStorage.getItem('groove_roomId')
+    const targetRoom = inviteRoom || savedRoom
+    if (!targetRoom) return
+    if (inviteRoom) sessionStorage.removeItem('groove_invite_room')
+    setRoomId(targetRoom)
     if (!socket.connected) socket.connect()
-    socket.emit('join-room', {
-      roomId: savedRoomId,
-      username: user.username,
-      avatar: user.avatar,
-      discordId: user.id
-    })
+    socket.emit('join-room', { roomId: targetRoom, username: user.username, avatar: user.avatar, discordId: user.id })
   }, [user])
-
 
   const handleGuestLogin = async ({ username }) => {
     try {
@@ -174,14 +353,9 @@ function App() {
 
   const handleJoin = ({ roomId }) => {
     setRoomId(roomId)
-    localStorage.setItem('groove_roomId', roomId)   // ← persist across reloads
+    localStorage.setItem('groove_roomId', roomId)
     if (!socket.connected) socket.connect()
-    socket.emit('join-room', {
-      roomId,
-      username: user.username,
-      avatar: user.avatar,
-      discordId: user.id
-    })
+    socket.emit('join-room', { roomId, username: user.username, avatar: user.avatar, discordId: user.id })
   }
 
   const handleAddSong = ({ videoId, title }) => {
@@ -197,11 +371,16 @@ function App() {
     socket.emit('remove-song', { roomId, index })
   }
 
-  const handleNext = () => {
+  const handleNext = useCallback(() => {
     if (djMode && !isDJ) return
+    if (loop) {
+      // Reload current song from beginning
+      handleLoadSong(currentIndex)
+      return
+    }
     const next = currentIndex + 1
     if (next < queue.length) handleLoadSong(next)
-  }
+  }, [djMode, isDJ, loop, currentIndex, queue.length])
 
   const handleToggleDJMode = () => {
     socket.emit('toggle-dj-mode', { roomId })
@@ -213,9 +392,15 @@ function App() {
 
   const handleLogout = async () => {
     await fetch(`${BACKEND}/auth/logout`, { credentials: 'include' })
-    localStorage.removeItem('groove_roomId')   // ← clear saved room on logout
+    localStorage.removeItem('groove_roomId')
     setUser(null)
     setRoomId(null)
+  }
+
+  // Copy invite link to clipboard
+  const handleCopyInvite = () => {
+    const url = `${window.location.origin}?room=${roomId}`
+    navigator.clipboard?.writeText(url)
   }
 
   useEffect(() => {
@@ -226,16 +411,10 @@ function App() {
     return () => socket.off('chat-msg', handleNewMsg)
   }, [chatOpen])
 
-  // ── Rejoin room if socket reconnects (e.g. server restart) ─
   useEffect(() => {
     const handleReconnect = () => {
       if (roomId && user) {
-        socket.emit('join-room', {
-          roomId,
-          username: user.username,
-          avatar: user.avatar,
-          discordId: user.id
-        })
+        socket.emit('join-room', { roomId, username: user.username, avatar: user.avatar, discordId: user.id })
       }
     }
     socket.on('connect', handleReconnect)
@@ -264,18 +443,11 @@ function App() {
     socket.on('dj-mode-changed', ({ djMode, djId }) => { if (djMode !== undefined) setDjMode(djMode); if (djId !== undefined) setDjId(djId) })
     socket.on('recap-data', (data) => {
       if (!data) return
-      // Ensure arrays are never null
-      const safeRecap = {
-        ...data,
-        songsPlayed: Array.isArray(data.songsPlayed) ? data.songsPlayed : [],
-        users: Array.isArray(data.users) ? data.users : []
-      }
-      setRecap(safeRecap)
+      setRecap({ ...data, songsPlayed: Array.isArray(data.songsPlayed) ? data.songsPlayed : [], users: Array.isArray(data.users) ? data.users : [] })
       setShowRecap(true)
     })
     socket.on('play', () => setIsPlaying(true))
     socket.on('pause', () => setIsPlaying(false))
-
     return () => {
       socket.off('room-state'); socket.off('queue-updated'); socket.off('load-song')
       socket.off('user-joined'); socket.off('user-left')
@@ -330,22 +502,31 @@ function App() {
 
   if (!roomId) return <RoomJoin onJoin={handleJoin} user={user} onGuestLogin={handleGuestLogin} />
 
+  const currentSong = queue[currentIndex]
+
   return (
     <div className="app">
+      <OfflineBanner />
       <Visualizer isPlaying={isPlaying} partyMode={partyMode} />
       <ReactionBurst socket={socket} roomId={roomId} username={user?.username} />
+
+      {/* Sleep timer badge */}
+      {sleepTimer && (
+        <div className="sleep-timer-badge">
+          😴 Stopping in {Math.ceil((sleepTimer.endsAt - Date.now()) / 60000)}m
+          <button onClick={handleCancelSleepTimer}>✕</button>
+        </div>
+      )}
 
       <header className="app-header">
         <div className="logo">
           <svg width="32" height="32" viewBox="0 0 56 56" fill="none" xmlns="http://www.w3.org/2000/svg">
             <defs>
               <linearGradient id="hg1" x1="0" y1="0" x2="56" y2="56" gradientUnits="userSpaceOnUse">
-                <stop offset="0%" stopColor="#7c6aff"/>
-                <stop offset="100%" stopColor="#ff6a8a"/>
+                <stop offset="0%" stopColor="#7c6aff"/><stop offset="100%" stopColor="#ff6a8a"/>
               </linearGradient>
               <linearGradient id="hg2" x1="0" y1="0" x2="56" y2="56" gradientUnits="userSpaceOnUse">
-                <stop offset="0%" stopColor="#fff" stopOpacity="0.95"/>
-                <stop offset="100%" stopColor="#e0daff"/>
+                <stop offset="0%" stopColor="#fff" stopOpacity="0.95"/><stop offset="100%" stopColor="#e0daff"/>
               </linearGradient>
             </defs>
             <circle cx="28" cy="28" r="28" fill="url(#hg1)" opacity="0.15"/>
@@ -372,9 +553,11 @@ function App() {
             </button>
           )}
 
+          <button className="recap-btn" onClick={() => setShowSleepTimer(true)} title="Sleep Timer">😴</button>
+          <button className="recap-btn" onClick={() => setShowShortcuts(true)} title="Keyboard Shortcuts">⌨️</button>
           <button className={`recap-btn party-btn ${partyMode ? 'party-active' : ''}`} onClick={() => setPartyMode(p => !p)} title="Party Mode">🎊</button>
           <button className="recap-btn" onClick={handleGetRecap} title="Session Recap">📊</button>
-          <button className={`recap-btn ${libraryOpen ? "active" : ""}`} onClick={() => setLibraryOpen(p => !p)} title="My Library">📚</button>
+          <button className={`recap-btn ${libraryOpen ? 'active' : ''}`} onClick={() => setLibraryOpen(p => !p)} title="My Library">📚</button>
 
           <button className="chat-toggle-btn" onClick={() => { setChatOpen(true); setUnread(0) }}>
             💬
@@ -409,7 +592,7 @@ function App() {
                       </div>
                       <div className="pd-info">
                         <p className="pd-name">{user.username}</p>
-                        <p className="pd-tag">{IS_DISCORD ? 'Discord Activity' : 'via Discord'}</p>
+                        <p className="pd-tag">{IS_DISCORD ? 'Discord Activity' : user.provider === 'google' ? 'via Google' : 'via Discord'}</p>
                       </div>
                     </div>
 
@@ -434,17 +617,21 @@ function App() {
 
                     <div className="pd-actions">
                       <button className="pd-action" onClick={() => { handleGetRecap(); setProfileOpen(false) }}>
-                        <span className="pd-action-icon">📊</span>
-                        <span>Session Recap</span>
+                        <span className="pd-action-icon">📊</span><span>Session Recap</span>
                       </button>
                       <button className="pd-action" onClick={() => { setLibraryOpen(true); setProfileOpen(false) }}>
-                        <span className="pd-action-icon">📚</span>
-                        <span>My Library</span>
+                        <span className="pd-action-icon">📚</span><span>My Library</span>
                       </button>
                       <button className="pd-action" onClick={() => { setPartyMode(p => !p); setProfileOpen(false) }}>
                         <span className="pd-action-icon">🎊</span>
                         <span>Party Mode {partyMode ? 'ON' : 'OFF'}</span>
                         <span className={`pd-toggle ${partyMode ? 'on' : ''}`} />
+                      </button>
+                      <button className="pd-action" onClick={() => { setShowSleepTimer(true); setProfileOpen(false) }}>
+                        <span className="pd-action-icon">😴</span><span>Sleep Timer {sleepTimer ? `(${Math.ceil((sleepTimer.endsAt - Date.now()) / 60000)}m)` : ''}</span>
+                      </button>
+                      <button className="pd-action" onClick={() => { setShowShortcuts(true); setProfileOpen(false) }}>
+                        <span className="pd-action-icon">⌨️</span><span>Shortcuts</span>
                       </button>
                     </div>
 
@@ -453,15 +640,14 @@ function App() {
                     <div className="pd-room">
                       <span className="pd-room-label">Room</span>
                       <span className="pd-room-id">{roomId}</span>
-                      <button className="pd-copy" onClick={() => navigator.clipboard?.writeText(roomId)} title="Copy room ID">⎘</button>
+                      <button className="pd-copy" onClick={handleCopyInvite} title="Copy invite link">🔗</button>
                     </div>
 
                     {!IS_DISCORD && (
                       <>
                         <div className="pd-divider" />
                         <button className="pd-logout" onClick={() => { setProfileOpen(false); handleLogout() }}>
-                          <span>↩</span>
-                          <span>Sign Out</span>
+                          <span>↩</span><span>Sign Out</span>
                         </button>
                       </>
                     )}
@@ -479,8 +665,8 @@ function App() {
           <Player
             socket={socket}
             roomId={roomId}
-            videoId={queue[currentIndex]?.videoId}
-            title={queue[currentIndex]?.title}
+            videoId={currentSong?.videoId}
+            title={currentSong?.title}
             onEnded={handleNext}
             onSkip={handleNext}
             onPrev={handlePrev}
@@ -490,6 +676,9 @@ function App() {
             initialTime={initialTime}
             initialPlaying={initialPlaying}
             onPlayStateChange={setIsPlaying}
+            externalVolume={volume}
+            onVolumeChange={setVolume}
+            loop={loop}
           />
           <UserList users={users} currentUser={socket.id} djId={djId} />
         </div>
@@ -513,6 +702,8 @@ function App() {
             socket={socket}
             roomId={roomId}
             username={user?.username}
+            loop={loop}
+            onToggleLoop={() => setLoop(p => !p)}
           />
         </div>
 
@@ -527,6 +718,19 @@ function App() {
           </button>
         )}
       </main>
+
+      {/* Mobile mini player — shown when queue tab is open */}
+      {isMobileView && mobileTab === 'queue' && currentSong && (
+        <MiniPlayer
+          title={currentSong.title}
+          videoId={currentSong.videoId}
+          isPlaying={isPlaying}
+          onPlay={() => { socket.emit('play', { roomId, time: 0 }); setIsPlaying(true) }}
+          onPause={() => { socket.emit('pause', { roomId, time: 0 }); setIsPlaying(false) }}
+          onSkip={handleNext}
+          onOpen={() => setMobileTab('player')}
+        />
+      )}
 
       {isMobileView && (
         <nav className="mobile-bottom-nav">
@@ -565,9 +769,11 @@ function App() {
           roomId={roomId}
           username={user?.username}
           onAddSongToQueue={handleAddSong}
-          currentVideoId={queue[currentIndex]?.videoId}
+          currentVideoId={currentSong?.videoId}
         />
       )}
+      {showShortcuts && <ShortcutsModal onClose={() => setShowShortcuts(false)} />}
+      {showSleepTimer && <SleepTimerModal onClose={() => setShowSleepTimer(false)} onSet={handleSetSleepTimer} />}
     </div>
   )
 }

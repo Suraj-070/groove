@@ -410,6 +410,8 @@ io.on('connection', (socket) => {
   });
 
   socket.on('add-song', async ({ roomId, videoId, title, addedBy }) => {
+    // Notify others in the room
+    socket.to(roomId).emit('song-added-notify', { title, addedBy });
     const room = await getRoom(roomId);
     room.queue.push({ videoId, title, addedBy });
     io.to(roomId).emit('queue-updated', { queue: room.queue });
@@ -459,6 +461,25 @@ io.on('connection', (socket) => {
 
   socket.on('chat-msg', ({ roomId, msg }) => socket.to(roomId).emit('chat-msg', msg));
   socket.on('reaction', ({ roomId, emoji, username }) => socket.to(roomId).emit('reaction', { emoji, username }));
+
+  // Reorder queue (drag-to-reorder / shuffle)
+  socket.on('reorder-queue', async ({ roomId, queue: newQueue }) => {
+    const room = await getRoom(roomId);
+    if (!room || !Array.isArray(newQueue)) return;
+    room.queue = newQueue;
+    await saveRoom(roomId);
+    io.to(roomId).emit('queue-updated', { queue: room.queue });
+  });
+
+  // Per-song reactions
+  socket.on('song-react', ({ roomId, videoId, emoji, username }) => {
+    socket.to(roomId).emit('song-reaction', { videoId, emoji, username });
+  });
+
+  // Notify room when someone adds a song (for toast notifications)
+  socket.on('song-added-notify', ({ roomId, title, addedBy }) => {
+    socket.to(roomId).emit('song-added-notify', { title, addedBy });
+  });
 
   socket.on('get-recap', async ({ roomId }) => {
     const room = await getRoom(roomId);
