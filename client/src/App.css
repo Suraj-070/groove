@@ -3304,8 +3304,8 @@ body {
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    position: fixed;
-    inset: 0;
+    position: relative;
+    z-index: 1;
   }
 
   /* ── Header — slim, essential only ───────────────────── */
@@ -3979,6 +3979,8 @@ body {
 
   /* Only show active states */
   .song-item:active { background: rgba(255,255,255,0.06) !important; }
+}
+
 }
 
 
