@@ -5,7 +5,7 @@ export default function Chat({ socket, roomId, username, isOpen, onClose }) {
   const [messages, setMessages] = useState([])
   const [input, setInput] = useState('')
   const [showPicker, setShowPicker] = useState(false)
-  const bottomRef = useRef(null)
+  const messagesRef = useRef(null)
   const inputRef = useRef(null)
 
   useEffect(() => {
@@ -14,7 +14,10 @@ export default function Chat({ socket, roomId, username, isOpen, onClose }) {
   }, [socket])
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+    const el = messagesRef.current
+    if (!el) return
+    const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 120
+    if (nearBottom) el.scrollTop = el.scrollHeight
   }, [messages])
 
   useEffect(() => {
@@ -41,7 +44,7 @@ export default function Chat({ socket, roomId, username, isOpen, onClose }) {
         <button className="chat-close" onClick={onClose}>×</button>
       </div>
 
-      <div className="chat-messages">
+      <div className="chat-messages" ref={messagesRef}>
         {messages.length === 0 && (
           <div className="chat-empty">
             <p>No messages yet</p>
@@ -55,7 +58,7 @@ export default function Chat({ socket, roomId, username, isOpen, onClose }) {
             <span className="chat-time">{msg.time}</span>
           </div>
         ))}
-        <div ref={bottomRef} />
+
       </div>
 
       {showPicker && (

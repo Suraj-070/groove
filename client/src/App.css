@@ -1154,6 +1154,8 @@ body {
   flex-direction: column;
   gap: 6px;
   padding-right: 4px;
+  /* Promote to own layer for smooth scroll */
+  transform: translateZ(0);
 }
 
 .song-list::-webkit-scrollbar { width: 4px; }
@@ -1183,10 +1185,8 @@ body {
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.06);
   cursor: pointer;
-  transition: all 0.15s;
-  group: true;
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  transition: background 0.15s, border-color 0.15s;
+  /* NO backdrop-filter — 52 blurs kills mobile GPU */
 }
 
 .song-item:hover {
@@ -1271,7 +1271,7 @@ body {
   margin-top: 2px;
 }
 
-.remove-btn {
+.remove-btn-SKIP {
   width: 28px;
   height: 28px;
   border-radius: 6px;
@@ -3623,9 +3623,8 @@ body {
     transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1) !important;
     z-index: 50 !important;
     overflow: hidden !important;
-    background: rgba(10, 10, 20, 0.98) !important;
-    backdrop-filter: blur(28px) !important;
-    -webkit-backdrop-filter: blur(28px) !important;
+    background: #0d0d1a !important;
+    /* No backdrop-filter on the sheet itself — causes jank during slide animation */
     display: flex !important;
     flex-direction: column !important;
     will-change: transform;
@@ -3683,10 +3682,18 @@ body {
     border-radius: 12px !important;
     -webkit-tap-highlight-color: transparent;
     transition: background 0.12s ease !important;
+    /* Skip rendering off-screen items entirely */
+    content-visibility: auto;
+    contain-intrinsic-size: 0 58px;
   }
 
   .song-item:active {
     background: rgba(255,255,255,0.06) !important;
+  }
+
+  /* ── Kill reactions on mobile — invisible on touch, pure layout cost ── */
+  .song-reactions {
+    display: none !important;
   }
 
   .queue-collapse-btn { display: none !important; }
@@ -4250,6 +4257,51 @@ body {
 
   /* Only show active states */
   .song-item:active { background: rgba(255,255,255,0.06) !important; }
+
+  /* ── NUCLEAR PERF MODE: kill every backdrop-filter on touch ── */
+  /* backdrop-filter is the #1 GPU killer on mobile — 52 blurs = slideshow */
+  .song-item,
+  .add-song input,
+  .queue-tab,
+  .song-react-picker,
+  .song-reactions,
+  .now-playing-box,
+  .queue-toolbar,
+  .save-library-banner {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+
+  /* Replace blurred backgrounds with opaque equivalents */
+  .song-item {
+    background: rgba(22, 20, 40, 0.9) !important;
+    border-color: rgba(255,255,255,0.07) !important;
+  }
+
+  .song-item.active {
+    background: rgba(124, 106, 255, 0.18) !important;
+  }
+
+  /* Kill transition on non-active items — only animate what matters */
+  .song-item {
+    transition: background 0.1s !important;
+    /* No transform transitions on the list — causes layout thrash */
+    will-change: auto !important;
+  }
+
+  /* Bars animation is cheap (transform only) — fine to keep running */
+  .bars span {
+    animation-play-state: running !important;
+    will-change: transform;
+  }
+
+  /* Kill box-shadow on every row — triggers repaint on scroll */
+  .song-item:not(.active) {
+    box-shadow: none !important;
+  }
+
+  /* Disable hover on drag handle — pointless on touch */
+  .drag-handle { display: none !important; }
 }
 
 
@@ -5510,7 +5562,7 @@ h1, h2, h3 {
   border: none;
   font-size: 0.85rem;
   cursor: pointer;
-  opacity: 0;
+  opacity: 0.5;
   transition: opacity 0.15s;
   padding: 2px 4px;
   border-radius: 6px;
@@ -5597,4 +5649,120 @@ h1, h2, h3 {
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;    /* fallback if JS hasn't run yet */
+}
+
+
+/* ═══════════════════════════════════════════════════════════
+   MOBILE PERFORMANCE — Nuclear mode
+   All rules here override anything above for touch devices.
+   Goal: zero backdrop-filters, zero box-shadows on scrolling
+   elements, zero transition:all, GPU-only animations.
+   ═══════════════════════════════════════════════════════════ */
+@media (max-width: 768px) {
+
+  /* ── Kill every backdrop-filter site-wide on mobile ─── */
+  *:not(.app-header):not(.mobile-bottom-nav):not(.profile-dropdown--portal) {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+
+  /* Header and nav keep their blur (they don't scroll) */
+  .app-header {
+    backdrop-filter: blur(16px) !important;
+    -webkit-backdrop-filter: blur(16px) !important;
+  }
+  .mobile-bottom-nav {
+    backdrop-filter: blur(20px) !important;
+    -webkit-backdrop-filter: blur(20px) !important;
+  }
+
+  /* ── Kill box-shadow on everything that scrolls ─────── */
+  .song-item,
+  .now-playing-box,
+  .queue-tab,
+  .add-song input,
+  .crate-card {
+    box-shadow: none !important;
+  }
+
+  /* ── Replace all transition:all with specific props ──── */
+  .song-item        { transition: background 0.1s !important; }
+  .crate-card       { transition: transform 0.15s, border-color 0.15s !important; }
+  .mobile-nav-btn   { transition: color 0.15s !important; }
+  .ctrl-btn         { transition: background 0.1s, transform 0.1s !important; }
+  .play-btn         { transition: transform 0.1s !important; }
+
+  /* ── Simplify now-playing-box ────────────────────────── */
+  .now-playing-box {
+    background: rgba(124,106,255,0.1) !important;
+    border-color: rgba(124,106,255,0.2) !important;
+  }
+
+  /* ── Stop song entrance stagger animations ───────────── */
+  /* These re-trigger every time the sheet opens, causing a 
+     full repaint of all visible items */
+  .song-item:nth-child(n) {
+    animation: none !important;
+  }
+
+  /* ── Faster sheet slide — ease-out not spring ─────────── */
+  /* Spring (cubic-bezier overshoot) forces extra frames 
+     past the final position = janky on low-end phones */
+  .right-panel.mobile-open {
+    transition: transform 0.28s ease-out !important;
+  }
+  .right-panel:not(.mobile-open) {
+    transition: transform 0.22s ease-in !important;
+  }
+
+  /* ── Promote queue sheet to GPU layer before open ─────── */
+  .right-panel {
+    will-change: transform !important;
+    /* Solid background — no compositing cost */
+    background: #0d0d1a !important;
+  }
+
+  /* ── Song thumbnails — explicit size stops layout calc ── */
+  .song-thumb img {
+    width: 42px !important;
+    height: 32px !important;
+    object-fit: cover !important;
+  }
+
+  /* ── Disable hover-state CSS on all interactive elements  */
+  /* These never fire on touch but browser still evaluates them */
+  .song-item:hover,
+  .crate-card:hover,
+  .ctrl-btn:hover,
+  .play-btn:hover,
+  .mobile-nav-btn:hover,
+  .queue-tab:hover,
+  .add-btn:hover {
+    transform: none !important;
+    box-shadow: none !important;
+  }
+
+  /* ── image-rendering for thumbnails ─────────────────────── */
+  .song-thumb img,
+  .now-playing-box-thumb img,
+  .user-avatar,
+  .crate-thumb-img {
+    image-rendering: auto;
+    /* Tell browser these don't need high-quality downscaling */
+  }
+
+  /* ── Disable the player card entrance animation after first load */
+  /* It re-fires every time isPlaying changes on some browsers */
+  .player {
+    animation: none !important;
+  }
+
+  /* ── Use contain on queue to isolate its paint region ─── */
+  .right-panel {
+    contain: strict !important;
+  }
+
+  /* ── Turn off glow effects in library cards ──────────── */
+  .crate-glow { display: none !important; }
+  .crate-card::before { display: none !important; }
 }

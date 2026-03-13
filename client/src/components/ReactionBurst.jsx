@@ -19,8 +19,18 @@ export default function ReactionBurst({ socket, roomId, username }) {
   const isHoldingRef    = useRef(false)
   const activeEmojiRef  = useRef(null)
 
-  // Global mouseup/touchend — ALWAYS stops spam no matter where pointer is released
+  // Single cleanup interval instead of one setTimeout per burst
   useEffect(() => {
+    const interval = setInterval(() => {
+      const now = Date.now()
+      setBursts(prev => {
+        if (prev.length === 0) return prev
+        const next = prev.filter(b => b.expiresAt > now)
+        return next.length === prev.length ? prev : next // avoid re-render if nothing expired
+      })
+    }, 500)
+    return () => clearInterval(interval)
+  }, [])
     const stopAll = () => {
       clearTimeout(holdTimerRef.current)
       clearInterval(spamIntervalRef.current)
@@ -53,8 +63,12 @@ export default function ReactionBurst({ socket, roomId, username }) {
     const x = 5 + Math.random() * 90
     const size = 1.2 + Math.random() * 1.0
     const duration = 2200 + Math.random() * 800
-    setBursts(prev => [...prev, { id, emoji, from, x, size, duration, isSelf }])
-    setTimeout(() => setBursts(prev => prev.filter(b => b.id !== id)), duration + 300)
+    const expiresAt = Date.now() + duration + 300
+    // Cap at 12 bursts on screen — drop oldest if over limit
+    setBursts(prev => {
+      const next = [...prev, { id, emoji, from, x, size, duration, isSelf, expiresAt }]
+      return next.length > 12 ? next.slice(next.length - 12) : next
+    })
   }, [])
 
   const sendReaction = useCallback((emoji) => {

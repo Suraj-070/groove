@@ -6,6 +6,9 @@ let YT = null
 // Global beat energy bus — Visualizer writes here, BeatBorder reads it
 window.__grooveBeatEnergy = 0
 
+// Detect mobile once — BeatBorder is too expensive on phones
+const IS_MOBILE = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent) || window.innerWidth <= 768
+
 const PALETTES = [
   ['#7c6aff', '#ff6a8a', '#6affb8', '#ffb86a'],
   ['#00f5ff', '#ff00ff', '#00ff88', '#ffff00'],
@@ -297,12 +300,13 @@ export default function Player({ socket, roomId, videoId, title, onEnded, onSkip
   }, [socket])
 
   useEffect(() => {
+    // Mobile: poll every 1s (half the re-renders). Desktop: every 500ms for smooth scrubbing
     const interval = setInterval(() => {
       const p = playerInstanceRef.current
       if (p && typeof p.getCurrentTime === 'function') {
         setCurrentTime(p.getCurrentTime() || 0); setDuration(p.getDuration() || 0)
       }
-    }, 500)
+    }, IS_MOBILE ? 1000 : 500)
     return () => clearInterval(interval)
   }, [])
 
@@ -362,7 +366,7 @@ export default function Player({ socket, roomId, videoId, title, onEnded, onSkip
 
   return (
     <div className="player" style={{ position: 'relative', overflow: 'visible' }}>
-      <BeatBorder isPlaying={isPlaying} bpm={bpm || 120} />
+      {!IS_MOBILE && <BeatBorder isPlaying={isPlaying} bpm={bpm || 120} />}
       <div ref={playerRef} style={{ display: 'none' }} />
 
       {djMode && (

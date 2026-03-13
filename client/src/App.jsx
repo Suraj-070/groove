@@ -175,9 +175,13 @@ function App() {
   const playerRef = useRef(null)  // ref to Player's imperative handle
 
   useEffect(() => {
-    const onResize = () => setWindowWidth(window.innerWidth)
+    let timer
+    const onResize = () => {
+      clearTimeout(timer)
+      timer = setTimeout(() => setWindowWidth(window.innerWidth), 150)
+    }
     window.addEventListener('resize', onResize)
-    return () => window.removeEventListener('resize', onResize)
+    return () => { window.removeEventListener('resize', onResize); clearTimeout(timer) }
   }, [])
   const isMobileView = windowWidth <= 768
 
@@ -227,44 +231,40 @@ function App() {
   const handleCancelSleepTimer = () => setSleepTimer(null)
 
   // ── Keyboard shortcuts ────────────────────────────────────
+  // Stable refs so keyboard handler never re-registers
+  const kbRef = useRef({})
+  useEffect(() => {
+    kbRef.current = { isPlaying, djMode, isDJ, currentIndex, queueLen: queue.length, roomId }
+  }, [isPlaying, djMode, isDJ, currentIndex, queue.length, roomId])
+
   useEffect(() => {
     const handler = (e) => {
       const tag = document.activeElement?.tagName
       if (tag === 'INPUT' || tag === 'TEXTAREA') return
+      const { isPlaying, djMode, isDJ, currentIndex, queueLen, roomId } = kbRef.current
 
       if (e.key === '?' || e.key === '/') { setShowShortcuts(p => !p); return }
-
       const isLocked = djMode && !isDJ
-
       if (e.code === 'Space') {
         e.preventDefault()
         if (isLocked) return
         socket.emit(isPlaying ? 'pause' : 'play', { roomId, time: 0 })
-        setIsPlaying(p => !p)
-        return
+        setIsPlaying(p => !p); return
       }
       if (e.key === 'ArrowRight') {
         e.preventDefault()
-        if (!isLocked && currentIndex < queue.length - 1) handleLoadSong(currentIndex + 1)
-        return
+        if (!isLocked && currentIndex < queueLen - 1) handleLoadSong(currentIndex + 1); return
       }
       if (e.key === 'ArrowLeft') {
         e.preventDefault()
-        if (!isLocked && currentIndex > 0) handleLoadSong(currentIndex - 1)
-        return
+        if (!isLocked && currentIndex > 0) handleLoadSong(currentIndex - 1); return
       }
-      if (e.key === 'm' || e.key === 'M') {
-        setVolume(v => v === 0 ? 80 : 0)
-        return
-      }
-      if (e.key === 'l' || e.key === 'L') {
-        setLoop(p => !p)
-        return
-      }
+      if (e.key === 'm' || e.key === 'M') { setVolume(v => v === 0 ? 80 : 0); return }
+      if (e.key === 'l' || e.key === 'L') { setLoop(p => !p); return }
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [isPlaying, djMode, isDJ, currentIndex, queue.length, roomId])
+  }, []) // empty deps — handler reads from ref, never re-registers
 
   const handlePrev = () => {
     const prev = currentIndex - 1
