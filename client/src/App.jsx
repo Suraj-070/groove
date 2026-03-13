@@ -761,16 +761,16 @@ function App() {
       {isMobileView && (
         <nav className="mobile-bottom-nav">
           <button
-            className={`mobile-nav-btn ${mobileTab === 'player' ? 'active' : ''}`}
-            onClick={() => setMobileTab('player')}
+            className={`mobile-nav-btn ${mobileTab === 'player' && !libraryOpen && !chatOpen ? 'active' : ''}`}
+            onClick={() => { setMobileTab('player'); setLibraryOpen(false); setChatOpen(false) }}
           >
             <span className="nav-icon">🎵</span>
             <span className="nav-label">Player</span>
           </button>
 
           <button
-            className={`mobile-nav-btn ${mobileTab === 'queue' ? 'active' : ''}`}
-            onClick={() => setMobileTab(t => t === 'queue' ? 'player' : 'queue')}
+            className={`mobile-nav-btn ${mobileTab === 'queue' && !libraryOpen && !chatOpen ? 'active' : ''}`}
+            onClick={() => { setLibraryOpen(false); setChatOpen(false); setMobileTab(t => t === 'queue' ? 'player' : 'queue') }}
           >
             <span className="nav-icon">🎶</span>
             <span className="nav-label">Queue</span>
@@ -779,7 +779,7 @@ function App() {
 
           <button
             className={`mobile-nav-btn ${chatOpen ? 'active' : ''}`}
-            onClick={() => { setChatOpen(true); setUnread(0) }}
+            onClick={() => { setLibraryOpen(false); setChatOpen(true); setUnread(0); setMobileTab('player') }}
           >
             <span className="nav-icon">💬</span>
             <span className="nav-label">Chat</span>
@@ -788,15 +788,15 @@ function App() {
 
           <button
             className={`mobile-nav-btn ${libraryOpen ? 'active' : ''}`}
-            onClick={() => setLibraryOpen(p => !p)}
+            onClick={() => { setChatOpen(false); setMobileTab('player'); setLibraryOpen(p => !p) }}
           >
             <span className="nav-icon">📚</span>
             <span className="nav-label">Library</span>
           </button>
 
           <button
-            className="mobile-nav-btn"
-            onClick={() => setProfileOpen(p => !p)}
+            className={`mobile-nav-btn ${profileOpen ? 'active' : ''}`}
+            onClick={() => { setLibraryOpen(false); setChatOpen(false); setProfileOpen(p => !p) }}
           >
             {user?.avatar
               ? <img src={user.avatar} alt="" style={{ width: 24, height: 24, borderRadius: '50%', objectFit: 'cover' }} />
