@@ -3818,6 +3818,256 @@ body {
     padding-bottom: env(safe-area-inset-bottom) !important;
   }
 
+  /* Library fullscreen sits between header and bottom nav */
+  .library-fullscreen {
+    top: 52px !important;
+    bottom: 64px !important;
+    border-radius: 0 !important;
+    animation: libSlideUp 0.32s cubic-bezier(0.34,1.1,0.64,1) both !important;
+  }
+
+  @keyframes libSlideUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Subheader — clean single row */
+  .lib-subheader {
+    flex-direction: row !important;
+    align-items: center !important;
+    padding: 12px 14px 10px !important;
+    gap: 10px !important;
+    border-bottom: 1px solid rgba(255,255,255,0.07) !important;
+  }
+
+  /* Hide "Back to Room" — library is now its own tab */
+  .lib-back-room {
+    display: none !important;
+  }
+
+  .lib-header-center {
+    text-align: left !important;
+    flex: 1 !important;
+  }
+
+  .lib-title {
+    font-size: 1.1rem !important;
+    letter-spacing: 1px !important;
+  }
+
+  .lib-subtitle {
+    font-size: 0.68rem !important;
+    margin-top: 1px !important;
+  }
+
+  /* + button — icon only on mobile */
+  .lib-new-btn {
+    padding: 9px 14px !important;
+    font-size: 0.8rem !important;
+    border-radius: 12px !important;
+    gap: 5px !important;
+    white-space: nowrap !important;
+    flex-shrink: 0 !important;
+  }
+
+  /* Grid — 2 tight columns */
+  .lib-crate-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 10px !important;
+    padding: 12px 12px 20px !important;
+  }
+
+  /* Cards — compact */
+  .crate-card {
+    padding: 12px !important;
+    border-radius: 16px !important;
+  }
+
+  .crate-thumbs {
+    height: 48px !important;
+    margin-bottom: 8px !important;
+  }
+
+  .crate-thumb-img {
+    width: 42px !important;
+    height: 32px !important;
+  }
+
+  .crate-name {
+    font-size: 0.82rem !important;
+    margin-bottom: 1px !important;
+  }
+
+  .crate-count {
+    font-size: 0.68rem !important;
+  }
+
+  .crate-actions {
+    margin-top: 8px !important;
+    gap: 6px !important;
+  }
+
+  .crate-action-btn {
+    padding: 7px 8px !important;
+    font-size: 0.72rem !important;
+    border-radius: 8px !important;
+    flex: 1 !important;
+  }
+
+  .crate-new-card {
+    border-radius: 16px !important;
+    min-height: unset !important;
+    padding: 20px 12px !important;
+  }
+
+  .crate-new-icon {
+    font-size: 1.6rem !important;
+    margin-bottom: 4px !important;
+  }
+
+  .crate-new-label {
+    font-size: 0.72rem !important;
+  }
+
+  /* Crate detail view — stack vertically */
+  .cd-header {
+    padding: 12px 14px 10px !important;
+    gap: 8px !important;
+    flex-wrap: wrap !important;
+  }
+
+  .cd-back {
+    padding: 7px 12px !important;
+    font-size: 0.78rem !important;
+  }
+
+  .cd-title {
+    font-size: 0.95rem !important;
+  }
+
+  .cd-subtitle {
+    font-size: 0.68rem !important;
+  }
+
+  .cd-header-actions {
+    width: 100% !important;
+    gap: 8px !important;
+  }
+
+  .cd-action-btn {
+    flex: 1 !important;
+    justify-content: center !important;
+    padding: 9px !important;
+    font-size: 0.78rem !important;
+    border-radius: 10px !important;
+  }
+
+  .cd-body {
+    flex-direction: column !important;
+    gap: 0 !important;
+    overflow: unset !important;
+  }
+
+  .cd-left {
+    border-right: none !important;
+    border-bottom: 1px solid rgba(255,255,255,0.07) !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    flex: 1 !important;
+  }
+
+  .cd-search-wrap {
+    margin: 10px 12px 6px !important;
+  }
+
+  .cd-song-list {
+    padding: 0 8px 12px !important;
+  }
+
+  .cd-song-item {
+    padding: 9px 10px !important;
+    border-radius: 10px !important;
+  }
+
+  .cd-song-thumb {
+    width: 38px !important;
+    height: 28px !important;
+  }
+
+  .cd-song-title {
+    font-size: 0.8rem !important;
+  }
+
+  .cd-song-num {
+    font-size: 0.68rem !important;
+    min-width: 18px !important;
+  }
+
+  .cd-queue-btn {
+    padding: 5px 8px !important;
+    font-size: 0.68rem !important;
+  }
+
+  /* Add songs panel — collapsible row on mobile */
+  .cd-right {
+    flex-shrink: 0 !important;
+    padding: 12px 14px !important;
+    border-left: none !important;
+    border-top: 1px solid rgba(255,255,255,0.07) !important;
+  }
+
+  .cd-add-panel {
+    padding: 0 !important;
+    border: none !important;
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+
+  .cd-add-title {
+    font-size: 0.85rem !important;
+    margin-bottom: 8px !important;
+  }
+
+  .cd-add-tabs {
+    margin-bottom: 8px !important;
+  }
+
+  .cd-url-input {
+    font-size: 0.85rem !important;
+    padding: 10px 12px !important;
+    border-radius: 10px !important;
+  }
+
+  .cd-add-btn {
+    padding: 11px !important;
+    font-size: 0.85rem !important;
+    border-radius: 12px !important;
+  }
+
+  .cd-stats {
+    margin-top: 10px !important;
+    gap: 12px !important;
+  }
+
+  /* New crate modal — bottom sheet */
+  .new-crate-overlay {
+    align-items: flex-end !important;
+    padding: 0 !important;
+  }
+
+  .new-crate-modal {
+    width: 100% !important;
+    border-radius: 24px 24px 0 0 !important;
+    padding: 22px 18px calc(env(safe-area-inset-bottom) + 16px) !important;
+    max-height: 82dvh !important;
+    overflow-y: auto !important;
+  }
+
+  /* Toast above bottom nav */
+  .lib-toast {
+    bottom: 80px !important;
+  }
+
   /* ── Recap — bottom sheet ─────────────────────────────── */
   .recap-overlay {
     align-items: flex-end !important;
@@ -3980,6 +4230,7 @@ body {
   /* Only show active states */
   .song-item:active { background: rgba(255,255,255,0.06) !important; }
 }
+
 
 /* ═══════════════════════════════════════════════════════
    PROFILE DROPDOWN

@@ -437,8 +437,8 @@ export default function Library({ isOpen, onClose, socket, roomId, username, onA
               <p className="lib-subtitle">{categories.length} collections · {categories.reduce((acc, c) => acc + (c.songs || []).length, 0)} songs</p>
             </div>
             <button className="lib-new-btn" onClick={() => setShowNewCrate(true)}>
-              <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
-              New Collection
+              <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+              New
             </button>
           </div>
 
