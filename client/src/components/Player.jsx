@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
+import MarqueeText from './MarqueeText'
 
 let YT = null
 
@@ -379,7 +380,7 @@ export default function Player({ socket, roomId, videoId, title, onEnded, onSkip
       </div>
 
       <div className="player-info">
-        <p className="player-title">{title || 'No song loaded'}</p>
+        <MarqueeText className="player-title">{title || 'No song loaded'}</MarqueeText>
         <div className="player-sub-row">
           <p className="player-sub">{videoId ? 'YouTube' : 'Add a song to the queue →'}</p>
           <BpmBadge bpm={bpm} loading={bpmLoading && !!title} />

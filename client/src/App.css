@@ -5181,3 +5181,60 @@ h1, h2, h3 {
   transition: background 0.12s;
 }
 .song-react-picker button:hover { background: rgba(255,255,255,0.1); }
+
+
+/* ═══════════════════════════════════════════════════════════
+   MARQUEE / AUTO-SCROLL FOR LONG TITLES
+   ═══════════════════════════════════════════════════════════
+   Applied to every title that can overflow.
+   - Text sits still for 2s so you can read the start
+   - Scrolls smoothly to the end
+   - Pauses 1.5s at the end
+   - Loops
+   Only animates when the element is actually overflowing
+   (controlled via --marquee-overflow CSS variable set by JS,
+   but works without JS too via the :hover trigger)
+   ═══════════════════════════════════════════════════════════ */
+
+@keyframes marquee-scroll {
+  0%        { transform: translateX(0); }
+  10%       { transform: translateX(0); }          /* hold start */
+  80%       { transform: translateX(var(--marquee-distance, -60%)); }
+  90%, 100% { transform: translateX(var(--marquee-distance, -60%)); } /* hold end */
+}
+
+.marquee-wrap {
+  overflow: hidden;
+  white-space: nowrap;
+  position: relative;
+  /* mask edges for smooth fade */
+  -webkit-mask-image: linear-gradient(to right, transparent 0%, black 4%, black 90%, transparent 100%);
+  mask-image: linear-gradient(to right, transparent 0%, black 4%, black 90%, transparent 100%);
+}
+
+.marquee-wrap .marquee-inner {
+  display: inline-block;
+  white-space: nowrap;
+  animation: marquee-scroll 7s ease-in-out infinite;
+  animation-play-state: paused;  /* only play when overflow detected */
+  padding-right: 32px;           /* breathing room at end */
+}
+
+.marquee-wrap.is-overflowing .marquee-inner {
+  animation-play-state: running;
+}
+
+/* ── Apply marquee-wrap to all title elements ────────────── */
+.player-title,
+.song-name,
+.now-playing-box-title,
+.lib-np-title,
+.mini-player-title,
+.recap-song-title,
+.cd-song-title,
+.pd-name,
+.song-preview-title {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;    /* fallback if JS hasn't run yet */
+}

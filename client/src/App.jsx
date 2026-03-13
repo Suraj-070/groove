@@ -11,6 +11,7 @@ import ReactionBurst from './components/ReactionBurst'
 import SessionRecap from './components/SessionRecap'
 import Library from './components/Library'
 import Visualizer from './components/Visualizer'
+import MarqueeText from './components/MarqueeText'
 import './App.css'
 
 // ── Detect Discord Activity context ──────────────────────────
@@ -119,7 +120,7 @@ function MiniPlayer({ title, videoId, isPlaying, onPlay, onPause, onSkip, onOpen
         alt=""
         className="mini-player-thumb"
       />
-      <p className="mini-player-title">{title || 'No song'}</p>
+      <MarqueeText className="mini-player-title" as="p">{title || 'No song'}</MarqueeText>
       <div className="mini-player-controls" onClick={e => e.stopPropagation()}>
         <button
           className="mini-ctrl-btn"

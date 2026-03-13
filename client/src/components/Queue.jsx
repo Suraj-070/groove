@@ -12,7 +12,7 @@ function NowPlayingBox({ queue = [], currentIndex = 0, onPrev, onNext, loop, onT
         <div className="now-playing-box-thumb">
           <img src={`https://img.youtube.com/vi/${song.videoId}/hqdefault.jpg`} alt="" />
         </div>
-        <p className="now-playing-box-title">{song.title}</p>
+        <MarqueeText className="now-playing-box-title">{song.title}</MarqueeText>
       </div>
       <div className="now-playing-nav">
         <button onClick={onPrev} disabled={currentIndex === 0}>⏮ Prev</button>
@@ -25,6 +25,8 @@ function NowPlayingBox({ queue = [], currentIndex = 0, onPrev, onNext, loop, onT
 }
 
 import { useState, useRef, useCallback, useEffect } from 'react'
+import { createPortal } from 'react-dom'
+import MarqueeText from './MarqueeText'
 
 const BACKEND = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'
 
@@ -65,7 +67,7 @@ async function fetchTitle(videoId) {
 }
 
 // ── Song preview tooltip (portal-based to escape overflow) ───
-import { createPortal } from 'react-dom'
+
 
 function SongPreview({ song, visible, anchorRef }) {
   const [pos, setPos] = useState({ top: 0, left: 0, above: true })
@@ -424,7 +426,7 @@ export default function Queue({
             </div>
 
             <div className="song-info">
-              <p className="song-name">{song.title}</p>
+              <MarqueeText className="song-name">{song.title}</MarqueeText>
               {song.addedBy && <p className="song-id">by {song.addedBy}</p>}
             </div>
 
