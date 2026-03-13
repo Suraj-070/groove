@@ -141,6 +141,7 @@ function MiniPlayer({ title, videoId, isPlaying, onPlay, onPause, onSkip, onOpen
 function App() {
   const [user, setUser] = useState(null)
   const [authLoading, setAuthLoading] = useState(true)
+  const [serverWaking, setServerWaking] = useState(false)
   const [roomId, setRoomId] = useState(null)
   const [queue, setQueue] = useState([])
   const [currentIndex, setCurrentIndex] = useState(0)
@@ -302,7 +303,15 @@ function App() {
             const res = await fetch(`${BACKEND}/auth/me`, { credentials: 'include', signal: controller.signal })
             clearTimeout(timeout)
             if (res.ok) setUser(await res.json())
-          } catch {}
+          } catch {
+            // First attempt timed out — server is cold starting, retry with longer timeout
+            setServerWaking(true)
+            try {
+              const res = await fetch(`${BACKEND}/auth/me`, { credentials: 'include' })
+              if (res.ok) setUser(await res.json())
+            } catch {}
+            setServerWaking(false)
+          }
 
           const params = new URLSearchParams(window.location.search)
           if (params.get('auth') === 'success') {
@@ -495,7 +504,13 @@ function App() {
           <span className="auth-title-big">GROOVE</span>
           <span className="auth-title-small">· together ·</span>
         </div>
-        <p className="auth-status">{IS_DISCORD ? 'Loading Activity...' : 'Checking session...'}</p>
+        <p className="auth-status">
+          {IS_DISCORD
+            ? 'Loading Activity...'
+            : serverWaking
+            ? '☕ Server is waking up, hang tight...'
+            : 'Checking session...'}
+        </p>
       </div>
     )
   }
