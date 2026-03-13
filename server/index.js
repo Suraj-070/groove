@@ -1,36 +1,33 @@
-require('dotenv').config();
+require('dotenv').config({ path: require('path').join(__dirname, '.env') });
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
-const fs = require('fs');
 const path = require('path');
 const session = require('express-session');
 const passport = require('passport');
 const DiscordStrategy = require('passport-discord').Strategy;
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const { randomUUID } = require('crypto');
+const mongoose = require('mongoose');
 
 const app = express();
+app.set('trust proxy', 1);
 
-app.set('trust proxy', 1)
-const isProd = !!process.env.FRONTEND_URL
-
-const ALLOWED_ORIGINS = [
-  'http://localhost:5173',
-  process.env.FRONTEND_URL,
-].filter(Boolean)
+const isProd = !!process.env.FRONTEND_URL;
+const FRONTEND = process.env.FRONTEND_URL || 'http://localhost:5173';
+const ALLOWED_ORIGINS = ['http://localhost:5173', process.env.FRONTEND_URL].filter(Boolean);
 
 app.use(cors({
   origin: (origin, cb) => {
-    if (!origin || ALLOWED_ORIGINS.includes(origin)) cb(null, true)
-    else cb(new Error('Not allowed by CORS'))
+    if (!origin || ALLOWED_ORIGINS.includes(origin)) cb(null, true);
+    else cb(new Error('Not allowed by CORS'));
   },
   credentials: true,
   methods: ['GET', 'POST', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  allowedHeaders: ['Content-Type', 'Authorization']
 }));
-app.options(/.*/, cors())
+app.options(/.*/, cors());
 app.use(express.json());
 app.use(session({
   secret: process.env.SESSION_SECRET || 'groove_secret',
@@ -46,14 +43,60 @@ app.use(session({
 app.use(passport.initialize());
 app.use(passport.session());
 
-// ─── DISCORD STRATEGY ─────────────────────────────────────────
+// ─── MONGODB ──────────────────────────────────────────────────
+const MONGO_URI = process.env.MONGODB_URI || process.env.MONGO_URI;
+if (MONGO_URI) {
+  mongoose.connect(MONGO_URI)
+    .then(() => console.log('✅ MongoDB connected'))
+    .catch(e => console.error('❌ MongoDB error:', e.message));
+} else {
+  console.warn('⚠️  No MONGODB_URI set — library will not persist across restarts');
+}
+
+// ─── LIBRARY SCHEMA ───────────────────────────────────────────
+const songSchema = new mongoose.Schema({
+  videoId: { type: String, required: true },
+  title:   { type: String, required: true },
+  addedAt: { type: Number, default: () => Date.now() }
+}, { _id: false });
+
+const categorySchema = new mongoose.Schema({
+  id:        { type: String, default: () => randomUUID() },
+  name:      { type: String, required: true },
+  color:     { type: String, default: '#7c6aff' },
+  songs:     { type: [songSchema], default: [] },
+  createdAt: { type: Number, default: () => Date.now() }
+}, { _id: false });
+
+const librarySchema = new mongoose.Schema({
+  userId:     { type: String, required: true, unique: true, index: true },
+  categories: { type: [categorySchema], default: [] },
+  updatedAt:  { type: Number, default: () => Date.now() }
+});
+
+const Library = mongoose.models.Library || mongoose.model('Library', librarySchema);
+
+// In-memory fallback when MongoDB is not connected
+const memLibraries = {};
+
+async function getLibrary(userId) {
+  if (!MONGO_URI) {
+    if (!memLibraries[userId]) memLibraries[userId] = { userId, categories: [] };
+    return memLibraries[userId];
+  }
+  let lib = await Library.findOne({ userId });
+  if (!lib) { lib = await Library.create({ userId, categories: [] }); }
+  return lib;
+}
+
+// ─── AUTH ─────────────────────────────────────────────────────
 passport.use(new DiscordStrategy({
   clientID: process.env.DISCORD_CLIENT_ID,
   clientSecret: process.env.DISCORD_CLIENT_SECRET,
   callbackURL: process.env.CALLBACK_URL,
   scope: ['identify']
 }, (accessToken, refreshToken, profile, done) => {
-  return done(null, {
+  done(null, {
     id: `discord_${profile.id}`,
     username: profile.username,
     avatar: profile.avatar
@@ -63,16 +106,15 @@ passport.use(new DiscordStrategy({
   });
 }));
 
-// ─── GOOGLE STRATEGY ──────────────────────────────────────────
 if (process.env.GOOGLE_CLIENT_ID) {
   passport.use(new GoogleStrategy({
     clientID: process.env.GOOGLE_CLIENT_ID,
     clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-    callbackURL: process.env.GOOGLE_CALLBACK_URL || `${process.env.BACKEND_URL}/auth/google/callback`
+    callbackURL: process.env.GOOGLE_CALLBACK_URL
   }, (accessToken, refreshToken, profile, done) => {
-    return done(null, {
+    done(null, {
       id: `google_${profile.id}`,
-      username: profile.displayName || profile.emails?.[0]?.value?.split('@')[0],
+      username: profile.displayName,
       avatar: profile.photos?.[0]?.value || null,
       provider: 'google'
     });
@@ -82,163 +124,145 @@ if (process.env.GOOGLE_CLIENT_ID) {
 passport.serializeUser((user, done) => done(null, user));
 passport.deserializeUser((user, done) => done(null, user));
 
-const FRONTEND = process.env.FRONTEND_URL || 'http://localhost:5173'
+// ─── AUTH ROUTES ──────────────────────────────────────────────
+app.get('/health', (req, res) => res.json({ status: 'ok' }));
 
-app.get('/health', (req, res) => res.json({ status: 'ok' }))
-
-// ─── DISCORD AUTH ─────────────────────────────────────────────
 app.get('/auth/discord', passport.authenticate('discord'));
 app.get('/auth/discord/callback',
   passport.authenticate('discord', { failureRedirect: `${FRONTEND}?error=auth_failed` }),
   (req, res) => res.redirect(`${FRONTEND}?auth=success`)
 );
 
-// ─── GOOGLE AUTH ──────────────────────────────────────────────
-app.get('/auth/google', (req, res, next) => {
-  if (!process.env.GOOGLE_CLIENT_ID) {
-    return res.redirect(`${FRONTEND}?error=google_not_configured`)
-  }
-  passport.authenticate('google', { scope: ['profile', 'email'] })(req, res, next)
-});
+app.get('/auth/google', passport.authenticate('google', { scope: ['profile'] }));
 app.get('/auth/google/callback',
   passport.authenticate('google', { failureRedirect: `${FRONTEND}?error=auth_failed` }),
   (req, res) => res.redirect(`${FRONTEND}?auth=success`)
 );
 
-// ─── GUEST AUTH ───────────────────────────────────────────────
-app.post('/auth/guest', (req, res) => {
-  const { username } = req.body
-  if (!username?.trim()) return res.status(400).json({ error: 'Username required' })
-  const name = username.trim()
-  if (name.length < 2 || name.length > 20) return res.status(400).json({ error: 'Username must be 2-20 characters' })
-
-  const user = {
-    id: `guest_${randomUUID()}`,
-    username: name,
-    avatar: null,
-    provider: 'guest',
-    isGuest: true
-  }
-
-  req.session.passport = { user }
-  req.session.save((err) => {
-    if (err) return res.status(500).json({ error: 'Session error' })
-    res.json(user)
-  })
-});
-
-// ─── DISCORD ACTIVITY TOKEN EXCHANGE ─────────────────────────
-app.post('/auth/discord/token', async (req, res) => {
-  const { code } = req.body
-  if (!code) return res.status(400).json({ error: 'Code required' })
-  try {
-    const tokenRes = await fetch('https://discord.com/api/oauth2/token', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({
-        client_id: process.env.DISCORD_CLIENT_ID,
-        client_secret: process.env.DISCORD_CLIENT_SECRET,
-        grant_type: 'authorization_code',
-        code
-      })
-    })
-    const tokenData = await tokenRes.json()
-    if (!tokenData.access_token) return res.status(400).json({ error: 'Token exchange failed' })
-    const userRes = await fetch('https://discord.com/api/users/@me', {
-      headers: { Authorization: `Bearer ${tokenData.access_token}` }
-    })
-    const profile = await userRes.json()
-    const user = {
-      id: `discord_${profile.id}`,
-      username: profile.username,
-      avatar: profile.avatar
-        ? `https://cdn.discordapp.com/avatars/${profile.id}/${profile.avatar}.png`
-        : null,
-      provider: 'discord'
-    }
-    req.session.passport = { user }
-    req.session.save()
-    res.json(user)
-  } catch (e) {
-    res.status(500).json({ error: 'Token exchange failed' })
-  }
-});
-
 app.get('/auth/me', (req, res) => {
-  if (req.isAuthenticated()) res.json(req.user)
-  else res.status(401).json({ error: 'Not authenticated' })
+  if (req.isAuthenticated()) res.json(req.user);
+  else res.status(401).json({ error: 'Not authenticated' });
+});
+
+app.post('/auth/guest', (req, res) => {
+  const { username } = req.body;
+  if (!username?.trim()) return res.status(400).json({ error: 'Username required' });
+  const user = { id: `guest_${randomUUID()}`, username: username.trim(), avatar: null, provider: 'guest', isGuest: true };
+  req.login(user, (err) => {
+    if (err) return res.status(500).json({ error: 'Login failed' });
+    res.json(user);
+  });
 });
 
 app.get('/auth/logout', (req, res) => {
-  req.logout(() => res.json({ success: true }))
+  req.logout(() => res.json({ success: true }));
 });
 
-// ─── LIBRARY PERSISTENCE ──────────────────────────────────────
-const LIBRARY_FILE = path.join(__dirname, 'library.json');
-function loadLibraries() {
-  try {
-    if (fs.existsSync(LIBRARY_FILE)) return JSON.parse(fs.readFileSync(LIBRARY_FILE, 'utf8'));
-  } catch (e) {}
-  return {};
-}
-function saveLibraries() {
-  try { fs.writeFileSync(LIBRARY_FILE, JSON.stringify(libraries, null, 2)); } catch (e) {}
-}
-const libraries = loadLibraries();
-function getLibrary(userId) {
-  if (!libraries[userId]) libraries[userId] = { categories: [] };
-  return libraries[userId];
-}
+// ─── AUTH MIDDLEWARE ──────────────────────────────────────────
 function requireAuth(req, res, next) {
-  if (req.isAuthenticated()) return next();
+  if (req.isAuthenticated() && !req.user?.isGuest) return next();
   res.status(401).json({ error: 'Not authenticated' });
 }
 
-// ─── LIBRARY REST API ─────────────────────────────────────────
-app.get('/library', requireAuth, (req, res) => {
-  if (req.user.isGuest) return res.json({ categories: [] })
-  res.json(getLibrary(req.user.id));
+// ─── LIBRARY API ──────────────────────────────────────────────
+app.get('/library', requireAuth, async (req, res) => {
+  try {
+    const lib = await getLibrary(req.user.id);
+    res.json({ categories: lib.categories });
+  } catch (e) {
+    console.error('GET /library error:', e);
+    res.status(500).json({ error: 'Failed to load library' });
+  }
 });
 
-app.post('/library/categories', requireAuth, (req, res) => {
-  if (req.user.isGuest) return res.status(403).json({ error: 'Guests cannot save library' })
-  const { name, color } = req.body;
-  if (!name?.trim()) return res.status(400).json({ error: 'Name required' });
-  const lib = getLibrary(req.user.id);
-  const category = { id: randomUUID(), name: name.trim(), color: color || '#7c6aff', songs: [], createdAt: Date.now() };
-  lib.categories.push(category);
-  saveLibraries();
-  res.json(category);
+app.post('/library/categories', requireAuth, async (req, res) => {
+  try {
+    const { name, color } = req.body;
+    if (!name?.trim()) return res.status(400).json({ error: 'Name required' });
+    const category = { id: randomUUID(), name: name.trim(), color: color || '#7c6aff', songs: [], createdAt: Date.now() };
+
+    if (!MONGO_URI) {
+      const lib = await getLibrary(req.user.id);
+      lib.categories.push(category);
+      return res.json(category);
+    }
+
+    await Library.findOneAndUpdate(
+      { userId: req.user.id },
+      { $push: { categories: category }, $set: { updatedAt: Date.now() } },
+      { upsert: true }
+    );
+    res.json(category);
+  } catch (e) {
+    console.error('POST /library/categories error:', e);
+    res.status(500).json({ error: 'Failed to create collection' });
+  }
 });
 
-app.delete('/library/categories/:categoryId', requireAuth, (req, res) => {
-  const lib = getLibrary(req.user.id);
-  lib.categories = lib.categories.filter(c => c.id !== req.params.categoryId);
-  saveLibraries();
-  res.json({ success: true });
+app.delete('/library/categories/:categoryId', requireAuth, async (req, res) => {
+  try {
+    if (!MONGO_URI) {
+      const lib = await getLibrary(req.user.id);
+      lib.categories = lib.categories.filter(c => c.id !== req.params.categoryId);
+      return res.json({ success: true });
+    }
+    await Library.findOneAndUpdate(
+      { userId: req.user.id },
+      { $pull: { categories: { id: req.params.categoryId } }, $set: { updatedAt: Date.now() } }
+    );
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to delete collection' });
+  }
 });
 
-app.post('/library/categories/:categoryId/songs', requireAuth, (req, res) => {
-  if (req.user.isGuest) return res.status(403).json({ error: 'Guests cannot save library' })
-  const { videoId, title } = req.body;
-  if (!videoId) return res.status(400).json({ error: 'videoId required' });
-  const lib = getLibrary(req.user.id);
-  const category = lib.categories.find(c => c.id === req.params.categoryId);
-  if (!category) return res.status(404).json({ error: 'Category not found' });
-  if (category.songs.find(s => s.videoId === videoId)) return res.status(409).json({ error: 'Song already in category' });
-  const song = { videoId, title, addedAt: Date.now() };
-  category.songs.push(song);
-  saveLibraries();
-  res.json(song);
+app.post('/library/categories/:categoryId/songs', requireAuth, async (req, res) => {
+  try {
+    const { videoId, title } = req.body;
+    if (!videoId) return res.status(400).json({ error: 'videoId required' });
+
+    const lib = await getLibrary(req.user.id);
+    const categories = lib.categories || [];
+    const category = categories.find(c => c.id === req.params.categoryId);
+    if (!category) return res.status(404).json({ error: 'Collection not found' });
+    if ((category.songs || []).find(s => s.videoId === videoId))
+      return res.status(409).json({ error: 'Song already in collection' });
+
+    const song = { videoId, title, addedAt: Date.now() };
+
+    if (!MONGO_URI) {
+      category.songs.push(song);
+      return res.json(song);
+    }
+
+    await Library.findOneAndUpdate(
+      { userId: req.user.id, 'categories.id': req.params.categoryId },
+      { $push: { 'categories.$.songs': song }, $set: { updatedAt: Date.now() } }
+    );
+    res.json(song);
+  } catch (e) {
+    console.error('POST /library/songs error:', e);
+    res.status(500).json({ error: 'Failed to add song' });
+  }
 });
 
-app.delete('/library/categories/:categoryId/songs/:videoId', requireAuth, (req, res) => {
-  const lib = getLibrary(req.user.id);
-  const category = lib.categories.find(c => c.id === req.params.categoryId);
-  if (!category) return res.status(404).json({ error: 'Category not found' });
-  category.songs = category.songs.filter(s => s.videoId !== req.params.videoId);
-  saveLibraries();
-  res.json({ success: true });
+app.delete('/library/categories/:categoryId/songs/:videoId', requireAuth, async (req, res) => {
+  try {
+    if (!MONGO_URI) {
+      const lib = await getLibrary(req.user.id);
+      const category = lib.categories.find(c => c.id === req.params.categoryId);
+      if (category) category.songs = category.songs.filter(s => s.videoId !== req.params.videoId);
+      return res.json({ success: true });
+    }
+
+    await Library.findOneAndUpdate(
+      { userId: req.user.id, 'categories.id': req.params.categoryId },
+      { $pull: { 'categories.$.songs': { videoId: req.params.videoId } }, $set: { updatedAt: Date.now() } }
+    );
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to remove song' });
+  }
 });
 
 // ─── YOUTUBE PLAYLIST API ─────────────────────────────────────
@@ -266,7 +290,7 @@ app.get('/youtube/playlist', requireAuth, async (req, res) => {
           songs.push({ videoId, title });
       });
       nextPageToken = data.nextPageToken || null;
-    } while (nextPageToken && songs.length < 200)
+    } while (nextPageToken && songs.length < 200);
     res.json({ songs, total: songs.length });
   } catch (e) {
     res.status(500).json({ error: 'Failed to fetch playlist' });
@@ -275,6 +299,7 @@ app.get('/youtube/playlist', requireAuth, async (req, res) => {
 
 // ─── ROOM STATE ───────────────────────────────────────────────
 const rooms = {};
+
 function getRoom(roomId) {
   if (!rooms[roomId]) {
     rooms[roomId] = {
@@ -289,8 +314,7 @@ function getRoom(roomId) {
 // ─── SOCKET.IO ────────────────────────────────────────────────
 const server = http.createServer(app);
 const io = new Server(server, {
-  cors: { origin: ALLOWED_ORIGINS, credentials: true, methods: ['GET', 'POST'] },
-  transports: ['websocket', 'polling']
+  cors: { origin: ALLOWED_ORIGINS, credentials: true }
 });
 
 io.on('connection', (socket) => {
@@ -346,10 +370,7 @@ io.on('connection', (socket) => {
     if (prev && !room.songsPlayed.find(s => s.videoId === prev.videoId))
       room.songsPlayed.push({ ...prev, playedAt: Date.now() });
     room.currentIndex = index; room.currentTime = 0; room.isPlaying = true;
-    io.to(roomId).emit('load-song', {
-      index, videoId: room.queue[index]?.videoId,
-      title: room.queue[index]?.title, queue: room.queue
-    });
+    io.to(roomId).emit('load-song', { index, videoId: room.queue[index]?.videoId, title: room.queue[index]?.title, queue: room.queue });
   });
 
   socket.on('remove-song', ({ roomId, index }) => {
@@ -414,5 +435,5 @@ io.on('connection', (socket) => {
 
 const PORT = process.env.PORT || 3001;
 server.listen(PORT, () => {
-  console.log(`🎵 Groove Together server running on http://localhost:${PORT}`);
+  console.log(`🎵 Groove Together server on port ${PORT}`);
 });
