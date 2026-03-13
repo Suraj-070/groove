@@ -64,11 +64,31 @@ async function fetchTitle(videoId) {
   }
 }
 
-// ── Song preview tooltip ──────────────────────────────────────
-function SongPreview({ song, visible }) {
+// ── Song preview tooltip (portal-based to escape overflow) ───
+import { createPortal } from 'react-dom'
+
+function SongPreview({ song, visible, anchorRef }) {
+  const [pos, setPos] = useState({ top: 0, left: 0, above: true })
+
+  useEffect(() => {
+    if (!visible || !anchorRef?.current) return
+    const rect = anchorRef.current.getBoundingClientRect()
+    const tooltipH = 90
+    const above = rect.top > tooltipH + 16
+    setPos({
+      top: above ? rect.top - tooltipH - 8 : rect.bottom + 8,
+      left: Math.min(rect.left + rect.width / 2, window.innerWidth - 310),
+      above,
+    })
+  }, [visible, anchorRef])
+
   if (!visible || !song) return null
-  return (
-    <div className="song-preview-tooltip">
+
+  return createPortal(
+    <div
+      className="song-preview-tooltip"
+      style={{ top: pos.top, left: pos.left, transform: 'translateX(-50%)' }}
+    >
       <img src={`https://img.youtube.com/vi/${song.videoId}/hqdefault.jpg`} alt="" className="song-preview-thumb" />
       <div className="song-preview-info">
         <p className="song-preview-title">{song.title}</p>
@@ -78,7 +98,8 @@ function SongPreview({ song, visible }) {
           ▶ Open on YouTube
         </a>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
 
@@ -372,9 +393,12 @@ export default function Queue({
             <p className="empty-sub">Add a song or import a playlist above</p>
           </li>
         )}
-        {queue.map((song, i) => (
+        {queue.map((song, i) => {
+          const itemRef = { current: null }
+          return (
           <li
             key={`${song.videoId}-${i}`}
+            ref={el => itemRef.current = el}
             className={['song-item', i === currentIndex ? 'active' : '', selected.has(i) ? 'selected' : '', selectMode ? 'select-mode' : '', dragOverIndex === i ? 'drag-over' : '', dragIndex === i ? 'dragging' : ''].filter(Boolean).join(' ')}
             draggable={!selectMode}
             onDragStart={(e) => handleDragStart(e, i)}
@@ -412,9 +436,10 @@ export default function Queue({
               </button>
             )}
 
-            <SongPreview song={song} visible={hoverIndex === i} />
+            <SongPreview song={song} visible={hoverIndex === i} anchorRef={itemRef} />
           </li>
-        ))}
+        )})}
+
       </ul>
     </div>
   )
