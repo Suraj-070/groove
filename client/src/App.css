@@ -3641,20 +3641,28 @@ body {
     overflow: hidden !important;
   }
 
-  /* Drag handle pill on queue sheet */
-  .right-panel::before {
+  /* Drag handle pill on queue sheet — real DOM element for touch targeting */
+  .queue-swipe-handle {
+    width: 100%;
+    padding: 18px 0 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    cursor: grab;
+    /* Tall tap target so it's easy to grab */
+    min-height: 44px;
+  }
+  .queue-swipe-handle::after {
     content: '';
     display: block;
     width: 36px;
     height: 4px;
     background: rgba(255,255,255,0.2);
     border-radius: 2px;
-    margin: 14px auto 6px;
-    flex-shrink: 0;
     transition: width 0.3s ease, background 0.3s ease;
   }
-
-  .right-panel.mobile-open::before {
+  .right-panel.mobile-open .queue-swipe-handle::after {
     width: 48px;
     background: rgba(124,106,255,0.6);
   }
@@ -3672,6 +3680,9 @@ body {
   /* GPU-accelerate the list for smooth scrolling */
   .song-list {
     transform: translateZ(0);
+    overscroll-behavior: contain;
+    /* Prevent scroll chaining — scrolling the list must never trigger the sheet swipe */
+    touch-action: pan-y;
   }
 
   /* Layout containment per row — browser skips layout for other rows on change */

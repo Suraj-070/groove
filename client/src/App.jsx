@@ -709,14 +709,20 @@ function App() {
 
         <div
           className={`right-panel ${!isMobileView && queueCollapsed ? 'collapsed' : ''} ${isMobileView && mobileTab === 'queue' ? 'mobile-open' : ''}`}
-          onTouchStart={isMobileView ? (e) => { touchStartY.current = e.touches[0].clientY } : undefined}
-          onTouchEnd={isMobileView ? (e) => {
-            if (touchStartY.current === null) return
-            const dy = e.changedTouches[0].clientY - touchStartY.current
-            if (dy > 60) setMobileTab('player') // swipe down to close
-            touchStartY.current = null
-          } : undefined}
         >
+          {/* Swipe-down handle — touch only fires here, not on the song list */}
+          {isMobileView && (
+            <div
+              className="queue-swipe-handle"
+              onTouchStart={(e) => { touchStartY.current = e.touches[0].clientY }}
+              onTouchEnd={(e) => {
+                if (touchStartY.current === null) return
+                const dy = e.changedTouches[0].clientY - touchStartY.current
+                if (dy > 40) setMobileTab('player')
+                touchStartY.current = null
+              }}
+            />
+          )}
           <Queue
             queue={queue}
             currentIndex={currentIndex}
