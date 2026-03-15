@@ -99,8 +99,16 @@ function OfflineBanner() {
   const [offline, setOffline] = useState(!navigator.onLine)
   // Register service worker + check push status
   useEffect(() => {
-    registerServiceWorker()
-    getPushStatus().then(s => { if (s.subscribed) setPushEnabled(true) })
+    registerServiceWorker().then(() => {
+      // Check support AFTER SW registers — PushManager needs SW to be ready
+      const supported = isPushSupported()
+      setPushSupported(supported)
+      if (supported) {
+        getPushStatus().then(s => {
+          if (s.subscribed) setPushEnabled(true)
+        })
+      }
+    })
   }, [])
 
   useEffect(() => {
@@ -158,8 +166,9 @@ function App() {
   const [chatOpen, setChatOpen] = useState(false)
   const [chatHistory, setChatHistory] = useState([])
   const [videoOpen, setVideoOpen] = useState(false)
-  const [pushEnabled, setPushEnabled] = useState(false)
-  const [pushLoading, setPushLoading] = useState(false)
+  const [pushEnabled, setPushEnabled]   = useState(false)
+  const [pushLoading, setPushLoading]   = useState(false)
+  const [pushSupported, setPushSupported] = useState(false)
   const [unread, setUnread] = useState(0)
   const [djMode, setDjMode] = useState(false)
   const [djId, setDjId] = useState(null)
@@ -748,13 +757,21 @@ function App() {
                       <button className="pd-action" onClick={() => { setShowShortcuts(true); setProfileOpen(false) }}>
                         <span className="pd-action-icon">⌨️</span><span>Shortcuts</span>
                       </button>
-                      {isPushSupported() && (
-                        <button className="pd-action" onClick={handleTogglePush} disabled={pushLoading}>
-                          <span className="pd-action-icon">{pushEnabled ? '🔔' : '🔕'}</span>
-                          <span>{pushLoading ? 'Updating…' : pushEnabled ? 'Notifications ON' : 'Notifications OFF'}</span>
-                          <span className={`pd-toggle ${pushEnabled ? 'on' : ''}`} />
-                        </button>
-                      )}
+                      <button
+                        className="pd-action"
+                        onClick={pushSupported ? handleTogglePush : undefined}
+                        disabled={pushLoading || !pushSupported}
+                        title={!pushSupported ? 'Open from home screen icon to enable notifications' : ''}
+                      >
+                        <span className="pd-action-icon">{pushEnabled ? '🔔' : '🔕'}</span>
+                        <span>
+                          {pushLoading ? 'Updating…'
+                            : !pushSupported ? 'Notifications (install app first)'
+                            : pushEnabled ? 'Notifications ON'
+                            : 'Notifications OFF'}
+                        </span>
+                        {pushSupported && <span className={`pd-toggle ${pushEnabled ? 'on' : ''}`} />}
+                      </button>
                     </div>
 
                     <div className="pd-divider" />
