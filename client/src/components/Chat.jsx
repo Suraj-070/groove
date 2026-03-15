@@ -13,6 +13,21 @@ function userColor(name = '') {
 }
 function userInitial(name = '') { return name.slice(0, 1).toUpperCase() || '?' }
 
+// Format a UTC timestamp (ms) into the viewer's local time
+// Shows time only for today, "Yesterday HH:MM" for yesterday, date for older
+function formatTs(ts) {
+  if (!ts) return ''
+  const d = new Date(ts)
+  const now = new Date()
+  const isToday = d.toDateString() === now.toDateString()
+  const yesterday = new Date(now); yesterday.setDate(now.getDate() - 1)
+  const isYesterday = d.toDateString() === yesterday.toDateString()
+  const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  if (isToday) return time
+  if (isYesterday) return `Yesterday ${time}`
+  return d.toLocaleDateString([], { month: 'short', day: 'numeric' }) + ' ' + time
+}
+
 // ── Message types ─────────────────────────────────────────────────────────────
 // type: 'msg' | 'system' | 'np' (now-playing divider)
 
@@ -57,7 +72,7 @@ const ChatBubble = memo(({ msg, isSelf, showAvatar }) => {
         <div className={`chat-bubble ${isSelf ? 'chat-bubble--self' : 'chat-bubble--other'}`}>
           <span className="chat-bubble-text">{msg.text}</span>
         </div>
-        <span className="chat-ts">{msg.time}</span>
+        <span className="chat-ts" title={msg.ts ? new Date(msg.ts).toUTCString() : ''}>{formatTs(msg.ts)}</span>
       </div>
     </div>
   )
@@ -90,8 +105,8 @@ const ScrollBtn = memo(({ count, onClick }) => (
 ))
 
 // ── Main Chat component ───────────────────────────────────────────────────────
-export default function Chat({ socket, roomId, username, isOpen, onClose, currentSong }) {
-  const [messages, setMessages]   = useState([])
+export default function Chat({ socket, roomId, username, isOpen, onClose, currentSong, chatHistory = [] }) {
+  const [messages, setMessages]   = useState(() => chatHistory)
   const [input, setInput]         = useState('')
   const [showPicker, setShowPicker] = useState(false)
   const [typers, setTypers]       = useState([])
@@ -103,6 +118,13 @@ export default function Chat({ socket, roomId, username, isOpen, onClose, curren
   const typingTimer  = useRef(null)
   const isTypingRef  = useRef(false)
   const prevSongRef  = useRef(null)
+
+  // ── Seed history when room-state arrives (handles late mount) ──────────────
+  useEffect(() => {
+    if (chatHistory.length > 0) {
+      setMessages(chatHistory)
+    }
+  }, [chatHistory])
 
   // ── Now-playing divider when song changes ─────────────────────────────────
   useEffect(() => {
@@ -181,7 +203,7 @@ export default function Chat({ socket, roomId, username, isOpen, onClose, curren
     const msg = {
       id: Date.now(), type: 'msg', username,
       text: input.trim(),
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      ts: Date.now()  // UTC milliseconds — each client formats to their own timezone
     }
     socket.emit('chat-msg', { roomId, msg })
     setMessages(prev => [...prev, { ...msg, self: true }])

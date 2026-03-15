@@ -86,6 +86,52 @@ const roomSchema = new mongoose.Schema({
 
 const Room = mongoose.models.Room || mongoose.model('Room', roomSchema);
 
+// ─── CHAT MESSAGE SCHEMA ──────────────────────────────────────
+const messageSchema = new mongoose.Schema({
+  roomId:   { type: String, required: true, index: true },
+  id:       { type: String, required: true },
+  username: { type: String, required: true },
+  text:     { type: String, required: true },
+  ts:       { type: Number, required: true },   // UTC ms — clients format to local tz
+  type:     { type: String, default: 'msg' }
+}, { _id: false });
+
+// TTL index: messages auto-delete after 7 days
+messageSchema.index({ ts: 1 }, { expireAfterSeconds: 60 * 60 * 24 * 7 });
+
+const Message = mongoose.models.Message || mongoose.model('Message', messageSchema);
+
+// In-memory fallback for when MongoDB is unavailable
+const memMessages = {}; // { roomId: [msg, ...] }
+
+async function getMessages(roomId) {
+  if (!MONGO_URI) return memMessages[roomId] || [];
+  try {
+    return await Message.find({ roomId }, { _id: 0, roomId: 0, __v: 0 })
+      .sort({ ts: 1 })
+      .limit(100)
+      .lean();
+  } catch (e) {
+    console.error('getMessages error:', e.message);
+    return memMessages[roomId] || [];
+  }
+}
+
+async function saveMessage(roomId, msg) {
+  // Always keep in-memory (fast access for active rooms)
+  if (!memMessages[roomId]) memMessages[roomId] = [];
+  memMessages[roomId].push(msg);
+  // Keep only last 100 in memory
+  if (memMessages[roomId].length > 100) memMessages[roomId].shift();
+
+  if (!MONGO_URI) return;
+  try {
+    await Message.create({ roomId, ...msg });
+  } catch (e) {
+    console.error('saveMessage error:', e.message);
+  }
+}
+
 // In-memory fallback when MongoDB is not connected
 const memLibraries = {};
 
@@ -378,12 +424,14 @@ io.on('connection', (socket) => {
     const isFirstUser = Object.keys(room.users).length === 0;
     room.users[socket.id] = { id: socket.id, discordId, username, avatar, joinedAt: Date.now() };
     if (isFirstUser) room.djId = socket.id;
+    const chatHistory = await getMessages(roomId);
     socket.emit('room-state', {
       queue: room.queue, currentIndex: room.currentIndex,
       currentTime: room.currentTime, isPlaying: room.isPlaying,
       users: Object.values(room.users), djId: room.djId,
       djMode: room.djMode, sessionStart: room.sessionStart,
-      songsPlayed: room.songsPlayed
+      songsPlayed: room.songsPlayed,
+      chatHistory   // last 100 messages — clients format timestamps to local tz
     });
     socket.to(roomId).emit('user-joined', { user: room.users[socket.id], users: Object.values(room.users) });
   });
@@ -459,7 +507,12 @@ io.on('connection', (socket) => {
     socket.to(roomId).emit('sync-check', { time });
   });
 
-  socket.on('chat-msg', ({ roomId, msg }) => socket.to(roomId).emit('chat-msg', msg));
+  socket.on('chat-msg', ({ roomId, msg }) => {
+    // Always use server-stamped UTC ms — eliminates cross-timezone clock skew
+    const stamped = { ...msg, ts: Date.now(), type: 'msg' };
+    socket.to(roomId).emit('chat-msg', stamped);
+    saveMessage(roomId, stamped);  // persist to MongoDB + in-memory
+  });
   socket.on('reaction', ({ roomId, emoji, username }) => socket.to(roomId).emit('reaction', { emoji, username }));
   socket.on('user-typing', ({ roomId, username, isTyping }) => socket.to(roomId).emit('user-typing', { username, isTyping }));
 

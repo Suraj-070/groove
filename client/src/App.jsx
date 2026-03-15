@@ -148,6 +148,7 @@ function App() {
   const [currentIndex, setCurrentIndex] = useState(0)
   const [users, setUsers] = useState([])
   const [chatOpen, setChatOpen] = useState(false)
+  const [chatHistory, setChatHistory] = useState([])
   const [unread, setUnread] = useState(0)
   const [djMode, setDjMode] = useState(false)
   const [djId, setDjId] = useState(null)
@@ -229,6 +230,43 @@ function App() {
   }
 
   const handleCancelSleepTimer = () => setSleepTimer(null)
+
+  // ── Mobile hardware back button → close topmost sheet ────────────────────
+  // Only active on mobile. Pushes a fake history entry when any sheet opens,
+  // then intercepts popstate to close the sheet instead of navigating away.
+  const sheetOpenRef = useRef(false)
+
+  useEffect(() => {
+    if (!isMobileView) return
+
+    const anySheetOpen = mobileTab === 'queue' || chatOpen || libraryOpen || profileOpen
+    if (anySheetOpen && !sheetOpenRef.current) {
+      // A sheet just opened — push a dummy entry so back button has somewhere to pop
+      window.history.pushState({ groove_sheet: true }, '')
+      sheetOpenRef.current = true
+    } else if (!anySheetOpen && sheetOpenRef.current) {
+      // All sheets closed by UI (not back button) — remove the dummy entry we pushed
+      // so the real browser history stays clean
+      if (window.history.state?.groove_sheet) window.history.back()
+      sheetOpenRef.current = false
+    }
+  }, [mobileTab, chatOpen, libraryOpen, profileOpen, isMobileView])
+
+  useEffect(() => {
+    if (!isMobileView) return
+    const handlePop = (e) => {
+      // Only intercept our own pushed states
+      if (!sheetOpenRef.current) return
+      sheetOpenRef.current = false
+      // Close in priority order: profile → library → chat → queue
+      if (profileOpen)         { setProfileOpen(false); return }
+      if (libraryOpen)         { setLibraryOpen(false); return }
+      if (chatOpen)            { setChatOpen(false);    return }
+      if (mobileTab === 'queue') { setMobileTab('player'); }
+    }
+    window.addEventListener('popstate', handlePop)
+    return () => window.removeEventListener('popstate', handlePop)
+  }, [isMobileView, profileOpen, libraryOpen, chatOpen, mobileTab])
 
   // ── Keyboard shortcuts ────────────────────────────────────
   // Stable refs so keyboard handler never re-registers
@@ -435,7 +473,7 @@ function App() {
   useEffect(() => {
     socket.on('room-state', (data) => {
       if (!data || typeof data !== 'object') return
-      const { queue, currentIndex, currentTime, isPlaying, users, djId, djMode } = data
+      const { queue, currentIndex, currentTime, isPlaying, users, djId, djMode, chatHistory } = data
       setQueue(Array.isArray(queue) ? queue : [])
       setCurrentIndex(typeof currentIndex === 'number' ? currentIndex : 0)
       setUsers(Array.isArray(users) ? users : [])
@@ -443,6 +481,7 @@ function App() {
       if (djMode !== undefined) setDjMode(djMode)
       if (typeof currentTime === 'number') setInitialTime(currentTime)
       if (isPlaying !== undefined) { setInitialPlaying(isPlaying); setIsPlaying(isPlaying) }
+      if (Array.isArray(chatHistory)) setChatHistory(chatHistory)
     })
     socket.on('queue-updated', ({ queue }) => setQueue(Array.isArray(queue) ? queue : []))
     socket.on('load-song', ({ index, queue: updatedQueue }) => {
@@ -742,7 +781,7 @@ function App() {
         {/* Desktop inline chat panel */}
         {!isMobileView && (
           <div className={`chat-panel-inline ${chatOpen ? 'chat-panel-inline--open' : ''}`}>
-            <Chat socket={socket} roomId={roomId} username={user?.username} isOpen={true} onClose={() => setChatOpen(false)} currentSong={currentSong} />
+            <Chat socket={socket} roomId={roomId} username={user?.username} isOpen={true} onClose={() => setChatOpen(false)} currentSong={currentSong} chatHistory={chatHistory} />
           </div>
         )}
 
@@ -822,7 +861,7 @@ function App() {
 
       {/* Desktop chat panel rendered inline in layout via CSS panel, mobile stays as sheet */}
       {isMobileView && (
-        <Chat socket={socket} roomId={roomId} username={user?.username} isOpen={chatOpen} onClose={() => setChatOpen(false)} currentSong={currentSong} />
+        <Chat socket={socket} roomId={roomId} username={user?.username} isOpen={chatOpen} onClose={() => setChatOpen(false)} currentSong={currentSong} chatHistory={chatHistory} />
       )}
       {showRecap && <SessionRecap recap={recap} onClose={() => setShowRecap(false)} />}
       {libraryOpen && (
@@ -842,4 +881,4 @@ function App() {
   )
 }
 
-export default App;
+export default App
