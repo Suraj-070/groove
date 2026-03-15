@@ -498,6 +498,12 @@ function App() {
     })
     socket.on('play', () => setIsPlaying(true))
     socket.on('pause', () => setIsPlaying(false))
+    socket.on('queue-full', ({ limit }) => {
+      alert(`Queue is full (${limit} songs max). Remove some songs before adding more.`)
+    })
+    socket.on('queue-limit-reached', ({ added, skipped, limit }) => {
+      alert(`Added ${added} songs. ${skipped} songs were skipped — queue limit of ${limit} reached.\nRemove some songs and paste the playlist link again to continue importing.`)
+    })
     return () => {
       socket.off('room-state'); socket.off('queue-updated'); socket.off('load-song')
       socket.off('user-joined'); socket.off('user-left')
@@ -872,6 +878,7 @@ function App() {
           roomId={roomId}
           username={user?.username}
           onAddSongToQueue={handleAddSong}
+          onAddSongsToQueue={(songs) => socket.emit('add-songs-batch', { roomId, songs, addedBy: user.username })}
           currentVideoId={currentSong?.videoId}
         />
       )}

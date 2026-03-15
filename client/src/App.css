@@ -2723,6 +2723,30 @@ body {
   font-size: 0.9rem;
 }
 
+/* Load more pagination button */
+.cd-load-more {
+  list-style: none;
+  display: flex;
+  justify-content: center;
+  padding: 16px 24px 24px;
+}
+.cd-load-more button {
+  background: rgba(124,106,255,0.08);
+  border: 1px solid rgba(124,106,255,0.2);
+  border-radius: 20px;
+  color: var(--accent);
+  font-size: 0.82rem;
+  font-weight: 600;
+  padding: 8px 20px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+  font-family: inherit;
+}
+.cd-load-more button:hover {
+  background: rgba(124,106,255,0.15);
+  border-color: rgba(124,106,255,0.4);
+}
+
 .cd-song-item {
   display: flex;
   align-items: center;

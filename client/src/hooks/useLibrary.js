@@ -84,5 +84,36 @@ export function useLibrary() {
     ))
   }
 
-  return { categories, loading, authError, createCategory, deleteCategory, addSong, deleteSong, refetch: fetchLibrary }
+  // Batch add songs — single HTTP request for playlist imports
+  const addSongsBatch = async (categoryId, songs) => {
+    const CRATE_LIMIT = 500
+    const category = categories.find(c => c.id === categoryId)
+    if (!category) throw new Error('Collection not found')
+
+    const currentCount = (category.songs || []).length
+    if (currentCount >= CRATE_LIMIT) {
+      throw new Error(`CRATE_FULL:${CRATE_LIMIT}`)
+    }
+
+    const res = await fetch(`${API}/library/categories/${categoryId}/songs/batch`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ songs })
+    })
+    const data = await res.json()
+    if (!res.ok) throw new Error(data.error || 'Batch import failed')
+
+    // Update local state in one shot
+    if (data.songs?.length > 0) {
+      setCategories(prev => prev.map(c =>
+        c.id === categoryId
+          ? { ...c, songs: [...(c.songs || []), ...data.songs] }
+          : c
+      ))
+    }
+    return data  // { added, skipped, songs }
+  }
+
+  return { categories, loading, authError, createCategory, deleteCategory, addSong, addSongsBatch, deleteSong, refetch: fetchLibrary }
 }

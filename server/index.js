@@ -302,6 +302,51 @@ app.post('/library/categories/:categoryId/songs', requireAuth, async (req, res) 
   }
 });
 
+// ── Batch add songs to a crate (playlist import) ─────────────
+// Single HTTP request instead of N sequential requests
+app.post('/library/categories/:categoryId/songs/batch', requireAuth, async (req, res) => {
+  try {
+    const { songs } = req.body; // [{ videoId, title }, ...]
+    if (!Array.isArray(songs) || songs.length === 0)
+      return res.status(400).json({ error: 'songs array required' });
+
+    const CRATE_SONG_LIMIT = 500;
+    const lib = await getLibrary(req.user.id);
+    const category = (lib.categories || []).find(c => c.id === req.params.categoryId);
+    if (!category) return res.status(404).json({ error: 'Collection not found' });
+
+    const existing = new Set((category.songs || []).map(s => s.videoId));
+    const remaining = CRATE_SONG_LIMIT - (category.songs || []).length;
+
+    if (remaining <= 0)
+      return res.status(409).json({ error: 'CRATE_FULL', limit: CRATE_SONG_LIMIT });
+
+    // Deduplicate + cap
+    const toAdd = songs
+      .filter(s => s.videoId && s.title && !existing.has(s.videoId))
+      .slice(0, remaining)
+      .map(s => ({ videoId: s.videoId, title: s.title, addedAt: Date.now() }));
+
+    const skipped = songs.length - toAdd.length;
+
+    if (!MONGO_URI) {
+      category.songs.push(...toAdd);
+      return res.json({ added: toAdd.length, skipped, songs: toAdd });
+    }
+
+    if (toAdd.length > 0) {
+      await Library.findOneAndUpdate(
+        { userId: req.user.id, 'categories.id': req.params.categoryId },
+        { $push: { 'categories.$.songs': { $each: toAdd } }, $set: { updatedAt: Date.now() } }
+      );
+    }
+    res.json({ added: toAdd.length, skipped, songs: toAdd });
+  } catch (e) {
+    console.error('POST /library/songs/batch error:', e);
+    res.status(500).json({ error: 'Failed to batch add songs' });
+  }
+});
+
 app.delete('/library/categories/:categoryId/songs/:videoId', requireAuth, async (req, res) => {
   try {
     if (!MONGO_URI) {
@@ -458,11 +503,30 @@ io.on('connection', (socket) => {
   });
 
   socket.on('add-song', async ({ roomId, videoId, title, addedBy }) => {
-    // Notify others in the room
-    socket.to(roomId).emit('song-added-notify', { title, addedBy });
     const room = await getRoom(roomId);
+    if (room.queue.length >= 200) {
+      socket.emit('queue-full', { limit: 200 });
+      return;
+    }
+    socket.to(roomId).emit('song-added-notify', { title, addedBy });
     room.queue.push({ videoId, title, addedBy });
     io.to(roomId).emit('queue-updated', { queue: room.queue });
+    await saveRoom(roomId);
+  });
+
+  // Batch add songs from a playlist import — single DB write, single broadcast
+  socket.on('add-songs-batch', async ({ roomId, songs, addedBy }) => {
+    const room = await getRoom(roomId);
+    const remaining = 200 - room.queue.length;
+    if (remaining <= 0) {
+      socket.emit('queue-full', { limit: 200 });
+      return;
+    }
+    const toAdd = songs.slice(0, remaining).map(s => ({ ...s, addedBy }));
+    const skipped = songs.length - toAdd.length;
+    room.queue.push(...toAdd);
+    io.to(roomId).emit('queue-updated', { queue: room.queue });
+    if (skipped > 0) socket.emit('queue-limit-reached', { added: toAdd.length, skipped, limit: 200 });
     await saveRoom(roomId);
   });
 

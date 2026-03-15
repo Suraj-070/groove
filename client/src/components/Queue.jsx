@@ -115,7 +115,7 @@ const SongReactions = memo(function SongReactions({ reactions, videoId, onReact 
 const SongItem = memo(forwardRef(function SongItem(
   { song, index, currentIndex, selected, selectMode, dragOverIndex, dragIndex,
     onSelect, onDragStart, onDragOver, onDrop, onDragEnd,
-    onMouseEnter, onMouseLeave, onRemove, reactions, onReact },
+    onMouseEnter, onMouseLeave, onRemove, reactions, onReact, showReactions },
   ref
 ) {
   const isActive   = index === currentIndex
@@ -170,7 +170,9 @@ const SongItem = memo(forwardRef(function SongItem(
         {song.addedBy && <p className="song-id">by {song.addedBy}</p>}
       </div>
 
-      {!selectMode && <SongReactions reactions={reactions[song.videoId] || EMPTY_OBJ} videoId={song.videoId} onReact={onReact} />}
+      {!selectMode && showReactions && (
+        <SongReactions reactions={reactions[song.videoId] || EMPTY_OBJ} videoId={song.videoId} onReact={onReact} />
+      )}
 
       {!selectMode && (
         <button className="remove-btn" onClick={e => { e.stopPropagation(); onRemove(index) }} title="Remove">
@@ -190,6 +192,8 @@ export default function Queue({
   socket, roomId, username,
   loop, onToggleLoop,
 }) {
+  // Detect mobile once — no listener needed, doesn't change during session
+  const isMobile = window.innerWidth <= 768
   const [sharedUrl, setSharedUrl]           = useState('')
   const [error, setError]                   = useState('')
   const [loading, setLoading]               = useState(false)
@@ -280,9 +284,10 @@ export default function Queue({
       const data = await res.json()
       if (!res.ok) { setError(data.error || 'Failed to fetch playlist'); return }
       setImportProgress(`Adding ${data.total} songs...`)
-      for (const song of data.songs) onAddSong({ videoId: song.videoId, title: song.title })
+      // Single batch emit — one DB write, one broadcast instead of N
+      socket.emit('add-songs-batch', { roomId, songs: data.songs, addedBy: username })
       setLastImported({ songs: data.songs, count: data.total })
-      showToast(`🎵 Imported ${data.total} songs!`)
+      showToast(`🎵 ${data.total} songs queued!`)
       setSharedUrl(''); setImportProgress(null)
     } catch {
       setError('Failed to import playlist'); setImportProgress(null)
@@ -402,8 +407,8 @@ export default function Queue({
     <div className="queue">
       {toast && <div className="queue-toast">{toast}</div>}
 
-      {/* Single global hover preview — not one per song row */}
-      <SongPreview song={hoverSong} pos={hoverPos} />
+      {/* Single global hover preview — desktop only */}
+      {!isMobile && <SongPreview song={hoverSong} pos={hoverPos} />}
 
       <div className="queue-header">
         <h2>Queue</h2>
@@ -503,11 +508,12 @@ export default function Queue({
             onDragOver={handleDragOver}
             onDrop={handleDrop}
             onDragEnd={handleDragEnd}
-            onMouseEnter={handleMouseEnter}
-            onMouseLeave={handleMouseLeave}
+            onMouseEnter={isMobile ? null : handleMouseEnter}
+            onMouseLeave={isMobile ? null : handleMouseLeave}
             onRemove={onRemoveSong}
-            reactions={reactions}
+            reactions={isMobile ? EMPTY_OBJ : reactions}
             onReact={handleReact}
+            showReactions={!isMobile}
           />
         ))}
       </ul>

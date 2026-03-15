@@ -151,7 +151,10 @@ function NewCrateForm({ onCreate, onCancel }) {
 }
 
 // ── Crate Detail View ─────────────────────────────────────────
-function CrateDetail({ crate, colorDef, onBack, onAddSong, onDeleteSong, onPlaySong, onPushToQueue, onShuffle, currentVideoId, socket, roomId, username }) {
+const CRATE_SONG_LIMIT = 500
+const PAGE_SIZE = 50  // songs rendered per page
+
+function CrateDetail({ crate, colorDef, onBack, onAddSong, onAddSongsBatch, onDeleteSong, onPlaySong, onPushToQueue, onShuffle, currentVideoId, socket, roomId, username }) {
   const [search, setSearch] = useState('')
   const [urlInput, setUrlInput] = useState('')
   const [addMode, setAddMode] = useState('url') // 'url' | 'playlist'
@@ -160,10 +163,13 @@ function CrateDetail({ crate, colorDef, onBack, onAddSong, onDeleteSong, onPlayS
   const [importProgress, setImportProgress] = useState('')
   const [error, setError] = useState('')
   const [toast, setToast] = useState('')
+  const [page, setPage] = useState(1)
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(''), 2500) }
 
   const filtered = (crate.songs || []).filter(s => s.title.toLowerCase().includes(search.toLowerCase()))
+  const totalPages = Math.ceil(filtered.length / PAGE_SIZE)
+  const visibleSongs = filtered.slice(0, page * PAGE_SIZE)
 
   const handleAddSong = async () => {
     const videoId = extractVideoId(urlInput)
@@ -181,8 +187,13 @@ function CrateDetail({ crate, colorDef, onBack, onAddSong, onDeleteSong, onPlayS
   const handleImportPlaylist = async () => {
     const playlistId = extractPlaylistId(urlInput)
     if (!playlistId) {
-      if (isVideoUrl(urlInput)) setError('That\'s a video URL — use the Single Song tab instead')
+      if (isVideoUrl(urlInput)) setError("That's a video URL — use the Single Song tab instead")
       else setError('Invalid playlist URL. Paste a YouTube playlist link (youtube.com/playlist?list=...)')
+      return
+    }
+    const currentCount = (crate.songs || []).length
+    if (currentCount >= CRATE_SONG_LIMIT) {
+      setError(`This crate is full (${CRATE_SONG_LIMIT} songs max). Create a new crate or remove songs first.`)
       return
     }
     setImporting(true); setError('')
@@ -191,15 +202,22 @@ function CrateDetail({ crate, colorDef, onBack, onAddSong, onDeleteSong, onPlayS
       const res = await fetch(`${BACKEND}/youtube/playlist?playlistId=${playlistId}`, { credentials: 'include' })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
-      setImportProgress(`Adding ${data.total} songs...`)
-      let added = 0
-      for (const song of data.songs) {
-        try { await onAddSong(crate.id, song.videoId, song.title); added++ } catch {}
-        if (added % 10 === 0) setImportProgress(`Added ${added}/${data.total}...`)
-      }
+      setImportProgress(`Saving ${data.total} songs...`)
+      const result = await onAddSongsBatch(crate.id, data.songs)
       setUrlInput(''); setImportProgress('')
-      showToast(`✅ Imported ${added} songs!`)
-    } catch (e) { setError(e.message || 'Import failed'); setImportProgress('') }
+      if (result.skipped > 0) {
+        showToast(`✅ Added ${result.added} songs (${result.skipped} skipped — crate limit reached). Paste the link again to continue importing.`)
+      } else {
+        showToast(`✅ Imported ${result.added} songs!`)
+      }
+    } catch (e) {
+      if (e.message?.startsWith('CRATE_FULL')) {
+        setError(`This crate is full (${CRATE_SONG_LIMIT} songs). Create a new crate to import more.`)
+      } else {
+        setError(e.message || 'Import failed')
+      }
+      setImportProgress('')
+    }
     finally { setImporting(false) }
   }
 
@@ -230,8 +248,8 @@ function CrateDetail({ crate, colorDef, onBack, onAddSong, onDeleteSong, onPlayS
           {/* Search */}
           <div className="cd-search-wrap">
             <svg className="cd-search-icon" viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
-            <input className="cd-search" placeholder="Search songs..." value={search} onChange={e => setSearch(e.target.value)} />
-            {search && <button className="cd-search-clear" onClick={() => setSearch('')}>×</button>}
+            <input className="cd-search" placeholder="Search songs..." value={search} onChange={e => { setSearch(e.target.value); setPage(1) }} />
+            {search && <button className="cd-search-clear" onClick={() => { setSearch(''); setPage(1) }}>×</button>}
           </div>
 
           {/* Song list */}
@@ -241,14 +259,14 @@ function CrateDetail({ crate, colorDef, onBack, onAddSong, onDeleteSong, onPlayS
                 {search ? `No results for "${search}"` : 'No songs yet — add some below!'}
               </li>
             )}
-            {filtered.map((song, i) => (
+            {visibleSongs.map((song, i) => (
               <li
                 key={song.videoId}
                 className={`cd-song-item ${currentVideoId === song.videoId ? 'cd-now-playing' : ''}`}
               >
                 <span className="cd-song-num">{i + 1}</span>
                 <div className="cd-song-thumb">
-                  <img src={`https://img.youtube.com/vi/${song.videoId}/default.jpg`} alt="" />
+                  <img src={`https://img.youtube.com/vi/${song.videoId}/default.jpg`} alt="" loading="lazy" />
                   {currentVideoId === song.videoId && (
                     <div className="cd-playing-overlay">
                       <div className="bars"><span /><span /><span /></div>
@@ -266,6 +284,13 @@ function CrateDetail({ crate, colorDef, onBack, onAddSong, onDeleteSong, onPlayS
                 </div>
               </li>
             ))}
+            {page < totalPages && (
+              <li className="cd-load-more">
+                <button onClick={() => setPage(p => p + 1)}>
+                  Load more ({filtered.length - visibleSongs.length} remaining)
+                </button>
+              </li>
+            )}
           </ul>
         </div>
 
@@ -343,6 +368,7 @@ export default function Library({ isOpen, onClose, socket, roomId, username, onA
   const [activeCrateId, setActiveCrateId] = useState(null)
   const [showNewCrate, setShowNewCrate] = useState(false)
   const [toast, setToast] = useState('')
+  const [page, setPage] = useState(1)
   const [colorMap, setColorMap] = useState({}) // crateId -> colorIdx
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(''), 2500) }
