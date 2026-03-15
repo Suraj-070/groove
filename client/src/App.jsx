@@ -576,7 +576,7 @@ function App() {
           <button className="recap-btn" onClick={handleGetRecap} title="Session Recap">📊</button>
           <button className={`recap-btn ${libraryOpen ? 'active' : ''}`} onClick={() => setLibraryOpen(p => !p)} title="My Library">📚</button>
 
-          <button className="chat-toggle-btn" onClick={() => { setChatOpen(true); setUnread(0) }}>
+          <button className={`chat-toggle-btn ${chatOpen ? "active" : ""}`} onClick={() => { setChatOpen(p => !p); setUnread(0) }}>
             💬
             {unread > 0 && <span className="unread-badge">{unread}</span>}
           </button>
@@ -677,7 +677,7 @@ function App() {
         </div>
       </header>
 
-      <main className={`app-main ${queueCollapsed ? 'queue-collapsed' : ''}`}>
+      <main className={`app-main ${queueCollapsed ? 'queue-collapsed' : ''} ${chatOpen && !isMobileView ? 'chat-open' : ''}`}>
         <div className="left-panel">
           <Player
             socket={socket}
@@ -738,6 +738,13 @@ function App() {
             onToggleLoop={() => setLoop(p => !p)}
           />
         </div>
+
+        {/* Desktop inline chat panel */}
+        {!isMobileView && (
+          <div className={`chat-panel-inline ${chatOpen ? 'chat-panel-inline--open' : ''}`}>
+            <Chat socket={socket} roomId={roomId} username={user?.username} isOpen={true} onClose={() => setChatOpen(false)} currentSong={currentSong} />
+          </div>
+        )}
 
         {!isMobileView && (
           <button
@@ -813,7 +820,10 @@ function App() {
         </nav>
       )}
 
-      <Chat socket={socket} roomId={roomId} username={user?.username} isOpen={chatOpen} onClose={() => setChatOpen(false)} />
+      {/* Desktop chat panel rendered inline in layout via CSS panel, mobile stays as sheet */}
+      {isMobileView && (
+        <Chat socket={socket} roomId={roomId} username={user?.username} isOpen={chatOpen} onClose={() => setChatOpen(false)} currentSong={currentSong} />
+      )}
       {showRecap && <SessionRecap recap={recap} onClose={() => setShowRecap(false)} />}
       {libraryOpen && (
         <Library

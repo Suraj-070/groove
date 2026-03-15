@@ -461,6 +461,7 @@ io.on('connection', (socket) => {
 
   socket.on('chat-msg', ({ roomId, msg }) => socket.to(roomId).emit('chat-msg', msg));
   socket.on('reaction', ({ roomId, emoji, username }) => socket.to(roomId).emit('reaction', { emoji, username }));
+  socket.on('user-typing', ({ roomId, username, isTyping }) => socket.to(roomId).emit('user-typing', { username, isTyping }));
 
   // Reorder queue (drag-to-reorder / shuffle)
   socket.on('reorder-queue', async ({ roomId, queue: newQueue }) => {
