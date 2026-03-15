@@ -510,8 +510,11 @@ io.on('connection', (socket) => {
   socket.on('chat-msg', ({ roomId, msg }) => {
     // Always use server-stamped UTC ms — eliminates cross-timezone clock skew
     const stamped = { ...msg, ts: Date.now(), type: 'msg' };
+    // Broadcast to everyone else in the room
     socket.to(roomId).emit('chat-msg', stamped);
-    saveMessage(roomId, stamped);  // persist to MongoDB + in-memory
+    // Echo back to sender with server ts so their local message gets the correct timestamp
+    socket.emit('chat-msg-echo', stamped);
+    saveMessage(roomId, stamped);
   });
   socket.on('reaction', ({ roomId, emoji, username }) => socket.to(roomId).emit('reaction', { emoji, username }));
   socket.on('user-typing', ({ roomId, username, isTyping }) => socket.to(roomId).emit('user-typing', { username, isTyping }));

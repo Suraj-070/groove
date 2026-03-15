@@ -106,12 +106,13 @@ const ScrollBtn = memo(({ count, onClick }) => (
 
 // ── Main Chat component ───────────────────────────────────────────────────────
 export default function Chat({ socket, roomId, username, isOpen, onClose, currentSong, chatHistory = [] }) {
-  const [messages, setMessages]   = useState(() => chatHistory)
+  const [messages, setMessages]   = useState([])
   const [input, setInput]         = useState('')
   const [showPicker, setShowPicker] = useState(false)
   const [typers, setTypers]       = useState([])
   const [atBottom, setAtBottom]   = useState(true)
   const [newCount, setNewCount]   = useState(0)
+  const historySeeded = useRef(false)
 
   const messagesRef  = useRef(null)
   const inputRef     = useRef(null)
@@ -119,9 +120,10 @@ export default function Chat({ socket, roomId, username, isOpen, onClose, curren
   const isTypingRef  = useRef(false)
   const prevSongRef  = useRef(null)
 
-  // ── Seed history when room-state arrives (handles late mount) ──────────────
+  // ── Seed history ONCE when it first arrives — never overwrite live messages ──
   useEffect(() => {
-    if (chatHistory.length > 0) {
+    if (chatHistory.length > 0 && !historySeeded.current) {
+      historySeeded.current = true
       setMessages(chatHistory)
     }
   }, [chatHistory])
@@ -152,13 +154,22 @@ export default function Chat({ socket, roomId, username, isOpen, onClose, curren
         isTyping ? [...prev.filter(u => u !== who), who] : prev.filter(u => u !== who)
       )
     }
-    socket.on('chat-msg',    handleMsg)
-    socket.on('chat-system', handleSystem)
-    socket.on('user-typing', handleTyping)
+    // Server echo — replace our optimistic message with server-stamped version
+    // preserves self:true so bubble colour stays correct
+    const handleEcho = (msg) => {
+      setMessages(prev => prev.map(m =>
+        m.id === msg.id ? { ...msg, self: true } : m
+      ))
+    }
+    socket.on('chat-msg',      handleMsg)
+    socket.on('chat-msg-echo', handleEcho)
+    socket.on('chat-system',   handleSystem)
+    socket.on('user-typing',   handleTyping)
     return () => {
-      socket.off('chat-msg',    handleMsg)
-      socket.off('chat-system', handleSystem)
-      socket.off('user-typing', handleTyping)
+      socket.off('chat-msg',      handleMsg)
+      socket.off('chat-msg-echo', handleEcho)
+      socket.off('chat-system',   handleSystem)
+      socket.off('user-typing',   handleTyping)
     }
   }, [socket])
 
