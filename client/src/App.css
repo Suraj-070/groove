@@ -306,7 +306,7 @@ body {
   box-shadow: none;
   animation: none;
   z-index: auto;
-  position: static;
+  position: relative; /* anchors scroll-btn and emoji-wrap */
 }
 
 /* ── Desktop inline chat panel container ─────────────────── */
@@ -343,6 +343,21 @@ body {
 /* ── When all 3 panels open, shrink queue a little ────────── */
 .app-main.chat-open .right-panel {
   min-width: 260px;
+}
+
+/* ── Queue collapsed + chat open = chat gets full remaining width ── */
+.app-main.queue-collapsed.chat-open .chat-panel-inline--open {
+  width: calc(100vw - 320px);
+  min-width: calc(100vw - 320px);
+  max-width: 680px;
+}
+
+/* ── Constrain max chat panel width on very wide screens ────── */
+@media (min-width: 1400px) {
+  .chat-panel-inline--open {
+    width: 360px;
+    min-width: 360px;
+  }
 }
 
 @keyframes chatIn {
@@ -421,12 +436,22 @@ body {
   border-bottom: 1px solid rgba(255,255,255,0.05);
   background: rgba(255,255,255,0.015);
 }
+
+/* On desktop, close button shows a ‹ collapse arrow */
 .chat-panel-inline .chat-close {
-  /* On desktop this collapses the panel, so rotate arrow */
+  border-radius: 8px;
 }
-.chat-panel-inline .chat-close svg {
-  transform: rotate(0deg);
-  transition: transform 0.2s;
+
+/* Subtle top accent line on panel open */
+.chat-panel-inline--open::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, rgba(124,106,255,0.6), rgba(155,106,255,0.3), transparent);
+  z-index: 1;
 }
 
 /* ── Scroll-to-bottom button — inside inline panel ────────── */
