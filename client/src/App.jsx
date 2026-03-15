@@ -12,6 +12,7 @@ import SessionRecap from './components/SessionRecap'
 import Library from './components/Library'
 import Visualizer from './components/Visualizer'
 import MarqueeText from './components/MarqueeText'
+import VideoPanel from './components/VideoPanel'
 import './App.css'
 
 // ── Detect Discord Activity context ──────────────────────────
@@ -149,6 +150,7 @@ function App() {
   const [users, setUsers] = useState([])
   const [chatOpen, setChatOpen] = useState(false)
   const [chatHistory, setChatHistory] = useState([])
+  const [videoOpen, setVideoOpen] = useState(false)
   const [unread, setUnread] = useState(0)
   const [djMode, setDjMode] = useState(false)
   const [djId, setDjId] = useState(null)
@@ -239,7 +241,7 @@ function App() {
   useEffect(() => {
     if (!isMobileView) return
 
-    const anySheetOpen = mobileTab === 'queue' || chatOpen || libraryOpen || profileOpen
+    const anySheetOpen = mobileTab === 'queue' || chatOpen || libraryOpen || profileOpen || videoOpen
     if (anySheetOpen && !sheetOpenRef.current) {
       // A sheet just opened — push a dummy entry so back button has somewhere to pop
       window.history.pushState({ groove_sheet: true }, '')
@@ -258,15 +260,16 @@ function App() {
       // Only intercept our own pushed states
       if (!sheetOpenRef.current) return
       sheetOpenRef.current = false
-      // Close in priority order: profile → library → chat → queue
-      if (profileOpen)         { setProfileOpen(false); return }
-      if (libraryOpen)         { setLibraryOpen(false); return }
-      if (chatOpen)            { setChatOpen(false);    return }
+      // Close in priority order: video → profile → library → chat → queue
+      if (videoOpen)             { setVideoOpen(false);   return }
+      if (profileOpen)           { setProfileOpen(false); return }
+      if (libraryOpen)           { setLibraryOpen(false); return }
+      if (chatOpen)              { setChatOpen(false);    return }
       if (mobileTab === 'queue') { setMobileTab('player'); }
     }
     window.addEventListener('popstate', handlePop)
     return () => window.removeEventListener('popstate', handlePop)
-  }, [isMobileView, profileOpen, libraryOpen, chatOpen, mobileTab])
+  }, [isMobileView, videoOpen, profileOpen, libraryOpen, chatOpen, mobileTab])
 
   // ── Keyboard shortcuts ────────────────────────────────────
   // Stable refs so keyboard handler never re-registers
@@ -487,6 +490,7 @@ function App() {
     socket.on('load-song', ({ index, queue: updatedQueue }) => {
       if (updatedQueue) setQueue(Array.isArray(updatedQueue) ? updatedQueue : [])
       if (typeof index === 'number' && !isNaN(index)) setCurrentIndex(index)
+      // Video panel iframe auto-reloads because videoId prop changes (key={videoId} in VideoPanel)
     })
     socket.on('user-joined', ({ users }) => setUsers(Array.isArray(users) ? users : []))
     socket.on('user-left', ({ users }) => setUsers(Array.isArray(users) ? users : []))
@@ -620,6 +624,20 @@ function App() {
           <button className={`recap-btn party-btn ${partyMode ? 'party-active' : ''}`} onClick={() => setPartyMode(p => !p)} title="Party Mode">🎊</button>
           <button className="recap-btn" onClick={handleGetRecap} title="Session Recap">📊</button>
           <button className={`recap-btn ${libraryOpen ? 'active' : ''}`} onClick={() => setLibraryOpen(p => !p)} title="My Library">📚</button>
+
+          {/* Watch button — only shown when a song is loaded */}
+          {currentSong && (
+            <button
+              className={`watch-btn ${videoOpen ? 'active' : ''}`}
+              onClick={() => setVideoOpen(p => !p)}
+              title={videoOpen ? 'Close video' : 'Watch video'}
+            >
+              <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14">
+                <path d="M21 3H3C2 3 1 4 1 5v14c0 1.1.9 2 2 2h18c1 0 2-1 2-2V5c0-1-1-2-2-2zm0 16H3V5h18v14zM8 15l5-3-5-3v6z"/>
+              </svg>
+              <span>{videoOpen ? 'Close' : 'Watch'}</span>
+            </button>
+          )}
 
           <button className={`chat-toggle-btn ${chatOpen ? "active" : ""}`} onClick={() => { setChatOpen(p => !p); setUnread(0) }}>
             💬
@@ -884,6 +902,12 @@ function App() {
       )}
       {showShortcuts && <ShortcutsModal onClose={() => setShowShortcuts(false)} />}
       {showSleepTimer && <SleepTimerModal onClose={() => setShowSleepTimer(false)} onSet={handleSetSleepTimer} />}
+      <VideoPanel
+        videoId={currentSong?.videoId}
+        title={currentSong?.title}
+        isOpen={videoOpen && !!currentSong}
+        onClose={() => setVideoOpen(false)}
+      />
     </div>
   )
 }

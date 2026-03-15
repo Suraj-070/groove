@@ -6187,3 +6187,268 @@ h1, h2, h3 {
   .crate-glow { display: none !important; }
   .crate-card::before { display: none !important; }
 }
+
+/* ═══════════════════════════════════════════════════════════
+   VIDEO MODE
+   ═══════════════════════════════════════════════════════════ */
+
+/* YouTube iframe fills the art slot */
+.yt-video-frame {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: 14px;
+  overflow: hidden;
+  background: #000;
+  flex-shrink: 0;
+}
+.yt-video-frame iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+  display: block;
+  border-radius: 14px;
+}
+
+/* Hide thumbnail when video is showing */
+.player-art--hidden {
+  display: none !important;
+}
+
+/* Expand left panel when video mode is on */
+.player--video {
+  background: var(--surface);
+}
+.app-main:has(.player--video) .left-panel {
+  width: 420px;
+  min-width: 420px;
+}
+
+/* Video toggle button */
+.video-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 20px;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 3px 9px 3px 7px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  flex-shrink: 0;
+  font-family: inherit;
+}
+.video-toggle-btn:hover {
+  background: rgba(124,106,255,0.1);
+  border-color: rgba(124,106,255,0.3);
+  color: var(--accent);
+}
+.video-toggle-btn.active {
+  background: rgba(124,106,255,0.15);
+  border-color: rgba(124,106,255,0.4);
+  color: var(--accent);
+}
+
+/* ── Mobile video mode ───────────────────────────────────── */
+@media (max-width: 768px) {
+  /* On mobile, video expands to full width naturally in the player */
+  .yt-video-frame {
+    border-radius: 12px;
+    width: 100%;
+  }
+  /* Player art slot already aspect-ratio 16/9 on mobile — video fits perfectly */
+  .app-main:has(.player--video) .left-panel {
+    width: 100%;
+    min-width: unset;
+  }
+  /* Slightly reduce other controls to give video more room */
+  .player--video .player-info {
+    margin-top: 4px;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   FLOATING VIDEO PANEL
+   ═══════════════════════════════════════════════════════════ */
+.video-panel {
+  position: fixed;
+  z-index: 500;
+  background: #0a0812;
+  border: 1px solid rgba(124,106,255,0.25);
+  border-radius: 14px;
+  box-shadow:
+    0 24px 60px rgba(0,0,0,0.7),
+    0 0 0 1px rgba(124,106,255,0.08);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-width: 280px;
+  animation: vpIn 0.22s cubic-bezier(0.34,1.2,0.64,1);
+  user-select: none;
+}
+
+@keyframes vpIn {
+  from { opacity: 0; transform: scale(0.94) translateY(8px); }
+  to   { opacity: 1; transform: scale(1)    translateY(0); }
+}
+
+/* Title bar */
+.video-panel-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 10px;
+  height: 36px;
+  flex-shrink: 0;
+  cursor: grab;
+  background: rgba(255,255,255,0.03);
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  border-radius: 14px 14px 0 0;
+}
+.video-panel-bar:active { cursor: grabbing; }
+.video-panel--mini .video-panel-bar {
+  border-bottom: none;
+  border-radius: 14px;
+}
+
+.video-panel-bar-left {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  flex: 1;
+}
+.video-panel-icon { color: var(--accent); flex-shrink: 0; }
+.video-panel-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  letter-spacing: 0.01em;
+}
+
+.video-panel-bar-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+.video-panel-btn {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  background: rgba(255,255,255,0.05);
+  border: none;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.video-panel-btn:hover {
+  background: rgba(255,255,255,0.1);
+  color: var(--text);
+}
+.video-panel-btn--close:hover {
+  background: rgba(255,80,80,0.2);
+  color: #ff5050;
+}
+
+/* Video content */
+.video-panel-content {
+  flex: 1;
+  overflow: hidden;
+  background: #000;
+}
+.video-panel-iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+  display: block;
+}
+
+/* Resize handle — bottom-right corner */
+.video-panel-resize {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 18px;
+  height: 18px;
+  cursor: nwse-resize;
+  z-index: 10;
+}
+.video-panel-resize::after {
+  content: '';
+  position: absolute;
+  bottom: 4px;
+  right: 4px;
+  width: 8px;
+  height: 8px;
+  border-right: 2px solid rgba(124,106,255,0.4);
+  border-bottom: 2px solid rgba(124,106,255,0.4);
+  border-radius: 0 0 3px 0;
+}
+
+/* Watch button in header */
+.watch-btn {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 14px;
+  height: 36px;
+  border-radius: 20px;
+  background: rgba(124,106,255,0.1);
+  border: 1px solid rgba(124,106,255,0.25);
+  color: var(--accent);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, transform 0.1s;
+  font-family: inherit;
+  white-space: nowrap;
+}
+.watch-btn:hover {
+  background: rgba(124,106,255,0.18);
+  border-color: rgba(124,106,255,0.45);
+}
+.watch-btn.active {
+  background: rgba(124,106,255,0.2);
+  border-color: rgba(124,106,255,0.5);
+  box-shadow: 0 0 0 3px rgba(124,106,255,0.1);
+}
+.watch-btn svg { flex-shrink: 0; }
+
+/* Mobile — full-width bottom sheet instead of floating */
+@media (max-width: 768px) {
+  .video-panel {
+    position: fixed !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 64px !important;
+    top: auto !important;
+    width: 100% !important;
+    height: auto !important;
+    border-radius: 20px 20px 0 0 !important;
+    border-left: none !important;
+    border-right: none !important;
+    border-bottom: none !important;
+    animation: vpMobileIn 0.28s cubic-bezier(0.34,1.2,0.64,1);
+  }
+  @keyframes vpMobileIn {
+    from { transform: translateY(100%); }
+    to   { transform: translateY(0); }
+  }
+  .video-panel-content {
+    aspect-ratio: 16/9;
+    height: auto !important;
+  }
+  .video-panel-resize { display: none; }
+  .watch-btn span { display: none; }
+  .watch-btn { padding: 0 10px; }
+}
