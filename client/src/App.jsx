@@ -99,16 +99,28 @@ function OfflineBanner() {
   const [offline, setOffline] = useState(!navigator.onLine)
   // Register service worker + check push status
   useEffect(() => {
-    registerServiceWorker().then(() => {
-      // Check support AFTER SW registers — PushManager needs SW to be ready
-      const supported = isPushSupported()
-      setPushSupported(supported)
-      if (supported) {
-        getPushStatus().then(s => {
-          if (s.subscribed) setPushEnabled(true)
+    const init = async () => {
+      try {
+        await registerServiceWorker()
+        // Must check AFTER SW is ready — PushManager needs active SW
+        const supported = isPushSupported()
+        console.log('[Groove Push] supported:', supported, {
+          sw: 'serviceWorker' in navigator,
+          push: 'PushManager' in window,
+          notif: 'Notification' in window,
+          https: location.protocol === 'https:',
         })
+        setPushSupported(supported)
+        if (supported) {
+          const status = await getPushStatus()
+          console.log('[Groove Push] status:', status)
+          if (status.subscribed) setPushEnabled(true)
+        }
+      } catch (e) {
+        console.warn('[Groove Push] init failed:', e.message)
       }
-    })
+    }
+    init()
   }, [])
 
   useEffect(() => {
@@ -766,7 +778,7 @@ function App() {
                         <span className="pd-action-icon">{pushEnabled ? '🔔' : '🔕'}</span>
                         <span>
                           {pushLoading ? 'Updating…'
-                            : !pushSupported ? 'Notifications (install app first)'
+                            : !pushSupported ? 'Notifications (not available)'
                             : pushEnabled ? 'Notifications ON'
                             : 'Notifications OFF'}
                         </span>

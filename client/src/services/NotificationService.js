@@ -10,7 +10,8 @@ function urlBase64ToUint8Array(base64String) {
 export function isPushSupported() {
   return 'serviceWorker' in navigator &&
          'PushManager'   in window &&
-         'Notification'  in window
+         'Notification'  in window &&
+         (location.protocol === 'https:' || location.hostname === 'localhost')
 }
 
 export async function getPushStatus() {
@@ -71,12 +72,31 @@ export async function updatePushPrefs(prefs) {
 }
 
 export async function registerServiceWorker() {
-  if (!('serviceWorker' in navigator)) return null
-  try {
-    const reg = await navigator.serviceWorker.register('/sw.js', { scope: '/' })
-    return reg
-  } catch (e) {
-    console.warn('SW registration failed:', e)
+  if (!('serviceWorker' in navigator)) {
+    console.warn('[Groove SW] serviceWorker not in navigator')
     return null
   }
+  try {
+    // Register the SW
+    const reg = await navigator.serviceWorker.register('/sw.js', { scope: '/' })
+    // Wait for it to be active — critical for PushManager to work
+    await navigator.serviceWorker.ready
+    console.log('[Groove SW] registered and ready:', reg.scope)
+    return reg
+  } catch (e) {
+    console.warn('[Groove SW] registration failed:', e.message)
+    return null
+  }
+}
+
+// Comprehensive support check with individual failure reasons
+export function getPushSupportDetails() {
+  const checks = {
+    serviceWorker: 'serviceWorker' in navigator,
+    pushManager:   'PushManager'   in window,
+    notification:  'Notification'  in window,
+    isSecure:      location.protocol === 'https:' || location.hostname === 'localhost',
+  }
+  const supported = Object.values(checks).every(Boolean)
+  return { supported, checks }
 }
