@@ -376,12 +376,8 @@ export default function Player({ socket, roomId, videoId, title, onEnded, onSkip
   return (
     <div className="player" style={{ position: 'relative', overflow: 'visible' }}>
       {!IS_MOBILE && <BeatBorder isPlaying={isPlaying} bpm={bpm || 120} />}
-      {/* YouTube iframe — visible in video mode, hidden in audio mode */}
-      <div
-        ref={playerRef}
-        className={videoMode ? 'yt-video-frame' : ''}
-        style={videoMode ? {} : { display: 'none' }}
-      />
+      {/* YouTube iframe — always hidden, audio only. Video handled by VideoPanel */}
+      <div ref={playerRef} style={{ display: 'none' }} />
 
       {djMode && (
         <div className={`dj-badge ${isDJ ? 'is-dj' : 'not-dj'}`}>
@@ -389,7 +385,7 @@ export default function Player({ socket, roomId, videoId, title, onEnded, onSkip
         </div>
       )}
 
-      <div className={`player-art ${videoMode ? 'player-art--hidden' : ''}`}>
+      <div className="player-art">
         {videoId
           ? <img src={`https://img.youtube.com/vi/${videoId}/hqdefault.jpg`} alt="thumbnail" className="art-img" />
           : <div className="art-placeholder"><span>🎵</span></div>}
@@ -402,19 +398,6 @@ export default function Player({ socket, roomId, videoId, title, onEnded, onSkip
         <div className="player-sub-row">
           <p className="player-sub">{videoId ? 'YouTube' : 'Add a song to the queue →'}</p>
           <BpmBadge bpm={bpm} loading={bpmLoading && !!title} />
-          {videoId && (
-            <button
-              className={`video-toggle-btn ${videoMode ? 'active' : ''}`}
-              onClick={() => setVideoMode(p => !p)}
-              title={videoMode ? 'Hide video' : 'Watch video'}
-            >
-              {videoMode
-                ? <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><path d="M21 6.5l-4-4-9.5 9.5-2 5 5-2L21 6.5zM5.5 18l-1.5-1.5 1-2.5 3 3L5.5 18z"/><path d="M3 20h18v2H3z"/></svg>
-                : <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><path d="M21 3H3C2 3 1 4 1 5v14c0 1.1.9 2 2 2h18c1 0 2-1 2-2V5c0-1-1-2-2-2zm0 16H3V5h18v14zM8 15l5-3-5-3v6z"/></svg>
-              }
-              <span>{videoMode ? 'Hide' : 'Video'}</span>
-            </button>
-          )}
         </div>
       </div>
 
