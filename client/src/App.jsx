@@ -13,6 +13,7 @@ import Library from './components/Library'
 import Visualizer from './components/Visualizer'
 import MarqueeText from './components/MarqueeText'
 import VideoPanel from './components/VideoPanel'
+import { registerServiceWorker, isPushSupported, getPushStatus, subscribeToPush, unsubscribeFromPush } from './services/NotificationService'
 import './App.css'
 
 // ── Detect Discord Activity context ──────────────────────────
@@ -96,6 +97,12 @@ function SleepTimerModal({ onClose, onSet }) {
 // ── Offline Banner ────────────────────────────────────────────
 function OfflineBanner() {
   const [offline, setOffline] = useState(!navigator.onLine)
+  // Register service worker + check push status
+  useEffect(() => {
+    registerServiceWorker()
+    getPushStatus().then(s => { if (s.subscribed) setPushEnabled(true) })
+  }, [])
+
   useEffect(() => {
     const goOffline = () => setOffline(true)
     const goOnline  = () => setOffline(false)
@@ -151,6 +158,8 @@ function App() {
   const [chatOpen, setChatOpen] = useState(false)
   const [chatHistory, setChatHistory] = useState([])
   const [videoOpen, setVideoOpen] = useState(false)
+  const [pushEnabled, setPushEnabled] = useState(false)
+  const [pushLoading, setPushLoading] = useState(false)
   const [unread, setUnread] = useState(0)
   const [djMode, setDjMode] = useState(false)
   const [djId, setDjId] = useState(null)
@@ -408,6 +417,32 @@ function App() {
     localStorage.setItem('groove_roomId', roomId)
     if (!socket.connected) socket.connect()
     socket.emit('join-room', { roomId, username: user.username, avatar: user.avatar, discordId: user.id })
+  }
+
+  const handleTogglePush = async () => {
+    if (!isPushSupported()) {
+      alert('Push notifications are not supported on this device/browser.')
+      return
+    }
+    setPushLoading(true)
+    try {
+      if (pushEnabled) {
+        await unsubscribeFromPush()
+        setPushEnabled(false)
+      } else {
+        await subscribeToPush({
+          songAdded: true,
+          chatMsg: true,
+          userJoined: false,
+          djCrown: true,
+        })
+        setPushEnabled(true)
+      }
+    } catch (e) {
+      alert(e.message || 'Failed to update notifications')
+    } finally {
+      setPushLoading(false)
+    }
   }
 
   const handleAddSong = ({ videoId, title }) => {
@@ -713,6 +748,13 @@ function App() {
                       <button className="pd-action" onClick={() => { setShowShortcuts(true); setProfileOpen(false) }}>
                         <span className="pd-action-icon">⌨️</span><span>Shortcuts</span>
                       </button>
+                      {isPushSupported() && (
+                        <button className="pd-action" onClick={handleTogglePush} disabled={pushLoading}>
+                          <span className="pd-action-icon">{pushEnabled ? '🔔' : '🔕'}</span>
+                          <span>{pushLoading ? 'Updating…' : pushEnabled ? 'Notifications ON' : 'Notifications OFF'}</span>
+                          <span className={`pd-toggle ${pushEnabled ? 'on' : ''}`} />
+                        </button>
+                      )}
                     </div>
 
                     <div className="pd-divider" />

@@ -10,6 +10,19 @@ const DiscordStrategy = require('passport-discord').Strategy;
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const { randomUUID } = require('crypto');
 const mongoose = require('mongoose');
+const webpush  = require('web-push');
+
+// ─── WEB PUSH (PWA notifications) ────────────────────────────
+const VAPID_PUBLIC  = process.env.VAPID_PUBLIC_KEY  || '';
+const VAPID_PRIVATE = process.env.VAPID_PRIVATE_KEY || '';
+const VAPID_MAILTO  = process.env.VAPID_MAILTO || 'mailto:groove@example.com';
+
+if (VAPID_PUBLIC && VAPID_PRIVATE) {
+  webpush.setVapidDetails(VAPID_MAILTO, VAPID_PUBLIC, VAPID_PRIVATE);
+  console.log('✅ Web Push VAPID configured');
+} else {
+  console.warn('⚠️  VAPID keys not set — push notifications disabled');
+}
 
 const app = express();
 app.set('trust proxy', 1);
@@ -100,6 +113,62 @@ const messageSchema = new mongoose.Schema({
 messageSchema.index({ ts: 1 }, { expireAfterSeconds: 60 * 60 * 24 * 7 });
 
 const Message = mongoose.models.Message || mongoose.model('Message', messageSchema);
+
+// ─── PUSH SUBSCRIPTION SCHEMA ────────────────────────────────
+const pushSubSchema = new mongoose.Schema({
+  userId:   { type: String, required: true, index: true },
+  endpoint: { type: String, required: true, unique: true },
+  keys:     { p256dh: String, auth: String },
+  prefs: {
+    songAdded:  { type: Boolean, default: true },
+    chatMsg:    { type: Boolean, default: true },
+    userJoined: { type: Boolean, default: false },
+    djCrown:    { type: Boolean, default: true },
+    songLoaded: { type: Boolean, default: false },
+  },
+  createdAt: { type: Number, default: () => Date.now() }
+});
+const PushSub = mongoose.models.PushSub || mongoose.model('PushSub', pushSubSchema);
+
+// Send push to all subs of a user — silently removes stale subs
+async function sendPush(userId, payload) {
+  if (!VAPID_PUBLIC || !VAPID_PRIVATE) return;
+  try {
+    const subs = await PushSub.find({ userId }).lean();
+    for (const sub of subs) {
+      // Respect per-user notification preferences
+      const prefs = sub.prefs || {};
+      if (payload.type === 'chat'       && prefs.chatMsg    === false) continue;
+      if (payload.type === 'song_added' && prefs.songAdded  === false) continue;
+      if (payload.type === 'user_joined'&& prefs.userJoined === false) continue;
+      if (payload.type === 'dj_crown'   && prefs.djCrown    === false) continue;
+      try {
+        await webpush.sendNotification(
+          { endpoint: sub.endpoint, keys: sub.keys },
+          JSON.stringify(payload),
+          { TTL: 60 }  // discard if not delivered within 60s — stale notifications are annoying
+        );
+      } catch (e) {
+        if (e.statusCode === 404 || e.statusCode === 410) {
+          // Subscription expired — clean it up
+          await PushSub.deleteOne({ endpoint: sub.endpoint });
+        }
+      }
+    }
+  } catch (e) {
+    console.error('sendPush error:', e.message);
+  }
+}
+
+// Send push to all users in a room except one (the actor)
+async function sendPushToRoom(roomId, exceptUserId, payload) {
+  const room = rooms[roomId];
+  if (!room) return;
+  const userIds = Object.values(room.users)
+    .filter(u => u.id !== exceptUserId && u.discordId)
+    .map(u => u.discordId);
+  await Promise.all(userIds.map(uid => sendPush(uid, payload)));
+}
 
 // In-memory fallback for when MongoDB is unavailable
 const memMessages = {}; // { roomId: [msg, ...] }
@@ -454,6 +523,51 @@ async function saveRoom(roomId) {
   }
 }
 
+// ─── PUSH NOTIFICATION ENDPOINTS ─────────────────────────────
+
+// Return VAPID public key so client can subscribe
+app.get('/push/vapid-public-key', requireAuth, (req, res) => {
+  if (!VAPID_PUBLIC) return res.status(503).json({ error: 'Push not configured' });
+  res.json({ key: VAPID_PUBLIC });
+});
+
+// Save a push subscription
+app.post('/push/subscribe', requireAuth, async (req, res) => {
+  const { subscription, prefs } = req.body;
+  if (!subscription?.endpoint) return res.status(400).json({ error: 'Invalid subscription' });
+  try {
+    await PushSub.findOneAndUpdate(
+      { endpoint: subscription.endpoint },
+      {
+        userId: req.user.id,
+        endpoint: subscription.endpoint,
+        keys: subscription.keys,
+        prefs: prefs || {},
+        createdAt: Date.now()
+      },
+      { upsert: true, new: true }
+    );
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to save subscription' });
+  }
+});
+
+// Remove a push subscription (user turned off notifications)
+app.post('/push/unsubscribe', requireAuth, async (req, res) => {
+  const { endpoint } = req.body;
+  if (endpoint) await PushSub.deleteOne({ endpoint });
+  else await PushSub.deleteMany({ userId: req.user.id });
+  res.json({ success: true });
+});
+
+// Update notification preferences
+app.patch('/push/prefs', requireAuth, async (req, res) => {
+  const { prefs } = req.body;
+  await PushSub.updateMany({ userId: req.user.id }, { $set: { prefs } });
+  res.json({ success: true });
+});
+
 // ─── SOCKET.IO ────────────────────────────────────────────────
 const server = http.createServer(app);
 const io = new Server(server, {
@@ -479,6 +593,20 @@ io.on('connection', (socket) => {
       chatHistory   // last 100 messages — clients format timestamps to local tz
     });
     socket.to(roomId).emit('user-joined', { user: room.users[socket.id], users: Object.values(room.users) });
+    // Notify room members of new listener (only if room has existing users)
+    if (!isFirstUser) {
+      sendPushToRoom(roomId, socket.id, {
+        type: 'user_joined',
+        title: 'Groove Together',
+        body: `👋 ${username} joined the room`,
+        icon: '/web-app-manifest-192x192.png',
+        badge: '/favicon-96x96.png',
+        tag: `join-${roomId}`,
+        renotify: false,
+        silent: true,
+        data: { roomId, url: `/?room=${roomId}`, type: 'user_joined' }
+      });
+    }
   });
 
   socket.on('play', async ({ roomId, time }) => {
@@ -512,6 +640,18 @@ io.on('connection', (socket) => {
     room.queue.push({ videoId, title, addedBy });
     io.to(roomId).emit('queue-updated', { queue: room.queue });
     await saveRoom(roomId);
+    sendPushToRoom(roomId, socket.id, {
+      type: 'song_added',
+      title: 'Groove Together',
+      body: `🎵 ${addedBy} added "${title}"`,
+      icon: '/web-app-manifest-192x192.png',
+      badge: '/favicon-96x96.png',
+      image: `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`,
+      tag: `song-${roomId}`,
+      renotify: true,
+      silent: false,
+      data: { roomId, url: `/?room=${roomId}`, type: 'song_added' }
+    });
   });
 
   // Batch add songs from a playlist import — single DB write, single broadcast
@@ -560,6 +700,7 @@ io.on('connection', (socket) => {
 
   socket.on('toggle-dj-mode', async ({ roomId }) => {
     const room = await getRoom(roomId);
+    const prevDjId = room.djId;
     if (socket.id !== room.djId) return;
     room.djMode = !room.djMode;
     io.to(roomId).emit('dj-mode-changed', { djMode: room.djMode, djId: room.djId });
@@ -572,13 +713,22 @@ io.on('connection', (socket) => {
   });
 
   socket.on('chat-msg', ({ roomId, msg }) => {
-    // Always use server-stamped UTC ms — eliminates cross-timezone clock skew
     const stamped = { ...msg, ts: Date.now(), type: 'msg' };
-    // Broadcast to everyone else in the room
     socket.to(roomId).emit('chat-msg', stamped);
-    // Echo back to sender with server ts so their local message gets the correct timestamp
     socket.emit('chat-msg-echo', stamped);
     saveMessage(roomId, stamped);
+    // Push to room members who are away (app closed/backgrounded)
+    sendPushToRoom(roomId, socket.id, {
+      type: 'chat',
+      title: `${msg.username}`,
+      body: msg.text.length > 100 ? msg.text.slice(0, 100) + '…' : msg.text,
+      icon: '/web-app-manifest-192x192.png',
+      badge: '/favicon-96x96.png',
+      tag: `chat-${roomId}`,
+      renotify: true,
+      silent: false,
+      data: { roomId, url: `/?room=${roomId}`, type: 'chat' }
+    });
   });
   socket.on('reaction', ({ roomId, emoji, username }) => socket.to(roomId).emit('reaction', { emoji, username }));
   socket.on('user-typing', ({ roomId, username, isTyping }) => socket.to(roomId).emit('user-typing', { username, isTyping }));

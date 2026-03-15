@@ -79,3 +79,74 @@ self.addEventListener('fetch', (event) => {
 self.addEventListener('message', (event) => {
   if (event.data === 'SKIP_WAITING') self.skipWaiting()
 })
+
+// ═══════════════════════════════════════════════════════════
+// WEB PUSH NOTIFICATIONS
+// ═══════════════════════════════════════════════════════════
+
+self.addEventListener('push', (event) => {
+  if (!event.data) return;
+
+  let p;
+  try { p = event.data.json(); }
+  catch { p = { title: 'Groove Together', body: event.data.text() }; }
+
+  // Vibration patterns per notification type
+  const vibes = {
+    chat:        [80, 40, 80],
+    song_added:  [100, 50, 100, 50, 100],
+    user_joined: [60],
+    dj_crown:    [200, 100, 200],
+  };
+
+  const options = {
+    body:      p.body  || '',
+    // icon: your Groove logo shown in the notification body
+    icon:      p.icon  || '/web-app-manifest-192x192.png',
+    // badge: tiny monochrome icon shown in status bar (Android)
+    badge:     p.badge || '/favicon-96x96.png',
+    // image: large preview image below the body (song thumbnail etc)
+    ...(p.image ? { image: p.image } : {}),
+    tag:       p.tag   || 'groove',
+    renotify:  p.renotify !== false,
+    silent:    p.silent === true,
+    vibrate:   vibes[p.type] || [100, 50, 100],
+    timestamp: Date.now(),
+    requireInteraction: false,  // auto-dismiss after a few seconds
+    data: { ...(p.data || {}), type: p.type },
+    actions: [
+      { action: 'open',    title: 'Open Groove' },
+      { action: 'dismiss', title: 'Dismiss'      },
+    ],
+  };
+
+  event.waitUntil(
+    self.registration.showNotification(p.title || 'Groove Together', options)
+  );
+});
+
+// Notification click — focus existing tab or open new one
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  if (event.action === 'dismiss') return;
+
+  const url = event.notification.data?.url || '/';
+  const full = new URL(url, self.location.origin).href;
+
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
+      // Prefer already-open Groove tab
+      const existing = list.find(c => c.url.startsWith(self.location.origin));
+      if (existing) {
+        existing.focus();
+        return existing.navigate(full);
+      }
+      return clients.openWindow(full);
+    })
+  );
+});
+
+// Notification close tracking (optional analytics hook)
+self.addEventListener('notificationclose', (event) => {
+  // Could send analytics — left as a no-op for now
+});
