@@ -1,3 +1,7 @@
+html {
+  background: var(--bg, #080810);
+}
+
 @import url('https://fonts.googleapis.com/css2?family=Unbounded:wght@300;400;600;700;800;900&family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500&display=swap');
 
 :root {
@@ -23,6 +27,7 @@ body {
   color: var(--text);
   height: 100vh;
   overflow: hidden;
+  /* Visualizer canvas renders behind everything — body bg is the base */
 }
 
 /* ─── ROOM JOIN ─────────────────────────────── */
@@ -175,7 +180,7 @@ body {
   display: flex;
   flex-direction: column;
   height: 100vh;
-  background: #080810;
+  background: transparent;
   position: relative;
 }
 
@@ -1050,7 +1055,7 @@ body {
   flex-direction: column;
   gap: 20px;
   position: relative;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .player::before {
@@ -1068,6 +1073,7 @@ body {
 .player-art {
   position: relative;
   width: 100%;
+  overflow: hidden;
   aspect-ratio: 16/9;
   border-radius: 14px;
   overflow: hidden;
@@ -3392,7 +3398,7 @@ body {
   inset: 0;
   z-index: 0;
   pointer-events: none;
-  background: #080810;
+  background: transparent;
 }
 
 .visualizer-canvas {
@@ -3599,7 +3605,7 @@ body {
   inset: 0;
   z-index: 0;
   pointer-events: none;
-  background: #080810;
+  background: transparent;
 }
 
 .app-header,

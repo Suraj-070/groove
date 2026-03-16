@@ -590,8 +590,8 @@ export default function Player({ socket, roomId, videoId, title, onEnded, onSkip
         </div>
       )}
 
-      {/* ── Inline volume slider ── */}
-      <div className="volume-row">
+      {/* ── Inline volume slider — desktop only ── */}
+      {!IS_MOBILE && <div className="volume-row">
         <button className="ctrl-btn volume-icon-btn" onClick={() => { const v = volume === 0 ? 80 : 0; setVolume(v); onVolumeChange?.(v) }} title="Mute/Unmute">
           {volume === 0
             ? <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M16.5 12A4.5 4.5 0 0 0 14 7.97v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51A8.8 8.8 0 0 0 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3 3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25A6.97 6.97 0 0 1 14 18.98v2.06A9 9 0 0 0 17.54 19l1.73 1.73L20.54 19 5.54 4 4.27 3zM12 4 9.91 6.09 12 8.18V4z"/></svg>
@@ -608,12 +608,10 @@ export default function Player({ socket, roomId, videoId, title, onEnded, onSkip
           style={{ '--vol': `${volume}%` }}
         />
         <span className="volume-pct">{volume}%</span>
-        {!IS_MOBILE && (
-          <button className="speed-btn" onClick={handleSpeedCycle} title="Playback speed">
-            {SPEEDS[speedIdx]}×
-          </button>
-        )}
-      </div>
+        <button className="speed-btn" onClick={handleSpeedCycle} title="Playback speed">
+          {SPEEDS[speedIdx]}×
+        </button>
+      </div>}
 
       {/* Stamp + info row — compact, sits between controls and sync */}
       {videoId && (
