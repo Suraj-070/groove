@@ -762,6 +762,99 @@ async function saveRoom(roomId) {
   }
 }
 
+// ─── USER PROFILE SCHEMA ─────────────────────────────────────
+const userProfileSchema = new mongoose.Schema({
+  userId:       { type: String, required: true, unique: true, index: true },
+  username:     { type: String },
+  avatar:       { type: String },
+  streak:       { type: Number, default: 0 },
+  longestStreak:{ type: Number, default: 0 },
+  lastJoinDate: { type: String, default: '' }, // YYYY-MM-DD
+  streakMilestones: { type: [Number], default: [] }, // [7,30,100] earned
+  totalSessions:{ type: Number, default: 0 },
+  totalSongs:   { type: Number, default: 0 },
+  createdAt:    { type: Number, default: () => Date.now() },
+});
+const UserProfile = mongoose.models.UserProfile || mongoose.model('UserProfile', userProfileSchema);
+
+// ─── ROOM SESSION SCHEMA (for chemistry + time machine) ───────
+const roomSessionSchema = new mongoose.Schema({
+  roomId:       { type: String, required: true, index: true },
+  sessionStart: { type: Number, required: true },
+  sessionEnd:   { type: Number },
+  participants: [{ userId: String, username: String, avatar: String, joinedAt: Number }],
+  songsPlayed:  { type: Array, default: [] },
+  reactions:    { type: Object, default: {} }, // { videoId: { emoji: count } }
+  chemistry:    { type: Number, default: 0 },
+  dominantMood: { type: String, default: 'neutral' },
+  avgBpm:       { type: Number },
+});
+roomSessionSchema.index({ sessionStart: -1 });
+roomSessionSchema.index({ 'participants.userId': 1 });
+const RoomSession = mongoose.models.RoomSession || mongoose.model('RoomSession', roomSessionSchema);
+
+// ─── STREAK HELPERS ───────────────────────────────────────────
+function todayStr() {
+  return new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+}
+
+async function updateStreak(userId, username, avatar) {
+  if (!MONGO_URI || !userId) return null;
+  try {
+    const today = todayStr();
+    let profile = await UserProfile.findOne({ userId });
+    if (!profile) {
+      profile = await UserProfile.create({ userId, username, avatar, streak: 1, longestStreak: 1, lastJoinDate: today, totalSessions: 1 });
+      return { streak: 1, isNew: true, milestone: null };
+    }
+    if (profile.lastJoinDate === today) return { streak: profile.streak, isNew: false, milestone: null };
+
+    const last = new Date(profile.lastJoinDate || '2000-01-01');
+    const diff = Math.floor((new Date(today) - last) / 86400000);
+    const newStreak = diff === 1 ? profile.streak + 1 : 1;
+    const longest   = Math.max(newStreak, profile.longestStreak || 0);
+    const MILESTONES = [3, 7, 14, 30, 60, 100, 365];
+    const milestone  = MILESTONES.find(m => newStreak === m && !(profile.streakMilestones||[]).includes(m)) || null;
+    const milestones = milestone ? [...(profile.streakMilestones||[]), milestone] : (profile.streakMilestones||[]);
+
+    await UserProfile.updateOne({ userId }, {
+      username, avatar,
+      streak: newStreak,
+      longestStreak: longest,
+      lastJoinDate: today,
+      milestones,
+      $inc: { totalSessions: 1 }
+    });
+    return { streak: newStreak, isNew: diff > 1, milestone, longestStreak: longest };
+  } catch (e) { console.error('updateStreak error:', e.message); return null; }
+}
+
+// ─── CHEMISTRY ALGORITHM ─────────────────────────────────────
+async function computeChemistry(participants, songsPlayed, reactions) {
+  if (participants.length < 2) return 50;
+  try {
+    // Song DNA for played songs
+    const dnaList = await Promise.all(songsPlayed.slice(0,20).map(s => enrichSong(s.videoId, s.title).catch(()=>({}))));
+    
+    // Taste overlap — how similar are played song categories
+    const cats = dnaList.map(d => d.category || 'Vibes');
+    const uniqueCats = new Set(cats);
+    const variety = Math.min(100, uniqueCats.size * 15);
+    
+    // Reaction sync — did everyone react to the same songs
+    const reactionScores = Object.values(reactions || {});
+    const totalReactions = reactionScores.reduce((a, b) => a + Object.values(b).reduce((x,y)=>x+y,0), 0);
+    const reactionDensity = Math.min(100, totalReactions * 5);
+    
+    // Retention score — how long did people stay
+    const sessionLen = Date.now() - (songsPlayed[0]?.playedAt || Date.now());
+    const retentionScore = Math.min(100, (sessionLen / 60000) * 5); // 20min = 100%
+    
+    const chemistry = Math.round(variety * 0.3 + reactionDensity * 0.4 + retentionScore * 0.3);
+    return Math.min(100, Math.max(10, chemistry));
+  } catch { return 50; }
+}
+
 // ─── YOUTUBE SEARCH ──────────────────────────────────────────
 app.get('/youtube/search', requireAuth, async (req, res) => {
   const { q } = req.query;
@@ -902,6 +995,254 @@ app.get('/taste-fingerprint', requireAuth, async (req, res) => {
   } catch (e) {
     console.error('taste-fingerprint error:', e.message);
     res.status(500).json({ error: 'Failed to build fingerprint' });
+  }
+});
+
+// ─── STREAK + PROFILE ENDPOINTS ─────────────────────────────
+
+app.get('/profile/me', requireAuth, async (req, res) => {
+  try {
+    const profile = await UserProfile.findOne({ userId: req.user.id }).lean();
+    res.json({ profile: profile || { userId: req.user.id, streak: 0, longestStreak: 0 } });
+  } catch (e) { res.status(500).json({ error: 'Failed to load profile' }); }
+});
+
+app.get('/profile/leaderboard/:roomId', requireAuth, async (req, res) => {
+  try {
+    // Top streaks among users who have been in this room
+    const sessions = await RoomSession.find({ 'participants.roomId': req.params.roomId }).lean();
+    const userIds  = [...new Set(sessions.flatMap(s => s.participants.map(p => p.userId)))];
+    const profiles = await UserProfile.find({ userId: { $in: userIds } })
+      .sort({ streak: -1 }).limit(10).lean();
+    res.json({ leaderboard: profiles });
+  } catch (e) { res.status(500).json({ error: 'Failed' }); }
+});
+
+// ─── CHEMISTRY ENDPOINTS ─────────────────────────────────────
+
+app.get('/chemistry/:roomId', requireAuth, async (req, res) => {
+  try {
+    const sessions = await RoomSession.find({ roomId: req.params.roomId })
+      .sort({ sessionStart: -1 }).limit(10).lean();
+    const avg = sessions.length
+      ? Math.round(sessions.reduce((a,s)=>a+s.chemistry,0)/sessions.length)
+      : null;
+    res.json({ sessions, avgChemistry: avg });
+  } catch (e) { res.status(500).json({ error: 'Failed' }); }
+});
+
+// ─── GROOVE TIME MACHINE ENDPOINTS ───────────────────────────
+
+app.get('/time-machine', requireAuth, async (req, res) => {
+  try {
+    const today = new Date();
+    const memories = [];
+    // Check 30, 60, 90, 365 days ago
+    for (const daysAgo of [7, 14, 30, 60, 90, 365]) {
+      const targetDate = new Date(today);
+      targetDate.setDate(today.getDate() - daysAgo);
+      const dayStart = new Date(targetDate.setHours(0,0,0,0)).getTime();
+      const dayEnd   = dayStart + 86400000;
+      const sessions = await RoomSession.find({
+        sessionStart: { $gte: dayStart, $lt: dayEnd },
+        'participants.userId': req.user.id,
+      }).lean();
+      if (sessions.length > 0) {
+        memories.push({
+          daysAgo,
+          date: new Date(dayStart).toISOString(),
+          sessions: sessions.map(s => ({
+            roomId: s.roomId,
+            songsPlayed: s.songsPlayed,
+            participants: s.participants,
+            chemistry: s.chemistry,
+            dominantMood: s.dominantMood,
+            sessionStart: s.sessionStart,
+          }))
+        });
+      }
+    }
+    res.json({ memories });
+  } catch (e) { res.status(500).json({ error: 'Failed to load memories' }); }
+});
+
+// ─── GROOVE RADAR ENDPOINT ────────────────────────────────────
+
+app.get('/radar', requireAuth, async (req, res) => {
+  const apiKey = process.env.YOUTUBE_API_KEY;
+  if (!apiKey) return res.status(503).json({ error: 'Radar not configured' });
+  try {
+    // Build fingerprint from listen history
+    const history = await ListenHistory.find({ userId: req.user.id })
+      .sort({ listenedAt: -1 }).limit(100).lean();
+    if (history.length < 3) return res.json({ results: [], message: 'Listen to more songs to unlock Radar' });
+
+    const dnaList = await Promise.all(history.slice(0,30).map(h => enrichSong(h.videoId, h.title).catch(()=>({}))));
+    const valid   = dnaList.filter(d => d.bpm || d.energy != null);
+    const avgBpm  = valid.filter(d=>d.bpm).reduce((a,d)=>a+d.bpm,0) / (valid.filter(d=>d.bpm).length||1);
+    const avgEnergy = valid.filter(d=>d.energy!=null).reduce((a,d)=>a+d.energy,0) / (valid.filter(d=>d.energy!=null).length||1);
+    const moodCounts = {};
+    dnaList.forEach(d => { if(d.mood) moodCounts[d.mood]=(moodCounts[d.mood]||0)+1; });
+    const dominantMood = Object.entries(moodCounts).sort((a,b)=>b[1]-a[1])[0]?.[0] || 'neutral';
+    const catCounts = {};
+    dnaList.forEach(d => { if(d.category) catCounts[d.category]=(catCounts[d.category]||0)+1; });
+    const dominantCat = Object.entries(catCounts).sort((a,b)=>b[1]-a[1])[0]?.[0] || 'Vibes';
+
+    // Build search query from fingerprint
+    const MOOD_QUERIES = {
+      euphoric: 'upbeat feel good energy',
+      confident: 'confident anthem bold',
+      chill: 'chill relaxing calm vibes',
+      sad: 'emotional heartfelt melancholy',
+      aggressive: 'intense powerful hype',
+      neutral: 'popular music',
+    };
+    const BPM_LABEL = avgBpm > 130 ? 'fast energetic' : avgBpm > 100 ? 'upbeat mid-tempo' : avgBpm > 75 ? 'mid-tempo' : 'slow';
+    const catQuery  = dominantCat !== 'Vibes' ? dominantCat.toLowerCase() : '';
+    const query     = `${MOOD_QUERIES[dominantMood]||'music'} ${BPM_LABEL} ${catQuery} music`.trim();
+
+    // YouTube search
+    const ytUrl = new URL('https://www.googleapis.com/youtube/v3/search');
+    ytUrl.searchParams.set('part', 'snippet');
+    ytUrl.searchParams.set('q', query);
+    ytUrl.searchParams.set('type', 'video');
+    ytUrl.searchParams.set('videoCategoryId', '10');
+    ytUrl.searchParams.set('maxResults', '20');
+    ytUrl.searchParams.set('key', apiKey);
+    const ytRes = await fetch(ytUrl.toString());
+    const ytData = await ytRes.json();
+    const items  = ytData.items || [];
+
+    // Filter out already heard songs
+    const historyIds = new Set(history.map(h => h.videoId));
+    const fresh = items.filter(item => !historyIds.has(item.id.videoId));
+
+    // Enrich + score each result
+    const fingerprint = { bpm: avgBpm, energy: avgEnergy, mood: dominantMood };
+    const scored = await Promise.all(fresh.slice(0, 12).map(async item => {
+      const dna = await enrichSong(item.id.videoId, item.snippet.title).catch(() => ({}));
+      // Similarity score
+      let score = 60;
+      if (dna.bpm && fingerprint.bpm) score += Math.max(-25, 25 - Math.abs(dna.bpm - fingerprint.bpm) / 2);
+      if (dna.energy != null && fingerprint.energy != null) score += Math.max(-20, 20 - Math.abs(dna.energy - fingerprint.energy) * 40);
+      if (dna.mood === fingerprint.mood) score += 15;
+      score = Math.max(10, Math.min(99, Math.round(score)));
+      return {
+        videoId: item.id.videoId,
+        title: item.snippet.title,
+        channel: item.snippet.channelTitle,
+        thumbnail: item.snippet.thumbnails?.medium?.url,
+        matchScore: score,
+        mood: dna.mood || null,
+        bpm: dna.bpm || null,
+        category: dna.category || null,
+      };
+    }));
+
+    const results = scored.sort((a,b) => b.matchScore - a.matchScore).filter(r => r.matchScore >= 40);
+    res.json({ results, fingerprint: { mood: dominantMood, bpm: Math.round(avgBpm), category: dominantCat }, query });
+  } catch (e) {
+    console.error('radar error:', e.message);
+    res.status(500).json({ error: 'Radar failed' });
+  }
+});
+
+// ─── SMART RADIO ENDPOINT ─────────────────────────────────────
+
+app.post('/radio/next', requireAuth, async (req, res) => {
+  const { lastSong, roomHistory = [] } = req.body;
+  const apiKey = process.env.YOUTUBE_API_KEY;
+  if (!apiKey || !lastSong) return res.status(400).json({ error: 'Missing data' });
+  try {
+    const dna = await enrichSong(lastSong.videoId, lastSong.title).catch(() => ({}));
+    const MOOD_QUERIES = {
+      euphoric:'upbeat feel good', confident:'confident bold anthem',
+      chill:'chill relaxing calm', sad:'emotional heartfelt',
+      aggressive:'intense hype powerful', neutral:'popular music',
+    };
+    const bpmLabel = (dna.bpm||120) > 130 ? 'fast' : (dna.bpm||120) > 100 ? 'upbeat' : 'chill';
+    const query = `${MOOD_QUERIES[dna.mood||'neutral']} ${bpmLabel} ${dna.category||''} music`.trim();
+
+    const ytUrl = new URL('https://www.googleapis.com/youtube/v3/search');
+    ytUrl.searchParams.set('part','snippet');
+    ytUrl.searchParams.set('q', query);
+    ytUrl.searchParams.set('type','video');
+    ytUrl.searchParams.set('videoCategoryId','10');
+    ytUrl.searchParams.set('maxResults','10');
+    ytUrl.searchParams.set('key', apiKey);
+    const ytRes  = await fetch(ytUrl.toString());
+    const ytData = await ytRes.json();
+    const historyIds = new Set([...roomHistory, lastSong.videoId]);
+    const fresh = (ytData.items||[]).filter(item => !historyIds.has(item.id.videoId));
+
+    const songs = fresh.slice(0,5).map(item => ({
+      videoId: item.id.videoId,
+      title: item.snippet.title,
+      addedBy: '📻 Radio',
+      thumbnail: item.snippet.thumbnails?.medium?.url,
+    }));
+    res.json({ songs, mood: dna.mood, query });
+  } catch (e) {
+    res.status(500).json({ error: 'Radio failed' });
+  }
+});
+
+// ─── WEEKLY WRAPPED ENDPOINT ──────────────────────────────────
+
+app.get('/wrapped', requireAuth, async (req, res) => {
+  try {
+    const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    const history = await ListenHistory.find({
+      userId: req.user.id, listenedAt: { $gt: weekAgo }
+    }).sort({ listenedAt: -1 }).lean();
+
+    if (history.length < 3) return res.json({ wrapped: null, message: 'Not enough data for this week yet' });
+
+    // Top songs by frequency
+    const songCounts = {};
+    history.forEach(h => { songCounts[h.videoId] = { ...(songCounts[h.videoId]||{title:h.title,videoId:h.videoId,count:0}), count: (songCounts[h.videoId]?.count||0)+1 }; });
+    const topSongs = Object.values(songCounts).sort((a,b)=>b.count-a.count).slice(0,5);
+
+    // DNA analysis
+    const dnaList = await Promise.all(history.slice(0,30).map(h => enrichSong(h.videoId, h.title).catch(()=>({}))));
+    const moodCounts = {};
+    dnaList.forEach(d => { if(d.mood) moodCounts[d.mood]=(moodCounts[d.mood]||0)+1; });
+    const dominantMood = Object.entries(moodCounts).sort((a,b)=>b[1]-a[1])[0]?.[0]||'neutral';
+    const bpms = dnaList.filter(d=>d.bpm).map(d=>d.bpm);
+    const avgBpm = bpms.length ? Math.round(bpms.reduce((a,b)=>a+b,0)/bpms.length) : null;
+
+    // Sessions this week
+    const sessions = await RoomSession.find({
+      sessionStart: { $gt: weekAgo }, 'participants.userId': req.user.id
+    }).lean();
+    const totalMinutes = Math.round(history.length * 3.5); // estimate ~3.5min per song
+    const uniqueRooms  = new Set(sessions.map(s=>s.roomId)).size;
+    const topRoom      = sessions.reduce((best,s) => {
+      const cnt = sessions.filter(x=>x.roomId===s.roomId).length;
+      return cnt > (best.count||0) ? { roomId: s.roomId, count: cnt } : best;
+    }, {});
+
+    // Profile for streak
+    const profile = await UserProfile.findOne({ userId: req.user.id }).lean();
+
+    res.json({
+      wrapped: {
+        weekStart: new Date(weekAgo).toISOString(),
+        topSongs,
+        dominantMood,
+        avgBpm,
+        totalSongs: history.length,
+        totalMinutes,
+        uniqueRooms,
+        topRoom: topRoom.roomId || null,
+        streak: profile?.streak || 0,
+        moodBreakdown: moodCounts,
+        sessions: sessions.length,
+      }
+    });
+  } catch (e) {
+    console.error('wrapped error:', e.message);
+    res.status(500).json({ error: 'Failed to build wrapped' });
   }
 });
 
@@ -1077,7 +1418,20 @@ io.on('connection', (socket) => {
     const room = await getRoom(roomId);
     const isFirstUser = Object.keys(room.users).length === 0;
     room.users[socket.id] = { id: socket.id, discordId, username, avatar, joinedAt: Date.now() };
-    if (isFirstUser) room.djId = socket.id;
+    if (isFirstUser) {
+      room.djId = socket.id;
+      room.reactions = {}; // track reactions per session
+    }
+    // Update streak for this user
+    if (discordId) {
+      const streakData = await updateStreak(discordId, username, avatar);
+      if (streakData) {
+        socket.emit('streak-update', streakData);
+        if (streakData.milestone) {
+          io.to(roomId).emit('streak-milestone', { username, streak: streakData.milestone });
+        }
+      }
+    }
     const chatHistory = await getMessages(roomId);
     // Estimate actual current time accounting for elapsed since last heartbeat
     let estimatedTime = room.currentTime || 0;
@@ -1290,6 +1644,12 @@ io.on('connection', (socket) => {
   // Per-song reactions
   socket.on('song-react', ({ roomId, videoId, emoji, username }) => {
     socket.to(roomId).emit('song-reaction', { videoId, emoji, username });
+    // Track for chemistry calculation
+    if (rooms[roomId]) {
+      if (!rooms[roomId].reactions) rooms[roomId].reactions = {};
+      if (!rooms[roomId].reactions[videoId]) rooms[roomId].reactions[videoId] = {};
+      rooms[roomId].reactions[videoId][emoji] = (rooms[roomId].reactions[videoId][emoji] || 0) + 1;
+    }
   });
 
   // Notify room when someone adds a song (for toast notifications)
@@ -1325,6 +1685,35 @@ io.on('connection', (socket) => {
     if (roomId && rooms[roomId]) {
       delete rooms[roomId].users[socket.id];
       const users = Object.values(rooms[roomId].users);
+      // Save session when room empties
+      if (users.length === 0 && MONGO_URI) {
+        const room = rooms[roomId];
+        const allUsers = Object.values(room.users || {}); // already deleted but may have others
+        try {
+          const participants = Object.entries(room.users || {}).map(([sid, u]) => ({
+            userId: u.discordId, username: u.username, avatar: u.avatar, joinedAt: u.joinedAt
+          }));
+          const chemistry = await computeChemistry(participants, room.songsPlayed || [], room.reactions || {});
+          const dnaList = await Promise.all((room.songsPlayed||[]).slice(0,20).map(s=>enrichSong(s.videoId,s.title).catch(()=>({}))));
+          const moodCounts = {};
+          dnaList.forEach(d => { if(d.mood) moodCounts[d.mood]=(moodCounts[d.mood]||0)+1; });
+          const dominantMood = Object.entries(moodCounts).sort((a,b)=>b[1]-a[1])[0]?.[0] || 'neutral';
+          const bpms = dnaList.filter(d=>d.bpm).map(d=>d.bpm);
+          const avgBpm = bpms.length ? Math.round(bpms.reduce((a,b)=>a+b,0)/bpms.length) : null;
+          await RoomSession.create({
+            roomId,
+            sessionStart: room.sessionStart || Date.now(),
+            sessionEnd: Date.now(),
+            participants,
+            songsPlayed: room.songsPlayed || [],
+            reactions: room.reactions || {},
+            chemistry,
+            dominantMood,
+            avgBpm,
+          });
+          console.log(`[Session] saved room="${roomId}" chemistry=${chemistry}% songs=${(room.songsPlayed||[]).length}`);
+        } catch(e) { console.error('session save error:', e.message); }
+      }
 
       if (rooms[roomId].djId === socket.id && users.length > 0) {
         rooms[roomId].djId = users[0].id;

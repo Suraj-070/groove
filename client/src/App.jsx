@@ -17,6 +17,10 @@ import InviteModal from './components/InviteModal'
 import HistoryPanel from './components/HistoryPanel'
 import SessionDNACard from './components/SessionDNACard'
 import TasteFingerprint from './components/TasteFingerprint'
+import GrooveRadar from './components/GrooveRadar'
+import TimeMachine from './components/TimeMachine'
+import WeeklyWrapped from './components/WeeklyWrapped'
+import ChemistryScore from './components/ChemistryScore'
 import { registerServiceWorker, isPushSupported, getPushStatus, subscribeToPush, unsubscribeFromPush } from './services/NotificationService'
 import './App.css'
 
@@ -161,6 +165,14 @@ function App() {
   const [historyOpen, setHistoryOpen]         = useState(false)
   const [fingerprintOpen, setFingerprintOpen] = useState(false)
   const [showDNACard, setShowDNACard]         = useState(false)
+  const [radarOpen, setRadarOpen]             = useState(false)
+  const [timeMachineOpen, setTimeMachineOpen] = useState(false)
+  const [wrappedOpen, setWrappedOpen]         = useState(false)
+  const [chemistryOpen, setChemistryOpen]     = useState(false)
+  const [streakData, setStreakData]           = useState(null)
+  const [streakToast, setStreakToast]         = useState(null)
+  const [radioMode, setRadioMode]             = useState(false)
+  const [radioLoading, setRadioLoading]       = useState(false)
   const [theme, setTheme]             = useState(() => localStorage.getItem('groove_theme') || 'violet')
   const [pushEnabled, setPushEnabled]   = useState(false)
   const [pushLoading, setPushLoading]   = useState(false)
@@ -481,6 +493,27 @@ function App() {
     socket.emit('remove-song', { roomId, index })
   }
 
+  // Smart Radio Mode
+  const triggerRadio = useCallback(async () => {
+    if (!radioMode || radioLoading || !currentSong) return
+    setRadioLoading(true)
+    try {
+      const roomHistory = queue.map(s => s.videoId)
+      const res = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'}/radio/next`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ lastSong: currentSong, roomHistory })
+      })
+      if (!res.ok) return
+      const data = await res.json()
+      if (data.songs?.length) {
+        socket.emit('add-songs-batch', { roomId, songs: data.songs, addedBy: '📻 Radio' })
+      }
+    } catch {}
+    finally { setRadioLoading(false) }
+  }, [radioMode, radioLoading, currentSong, queue, roomId, socket])
+
   const handleNext = useCallback(() => {
     if (djMode && !isDJ) return
     if (loop) {
@@ -489,7 +522,11 @@ function App() {
       return
     }
     const next = currentIndex + 1
-    if (next < queue.length) handleLoadSong(next)
+    if (next < queue.length) {
+      handleLoadSong(next)
+    } else if (radioMode) {
+      triggerRadio()
+    }
   }, [djMode, isDJ, loop, currentIndex, queue.length])
 
   const handleToggleDJMode = () => {
@@ -553,6 +590,20 @@ function App() {
     socket.on('user-joined', ({ users }) => setUsers(Array.isArray(users) ? users : []))
     socket.on('user-left', ({ users }) => setUsers(Array.isArray(users) ? users : []))
     socket.on('dj-mode-changed', ({ djMode, djId }) => { if (djMode !== undefined) setDjMode(djMode); if (djId !== undefined) setDjId(djId) })
+    socket.on('streak-update', (data) => {
+      setStreakData(data)
+      if (data.milestone) {
+        setStreakToast({ type: 'milestone', streak: data.milestone })
+        setTimeout(() => setStreakToast(null), 5000)
+      } else if (data.isNew && data.streak > 1) {
+        setStreakToast({ type: 'streak', streak: data.streak })
+        setTimeout(() => setStreakToast(null), 3000)
+      }
+    })
+    socket.on('streak-milestone', ({ username, streak }) => {
+      setStreakToast({ type: 'room-milestone', username, streak })
+      setTimeout(() => setStreakToast(null), 5000)
+    })
     socket.on('dj-transferred', ({ fromUsername, toUsername, toSocketId }) => {
       // Show system message in chat
       socket.emit('chat-system-local', { text: `👑 ${fromUsername} passed the crown to ${toUsername}` })
@@ -717,6 +768,11 @@ function App() {
                   ? <img src={user.avatar} alt="" className="header-avatar" />
                   : <div className="header-avatar-placeholder">{user.username?.slice(0,2).toUpperCase()}</div>
                 }
+                {streakData?.streak > 0 && (
+                  <span className="streak-badge" title={`${streakData.streak} day streak`}>
+                    🔥{streakData.streak}
+                  </span>
+                )}
                 <span className="profile-chevron">{profileOpen ? '▲' : '▼'}</span>
               </button>
 
@@ -735,6 +791,9 @@ function App() {
                       <div className="pd-info">
                         <p className="pd-name">{user.username}</p>
                         <p className="pd-tag">{IS_DISCORD ? 'Discord Activity' : user.provider === 'google' ? 'via Google' : 'via Discord'}</p>
+                      {streakData?.streak > 0 && (
+                        <p className="pd-streak">🔥 {streakData.streak} day streak{streakData.longestStreak > streakData.streak ? ` · best ${streakData.longestStreak}` : ''}</p>
+                      )}
                       </div>
                     </div>
 
@@ -779,7 +838,24 @@ function App() {
                         <span className="pd-action-icon">🕐</span><span>Listen History & Moments</span>
                       </button>
                       <button className="pd-action" onClick={() => { setFingerprintOpen(true); setProfileOpen(false) }}>
-                        <span className="pd-action-icon">🫆</span><span>My Taste Fingerprint</span>
+                        <span className="pd-action-icon">🫆</span><span>Taste Fingerprint</span>
+                      </button>
+                      <button className="pd-action" onClick={() => { setRadarOpen(true); setProfileOpen(false) }}>
+                        <span className="pd-action-icon">📡</span><span>Groove Radar</span>
+                      </button>
+                      <button className="pd-action" onClick={() => { setTimeMachineOpen(true); setProfileOpen(false) }}>
+                        <span className="pd-action-icon">⏰</span><span>Time Machine</span>
+                      </button>
+                      <button className="pd-action" onClick={() => { setWrappedOpen(true); setProfileOpen(false) }}>
+                        <span className="pd-action-icon">📊</span><span>Weekly Wrapped</span>
+                      </button>
+                      <button className="pd-action" onClick={() => { setChemistryOpen(true); setProfileOpen(false) }}>
+                        <span className="pd-action-icon">💜</span><span>Room Chemistry</span>
+                      </button>
+                      <button className={`pd-action ${radioMode ? 'pd-action--active' : ''}`} onClick={() => { setRadioMode(p => !p); setProfileOpen(false) }}>
+                        <span className="pd-action-icon">📻</span>
+                        <span>Radio Mode {radioMode ? 'ON' : 'OFF'}</span>
+                        <span className={`pd-toggle ${radioMode ? 'on' : ''}`} />
                       </button>
                       <div className="pd-theme-row">
                         <span className="pd-theme-label">Room theme</span>
@@ -1002,6 +1078,25 @@ function App() {
       {showSleepTimer && <SleepTimerModal onClose={() => setShowSleepTimer(false)} onSet={handleSetSleepTimer} />}
 
       <TasteFingerprint isOpen={fingerprintOpen} onClose={() => setFingerprintOpen(false)} />
+      <GrooveRadar isOpen={radarOpen} onClose={() => setRadarOpen(false)} onAddToQueue={song => socket.emit('add-song', { roomId, videoId: song.videoId, title: song.title, addedBy: user?.username })} />
+      <TimeMachine isOpen={timeMachineOpen} onClose={() => setTimeMachineOpen(false)} onLoadSession={songs => { socket.emit('add-songs-batch', { roomId, songs, addedBy: user?.username }); setTimeMachineOpen(false) }} />
+      <WeeklyWrapped isOpen={wrappedOpen} onClose={() => setWrappedOpen(false)} />
+      <ChemistryScore isOpen={chemistryOpen} onClose={() => setChemistryOpen(false)} roomId={roomId} />
+
+      {/* Streak toast */}
+      {streakToast && (
+        <div className={`streak-toast ${streakToast.type === 'milestone' ? 'streak-toast--milestone' : ''}`}>
+          {streakToast.type === 'milestone' && <span className="streak-toast-firework">🎉</span>}
+          {streakToast.type === 'milestone' && <span>{streakToast.streak} day streak milestone! 🔥</span>}
+          {streakToast.type === 'streak' && <span>🔥 {streakToast.streak} day streak! Keep it up</span>}
+          {streakToast.type === 'room-milestone' && <span>🔥 {streakToast.username} hit a {streakToast.streak} day streak!</span>}
+        </div>
+      )}
+
+      {/* Radio loading indicator */}
+      {radioLoading && (
+        <div className="radio-loading-toast">📻 Finding songs for your vibe…</div>
+      )}
       {historyOpen && (
         <HistoryPanel
           isOpen={historyOpen}
