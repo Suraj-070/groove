@@ -2036,10 +2036,6 @@ body {
 
 /* crate action buttons */
 
-/* now playing badge */
-
-  50% { box-shadow: 0 0 0 6px rgba(124,106,255,0); }
-}
 
 /* new crate card */
 .crate-new-card {
