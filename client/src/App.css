@@ -4212,18 +4212,25 @@ body {
   /* ── Chat ─────────────────────────────────────────────── */
   .chat-panel {
     position: fixed !important;
-    right: 0 !important;
-    left: 0 !important;
-    top: 0 !important;
-    bottom: 0 !important;
-    width: 100% !important;
+    inset: 0 !important;
+    width: 100vw !important;
     height: 100dvh !important;
+    max-height: 100dvh !important;
     border-radius: 0 !important;
     border: none !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
     padding-bottom: env(safe-area-inset-bottom) !important;
     box-shadow: none !important;
-    animation: chatIn 0.25s cubic-bezier(0.4,0,0.2,1) !important;
-    z-index: 250 !important;
+    animation: chatFadeIn 0.22s ease !important;
+    z-index: 999 !important;
+    background: #0a0814 !important;
+  }
+  @keyframes chatFadeIn {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
   }
 
   /* ── Library ──────────────────────────────────────────── */
@@ -9142,6 +9149,12 @@ body.chat-is-open .fcb-bubble { opacity: 0; pointer-events: none; }
   body.chat-is-open .mobile-bottom-nav {
     display: none !important;
   }
+  body.chat-is-open .app-main,
+  body.chat-is-open .reaction-trigger,
+  body.chat-is-open .burst-overlay {
+    z-index: 0 !important;
+    pointer-events: none !important;
+  }
 
   /* Reaction emoji buttons — fix touch on mobile */
   .ep-emoji-btn {
@@ -9166,5 +9179,31 @@ body.chat-is-open .fcb-bubble { opacity: 0; pointer-events: none; }
   .reaction-quick-row, .reaction-quick-btn {
     pointer-events: all !important;
     touch-action: auto !important;
+  }
+}
+
+/* ── Mobile chat full-screen header polish ──────────────── */
+@media (max-width: 768px) {
+  .chat-header {
+    padding: 14px 16px !important;
+    min-height: 56px !important;
+    background: #0a0814 !important;
+    border-bottom: 1px solid rgba(255,255,255,0.06) !important;
+  }
+  .chat-close {
+    width: 36px !important;
+    height: 36px !important;
+    border-radius: 50% !important;
+    background: rgba(255,255,255,0.06) !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+  .chat-messages {
+    flex: 1 !important;
+    overflow-y: auto !important;
+  }
+  .chat-input-wrap {
+    padding-bottom: max(12px, env(safe-area-inset-bottom)) !important;
   }
 }
