@@ -206,13 +206,6 @@ function App() {
   const currentSongRef    = useRef(null)
   const triggerRadioRef   = useRef(null)
 
-  // ── Hide floating bubble when chat open on mobile ───────────
-  useEffect(() => {
-    if (isMobileView) {
-      document.body.classList.toggle('chat-is-open', chatOpen)
-    }
-  }, [chatOpen, isMobileView])
-
   // ── Apply room theme ─────────────────────────────────────
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme)
@@ -250,6 +243,11 @@ function App() {
     return () => { window.removeEventListener('resize', onResize); clearTimeout(timer) }
   }, [])
   const isMobileView = windowWidth <= 768
+
+  // Hide floating chat bubble when chat panel is open on mobile
+  useEffect(() => {
+    document.body.classList.toggle('chat-is-open', isMobileView && chatOpen)
+  }, [chatOpen, isMobileView])
 
   const isDJ = socket.id === djId
 
