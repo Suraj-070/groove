@@ -9062,3 +9062,34 @@ body {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+/* ── FloatingChatBubble — icon override ─────────────────── */
+.fcb-icon {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #7c6aff, #9b6aff);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  position: relative;
+  box-shadow:
+    0 4px 20px rgba(124,106,255,0.5),
+    0 0 0 2.5px rgba(124,106,255,0.3);
+  transition: box-shadow 0.2s, transform 0.15s;
+}
+.fcb-bubble.fcb-open .fcb-icon {
+  background: linear-gradient(135deg, #ff6a8a, #ff2d78);
+  box-shadow:
+    0 4px 20px rgba(255,45,120,0.5),
+    0 0 0 2.5px rgba(255,45,120,0.3);
+}
+.fcb-bubble:not(.fcb-dragging) .fcb-icon:active {
+  transform: scale(0.92);
+}
+
+/* Hide old avatar styles */
+.fcb-avatar, .fcb-avatar-img,
+.fcb-avatar-placeholder, .fcb-ring,
+.fcb-close-ring { display: none !important; }

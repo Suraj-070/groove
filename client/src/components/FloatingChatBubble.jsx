@@ -92,10 +92,6 @@ export default function FloatingChatBubble({
     prevUnread.current = unread
   }, [unread, chatOpen])
 
-  const avatarEl = user?.avatar
-    ? <img src={user.avatar} alt="" className="fcb-avatar-img" />
-    : <div className="fcb-avatar-placeholder">{user?.username?.slice(0,2).toUpperCase() || '?'}</div>
-
   return (
     <div
       ref={bubbleRef}
@@ -103,15 +99,20 @@ export default function FloatingChatBubble({
       style={{ left: pos.x, top: pos.y, touchAction: 'none' }}
       onPointerDown={onPointerDown}
     >
-      {/* Avatar */}
-      <div className="fcb-avatar">
-        {avatarEl}
+      {/* Chat icon button */}
+      <div className="fcb-icon">
+        {chatOpen
+          ? <svg viewBox="0 0 24 24" fill="currentColor" width="22" height="22">
+              <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+            </svg>
+          : <svg viewBox="0 0 24 24" fill="currentColor" width="22" height="22">
+              <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z"/>
+            </svg>
+        }
         {/* Unread badge */}
         {unread > 0 && !chatOpen && (
           <span className="fcb-badge">{unread > 9 ? '9+' : unread}</span>
         )}
-        {/* Online ring */}
-        <span className="fcb-ring" />
       </div>
 
       {/* Last message preview — shows briefly when not open */}
@@ -122,14 +123,7 @@ export default function FloatingChatBubble({
         </div>
       )}
 
-      {/* Close indicator when chat is open */}
-      {chatOpen && (
-        <div className="fcb-close-ring">
-          <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14">
-            <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
-          </svg>
-        </div>
-      )}
+
     </div>
   )
 }
