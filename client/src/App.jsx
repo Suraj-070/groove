@@ -493,7 +493,8 @@ function App() {
     socket.emit('remove-song', { roomId, index })
   }
 
-  // Smart Radio Mode
+  // Smart Radio Mode — use ref to avoid circular dependency with handleNext
+  const triggerRadioRef = useRef(null)
   const triggerRadio = useCallback(async () => {
     if (!radioMode || radioLoading || !currentSong) return
     setRadioLoading(true)
@@ -514,10 +515,12 @@ function App() {
     finally { setRadioLoading(false) }
   }, [radioMode, radioLoading, currentSong, queue, roomId, socket])
 
+  // Keep ref always up to date
+  useEffect(() => { triggerRadioRef.current = triggerRadio }, [triggerRadio])
+
   const handleNext = useCallback(() => {
     if (djMode && !isDJ) return
     if (loop) {
-      // Reload current song from beginning
       handleLoadSong(currentIndex)
       return
     }
@@ -525,9 +528,9 @@ function App() {
     if (next < queue.length) {
       handleLoadSong(next)
     } else if (radioMode) {
-      triggerRadio()
+      triggerRadioRef.current?.()
     }
-  }, [djMode, isDJ, loop, currentIndex, queue.length])
+  }, [djMode, isDJ, loop, currentIndex, queue.length, radioMode])
 
   const handleToggleDJMode = () => {
     socket.emit('toggle-dj-mode', { roomId })
