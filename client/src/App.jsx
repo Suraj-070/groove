@@ -814,9 +814,23 @@ function App() {
                           : <p className="pd-tag">{IS_DISCORD ? 'Discord Activity' : user.provider === 'google' ? 'via Google' : 'via Discord'}</p>
                         }
                       </div>
-                      <div className="pd-identity-stats">
-                        <div className="pd-istat"><span>{queue.length}</span><span>queue</span></div>
-                        <div className="pd-istat"><span>{users.length}</span><span>listeners</span></div>
+                    </div>
+
+                    {/* ── Queue + Listeners stats — above the big buttons ── */}
+                    <div className="pd-room-stats">
+                      <div className="pd-room-stat">
+                        <span className="pd-room-stat-val">{queue.length}</span>
+                        <span className="pd-room-stat-lbl">Queue</span>
+                      </div>
+                      <div className="pd-room-stat-divider" />
+                      <div className="pd-room-stat">
+                        <span className="pd-room-stat-val">{users.length}</span>
+                        <span className="pd-room-stat-lbl">Listeners</span>
+                      </div>
+                      <div className="pd-room-stat-divider" />
+                      <div className="pd-room-stat">
+                        <span className="pd-room-stat-val">{isDJ ? '👑' : '🎧'}</span>
+                        <span className="pd-room-stat-lbl">{isDJ ? 'DJ' : 'Listener'}</span>
                       </div>
                     </div>
 
