@@ -18,8 +18,8 @@ function rgba(hex, a) {
 // Detect mobile once at module level — no re-check needed
 const IS_MOBILE = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent) || window.innerWidth <= 768
 
-// Mobile: fewer particles, no party mode bars, no shadowBlur
-const PARTICLE_COUNT = IS_MOBILE ? 30 : 80
+// Mobile: minimal particles, throttled RAF to save battery
+const PARTICLE_COUNT = IS_MOBILE ? 8 : 80
 
 function VisualizerCanvas({ isPlaying, partyMode }) {
   const canvasRef = useRef(null)

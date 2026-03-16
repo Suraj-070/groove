@@ -196,8 +196,8 @@ export default function ReactionBurst({ socket, roomId, username }) {
               bottom: BTN_SIZE + 8,
               ...(IS_MOBILE
                 ? (dockedSide === 'left'
-                    ? { left: 0, right: 'auto' }
-                    : { right: 0, left: 'auto' })
+                    ? { left: 0, right: 'auto' }   // docked left → opens rightward ✓
+                    : { right: 0, left: 'auto' })   // docked right → opens leftward ✓
                 : { left: '50%', transform: 'translateX(-50%)' }
               )
             }}

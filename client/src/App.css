@@ -964,16 +964,7 @@ body {
 .react-btn span:first-child { font-size: 1.6rem; line-height: 1; }
 .react-label { font-size: 0.88rem; font-weight: 600; }
 
-.reaction-picker-wrap {
-  position: absolute;
-  bottom: 54px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 200;
-  border-radius: 12px;
-  overflow: hidden;
-  box-shadow: 0 16px 40px rgba(0,0,0,0.5);
-}
+/* reaction-picker-wrap positioned inline by JS */
 
 .app-main {
   display: flex;
@@ -8606,12 +8597,7 @@ body {
   .react-btn span:first-child { font-size: 1.5rem !important; }
 
   /* Reaction picker opens upward from bottom-right */
-  .reaction-picker-wrap {
-    bottom: 58px !important;
-    right: 0 !important;
-    left: auto !important;
-    transform: none !important;
-  }
+  
 
   /* Quick emoji row — horizontal scroll on mobile */
   .quick-emoji-bar {
@@ -8636,7 +8622,6 @@ body {
 .reaction-picker-wrap {
   position: absolute;
   z-index: 300;
-  width: 280px;
   background: #13111f;
   border: 1px solid rgba(124,106,255,0.25);
   border-radius: 16px;
@@ -9132,9 +9117,10 @@ body.chat-is-open .fcb-bubble { opacity: 0; pointer-events: none; }
   }
   /* Chat bubble defaults to bottom-RIGHT (already is) */
 
-  /* Picker position handled inline by JS based on docked side */
+  /* Picker position handled inline by JS — only constrain width */
   .reaction-picker-wrap {
     width: 260px !important;
+    max-width: calc(100vw - 32px) !important;
   }
 
   /* Chat full screen — hide bottom nav */
