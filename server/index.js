@@ -739,7 +739,7 @@ async function getRoom(roomId) {
 
   // Fresh room
   rooms[roomId] = {
-    queue: [], currentIndex: 0, currentTime: 0,
+    queue: [], currentIndex: 0, currentTime: 0, currentTimeAt: Date.now(),
     isPlaying: false, users: {}, djId: null, djMode: false,
     sessionStart: Date.now(), songsPlayed: []
   };
@@ -1079,9 +1079,15 @@ io.on('connection', (socket) => {
     room.users[socket.id] = { id: socket.id, discordId, username, avatar, joinedAt: Date.now() };
     if (isFirstUser) room.djId = socket.id;
     const chatHistory = await getMessages(roomId);
+    // Estimate actual current time accounting for elapsed since last heartbeat
+    let estimatedTime = room.currentTime || 0;
+    if (room.isPlaying && room.currentTimeAt) {
+      const elapsed = (Date.now() - room.currentTimeAt) / 1000;
+      estimatedTime = Math.max(0, estimatedTime + elapsed);
+    }
     socket.emit('room-state', {
       queue: room.queue, currentIndex: room.currentIndex,
-      currentTime: room.currentTime, isPlaying: room.isPlaying,
+      currentTime: estimatedTime, isPlaying: room.isPlaying,
       users: Object.values(room.users), djId: room.djId,
       djMode: room.djMode, sessionStart: room.sessionStart,
       songsPlayed: room.songsPlayed,
@@ -1171,7 +1177,7 @@ io.on('connection', (socket) => {
     const prev = room.queue[room.currentIndex];
     if (prev && !room.songsPlayed.find(s => s.videoId === prev.videoId))
       room.songsPlayed.push({ ...prev, playedAt: Date.now() });
-    room.currentIndex = index; room.currentTime = 0; room.isPlaying = true;
+    room.currentIndex = index; room.currentTime = 0; room.currentTimeAt = Date.now(); room.isPlaying = true;
     // Record listen history for all users in room
     const song = room.queue[index];
     if (song) {
@@ -1239,7 +1245,15 @@ io.on('connection', (socket) => {
 
   socket.on('sync-heartbeat', async ({ roomId, time }) => {
     const room = await getRoom(roomId);
-    room.currentTime = time;
+    // Only the DJ / active player should send heartbeats
+    // Don't persist this to DB — it's always slightly stale
+    // Just relay to listeners so they can re-sync if drifted
+    if (room.djMode && socket.id !== room.djId) return;
+    // Update in-memory only (not saved to MongoDB)
+    if (rooms[roomId]) {
+      rooms[roomId].currentTime = time;
+      rooms[roomId].currentTimeAt = Date.now(); // track when we last knew the time
+    }
     socket.to(roomId).emit('sync-check', { time });
   });
 

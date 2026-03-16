@@ -375,7 +375,15 @@ export default function Player({ socket, roomId, videoId, title, onEnded, onSkip
       const p = playerInstanceRef.current
       if (!p || typeof p.getCurrentTime !== 'function') return
       const current = p.getCurrentTime() || 0
-      if (Math.abs(current - time) > 1.5) p.seekTo(time, true)
+      // Don't sync if:
+      // 1. We just started the song (< 3s in) — avoid fighting the initial seek
+      // 2. The server time is BEHIND us by more than 5s — likely stale DB value
+      // 3. Drift is within 3s — acceptable without forcing a seek
+      if (current < 3) return
+      if (time < current - 5) return  // server time looks stale — ignore
+      if (Math.abs(current - time) > 3) {
+        p.seekTo(time, true)
+      }
     })
     return () => { socket.off('play'); socket.off('pause'); socket.off('seek'); socket.off('load-song'); socket.off('sync-check') }
   }, [socket])
@@ -394,13 +402,19 @@ export default function Player({ socket, roomId, videoId, title, onEnded, onSkip
   useEffect(() => { isPlayingRef.current = isPlaying }, [isPlaying])
 
   useEffect(() => {
+    // Only the DJ/active controller emits heartbeats
+    // Non-DJ clients listening should NEVER push their time back to the room
+    // This prevents the jump-back loop where a listener's position overwrites the DJ's
     const interval = setInterval(() => {
       const p = playerInstanceRef.current
-      if (isPlayingRef.current && p && typeof p.getCurrentTime === 'function')
-        socket.emit('sync-heartbeat', { roomId, time: p.getCurrentTime() || 0 })
+      const shouldEmit = !djMode || isDJ  // free mode: all emit; DJ mode: only DJ
+      if (shouldEmit && isPlayingRef.current && p && typeof p.getCurrentTime === 'function') {
+        const t = p.getCurrentTime() || 0
+        if (t > 0) socket.emit('sync-heartbeat', { roomId, time: t })
+      }
     }, 10000)
     return () => clearInterval(interval)
-  }, [roomId, socket])
+  }, [roomId, socket, djMode, isDJ])
 
   useEffect(() => {
     const p = playerInstanceRef.current
