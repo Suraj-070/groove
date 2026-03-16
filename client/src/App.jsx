@@ -1013,6 +1013,16 @@ function App() {
             <span className="nav-label">Library</span>
           </button>
 
+          {currentSong && (
+            <button
+              className={`mobile-nav-btn ${videoOpen ? 'active' : ''}`}
+              onClick={() => setVideoOpen(p => !p)}
+            >
+              <span className="nav-icon">📺</span>
+              <span className="nav-label">Watch</span>
+            </button>
+          )}
+
           <button
             className={`mobile-nav-btn ${profileOpen ? 'active' : ''}`}
             onClick={() => { setLibraryOpen(false); setChatOpen(false); setProfileOpen(p => !p) }}

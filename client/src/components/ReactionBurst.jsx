@@ -125,21 +125,22 @@ export default function ReactionBurst({ socket, roomId, username }) {
 
         {showPicker && (
           <div className="reaction-picker-wrap">
-            <div className="quick-emoji-bar">
-              <span className="quick-label">⚡ Hold to spam</span>
-              <div className="quick-emoji-row">
-                {quickEmojis.map((emoji, i) => (
-                  <button
-                    key={i}
-                    className="reaction-emoji-btn"
-                    onMouseDown={(e) => { e.preventDefault(); startHold(emoji) }}
-                    onTouchStart={(e) => { e.preventDefault(); startHold(emoji) }}
-                  >
-                    {emoji}
-                  </button>
-                ))}
-              </div>
+            {/* Hold-to-spam hint */}
+            <div className="reaction-hold-hint">⚡ Tap once · Hold to spam</div>
+            {/* Quick emojis — hold supported */}
+            <div className="reaction-quick-row">
+              {quickEmojis.map((emoji, i) => (
+                <button
+                  key={i}
+                  className="reaction-quick-btn"
+                  onMouseDown={(e) => { e.preventDefault(); startHold(emoji) }}
+                  onTouchStart={(e) => { e.preventDefault(); startHold(emoji) }}
+                >
+                  {emoji}
+                </button>
+              ))}
             </div>
+            {/* Full picker — category tabs + grid */}
             <EmojiPicker onSelect={sendReaction} onClose={() => setShowPicker(false)} />
           </div>
         )}

@@ -8616,3 +8616,122 @@ body {
     bottom: 80px !important;
   }
 }
+
+/* ═══════════════════════════════════════════════════════════
+   REACTION PICKER — CLEAN SINGLE PANEL
+   ═══════════════════════════════════════════════════════════ */
+
+/* Override old reaction-picker-wrap sizing */
+.reaction-picker-wrap {
+  position: absolute;
+  bottom: 60px;
+  right: 0;
+  left: auto;
+  transform: none;
+  z-index: 300;
+  width: 280px;
+  background: #13111f;
+  border: 1px solid rgba(124,106,255,0.25);
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 16px 48px rgba(0,0,0,0.7);
+  animation: slideUp 0.2s cubic-bezier(0.34,1.2,0.64,1);
+}
+
+/* Hold-to-spam hint — single line at top */
+.reaction-hold-hint {
+  padding: 6px 12px;
+  font-size: 0.62rem;
+  font-weight: 600;
+  color: var(--muted2);
+  text-transform: uppercase;
+  letter-spacing: .07em;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+  text-align: center;
+}
+
+/* Quick emoji row — holds top 8, supports hold-to-spam */
+.reaction-quick-row {
+  display: flex;
+  justify-content: space-around;
+  padding: 8px 10px;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+  gap: 2px;
+}
+.reaction-quick-btn {
+  background: none;
+  border: none;
+  font-size: 1.4rem;
+  padding: 4px 3px;
+  border-radius: 8px;
+  cursor: pointer;
+  line-height: 1;
+  transition: background 0.1s, transform 0.1s;
+  flex: 1;
+  text-align: center;
+}
+.reaction-quick-btn:hover,
+.reaction-quick-btn:active {
+  background: rgba(255,255,255,0.1);
+  transform: scale(1.25);
+}
+
+/* EmojiPicker inside reaction wrap — remove its outer border/shadow */
+.reaction-picker-wrap .ep-picker {
+  border: none !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  width: 100% !important;
+  max-height: 220px;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   STAMP BUTTON — COMPACT IN PLAYER
+   ═══════════════════════════════════════════════════════════ */
+.player-action-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: 4px 0;
+}
+
+.stamp-btn-compact {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 20px;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 5px 12px 5px 9px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.2s;
+}
+.stamp-btn-compact:hover {
+  background: rgba(255,179,0,0.1);
+  border-color: rgba(255,179,0,0.3);
+  color: #ffb300;
+}
+.stamp-btn-compact.stamped {
+  background: rgba(255,179,0,0.12);
+  border-color: rgba(255,179,0,0.35);
+  color: #ffb300;
+}
+.stamp-btn-compact.stamp-anim {
+  animation: stampPop 0.5s cubic-bezier(0.34,1.6,0.64,1);
+}
+
+@media (max-width: 768px) {
+  .reaction-picker-wrap {
+    right: 0;
+    bottom: 58px;
+    width: 260px;
+  }
+  .reaction-hold-hint { font-size: 0.58rem; }
+  .reaction-quick-btn { font-size: 1.3rem; }
+  .stamp-btn-compact { font-size: 0.68rem; padding: 4px 10px 4px 8px; }
+}
