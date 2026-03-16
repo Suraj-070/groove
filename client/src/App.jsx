@@ -776,7 +776,20 @@ function App() {
                       </button>
                       <button
                         className="pd-action"
-                        onClick={pushSupported ? handleTogglePush : () => alert('To enable notifications:\n1. Add Groove to your home screen\n2. Open it from the home screen icon\n3. Come back here and tap this again')}
+                        onClick={pushSupported ? handleTogglePush : () => {
+                          const sw  = 'serviceWorker' in navigator
+                          const pm  = 'PushManager'   in window
+                          const nt  = 'Notification'  in window
+                          alert(
+                            'Push debug:\n' +
+                            'serviceWorker: ' + sw + '\n' +
+                            'PushManager:   ' + pm + '\n' +
+                            'Notification:  ' + nt + '\n' +
+                            'protocol:      ' + location.protocol + '\n' +
+                            'display mode:  ' + (window.matchMedia('(display-mode: standalone)').matches ? 'standalone (PWA)' : 'browser') + '\n' +
+                            'SW state:      ' + (navigator.serviceWorker?.controller?.state || 'none')
+                          )
+                        }}
                       >
                         <span className="pd-action-icon">{pushEnabled ? '🔔' : '🔕'}</span>
                         <span>
