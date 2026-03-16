@@ -1,6 +1,9 @@
-export default function UserList({ users: rawUsers = [], currentUser, djId }) {
+import { useState } from 'react'
+
+export default function UserList({ users: rawUsers = [], currentUser, djId, isDJ, onTransferDJ }) {
   const users = Array.isArray(rawUsers) ? rawUsers : []
   const colors = ['#7c6aff', '#ff6a8a', '#6affb8', '#ffb86a', '#6ab8ff', '#ff6aff']
+  const [confirmId, setConfirmId] = useState(null)
 
   const getColor = (id) => {
     let hash = 0
@@ -10,6 +13,17 @@ export default function UserList({ users: rawUsers = [], currentUser, djId }) {
 
   const getInitials = (name) => name?.slice(0, 2).toUpperCase() || '??'
 
+  const handleAvatarClick = (user) => {
+    // Only DJ can transfer, and not to themselves
+    if (!isDJ || user.id === currentUser) return
+    setConfirmId(user.id)
+  }
+
+  const confirmTransfer = (user) => {
+    onTransferDJ?.(user.id)
+    setConfirmId(null)
+  }
+
   return (
     <div className="user-list">
       <p className="user-list-label">
@@ -18,9 +32,19 @@ export default function UserList({ users: rawUsers = [], currentUser, djId }) {
       </p>
       <div className="user-avatars">
         {users.map((user) => (
-          <div key={user.id} className="avatar-wrap"
-            title={user.username + (user.id === currentUser ? ' (you)' : '') + (user.id === djId ? ' DJ' : '')}>
+          <div
+            key={user.id}
+            className={`avatar-wrap ${isDJ && user.id !== currentUser ? 'avatar-wrap--clickable' : ''}`}
+            title={
+              user.username +
+              (user.id === currentUser ? ' (you)' : '') +
+              (user.id === djId ? ' 👑 DJ' : '') +
+              (isDJ && user.id !== currentUser ? ' — tap to pass crown' : '')
+            }
+            onClick={() => handleAvatarClick(user)}
+          >
             {user.id === djId && <span className="dj-crown">👑</span>}
+
             {user.avatar ? (
               <img
                 src={user.avatar}
@@ -34,6 +58,17 @@ export default function UserList({ users: rawUsers = [], currentUser, djId }) {
                 style={{ background: getColor(user.id) }}
               >
                 {getInitials(user.username)}
+              </div>
+            )}
+
+            {/* Transfer confirm tooltip */}
+            {confirmId === user.id && (
+              <div className="dj-transfer-confirm" onClick={e => e.stopPropagation()}>
+                <p>Pass crown to<br /><strong>{user.username}</strong>?</p>
+                <div className="dj-transfer-btns">
+                  <button className="dj-transfer-yes" onClick={() => confirmTransfer(user)}>👑 Yes</button>
+                  <button className="dj-transfer-no" onClick={() => setConfirmId(null)}>Cancel</button>
+                </div>
               </div>
             )}
           </div>

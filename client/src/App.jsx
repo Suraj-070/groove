@@ -14,6 +14,7 @@ import Visualizer from './components/Visualizer'
 import MarqueeText from './components/MarqueeText'
 import VideoPanel from './components/VideoPanel'
 import InviteModal from './components/InviteModal'
+import HistoryPanel from './components/HistoryPanel'
 import { registerServiceWorker, isPushSupported, getPushStatus, subscribeToPush, unsubscribeFromPush } from './services/NotificationService'
 import './App.css'
 
@@ -154,7 +155,9 @@ function App() {
   const [chatOpen, setChatOpen] = useState(false)
   const [chatHistory, setChatHistory] = useState([])
   const [videoOpen, setVideoOpen]   = useState(false)
-  const [inviteOpen, setInviteOpen] = useState(false)
+  const [inviteOpen, setInviteOpen]   = useState(false)
+  const [historyOpen, setHistoryOpen] = useState(false)
+  const [theme, setTheme]             = useState(() => localStorage.getItem('groove_theme') || 'violet')
   const [pushEnabled, setPushEnabled]   = useState(false)
   const [pushLoading, setPushLoading]   = useState(false)
   const [pushSupported, setPushSupported] = useState(false)
@@ -174,6 +177,12 @@ function App() {
   const profileRef = useRef(null)
   const [windowWidth, setWindowWidth] = useState(window.innerWidth)
   const touchStartY = useRef(null)
+
+  // ── Apply room theme ─────────────────────────────────────
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme)
+    localStorage.setItem('groove_theme', theme)
+  }, [theme])
 
   // ── Register SW + check push support ─────────────────────
   useEffect(() => {
@@ -496,6 +505,10 @@ function App() {
 
   const handleCopyInvite = () => setInviteOpen(true)
 
+  const handleTransferDJ = (toSocketId) => {
+    socket.emit('transfer-dj', { roomId, toSocketId })
+  }
+
   useEffect(() => {
     const handleNewMsg = () => {
       if (!chatOpen) setUnread((p) => p + 1)
@@ -536,6 +549,10 @@ function App() {
     socket.on('user-joined', ({ users }) => setUsers(Array.isArray(users) ? users : []))
     socket.on('user-left', ({ users }) => setUsers(Array.isArray(users) ? users : []))
     socket.on('dj-mode-changed', ({ djMode, djId }) => { if (djMode !== undefined) setDjMode(djMode); if (djId !== undefined) setDjId(djId) })
+    socket.on('dj-transferred', ({ fromUsername, toUsername, toSocketId }) => {
+      // Show system message in chat
+      socket.emit('chat-system-local', { text: `👑 ${fromUsername} passed the crown to ${toUsername}` })
+    })
     socket.on('recap-data', (data) => {
       if (!data) return
       setRecap({ ...data, songsPlayed: Array.isArray(data.songsPlayed) ? data.songsPlayed : [], users: Array.isArray(data.users) ? data.users : [] })
@@ -754,6 +771,30 @@ function App() {
                       <button className="pd-action" onClick={() => { setShowShortcuts(true); setProfileOpen(false) }}>
                         <span className="pd-action-icon">⌨️</span><span>Shortcuts</span>
                       </button>
+                      <button className="pd-action" onClick={() => { setHistoryOpen(true); setProfileOpen(false) }}>
+                        <span className="pd-action-icon">🕐</span><span>Listen History & Moments</span>
+                      </button>
+                      <div className="pd-theme-row">
+                        <span className="pd-theme-label">Room theme</span>
+                        <div className="theme-picker">
+                          {[
+                            { id:'violet',   color:'#7c6aff', label:'Violet' },
+                            { id:'midnight', color:'#3b8bff', label:'Midnight' },
+                            { id:'synthwave',color:'#ff2d78', label:'Synthwave' },
+                            { id:'forest',   color:'#00c974', label:'Forest' },
+                            { id:'amber',    color:'#ffb300', label:'Amber' },
+                            { id:'crimson',  color:'#ff3b3b', label:'Crimson' },
+                          ].map(t => (
+                            <button
+                              key={t.id}
+                              className={`theme-swatch ${theme === t.id ? 'active' : ''}`}
+                              style={{ background: t.color }}
+                              onClick={() => setTheme(t.id)}
+                              title={t.label}
+                            />
+                          ))}
+                        </div>
+                      </div>
                       <button
                         className="pd-action"
                         onClick={handleTogglePush}
@@ -815,7 +856,7 @@ function App() {
             onVolumeChange={setVolume}
             loop={loop}
           />
-          <UserList users={users} currentUser={socket.id} djId={djId} />
+          <UserList users={users} currentUser={socket.id} djId={djId} isDJ={isDJ} onTransferDJ={handleTransferDJ} />
         </div>
 
         {isMobileView && (
@@ -951,6 +992,14 @@ function App() {
       {showShortcuts && <ShortcutsModal onClose={() => setShowShortcuts(false)} />}
       {showSleepTimer && <SleepTimerModal onClose={() => setShowSleepTimer(false)} onSet={handleSetSleepTimer} />}
 
+      {historyOpen && (
+        <HistoryPanel
+          isOpen={historyOpen}
+          onClose={() => setHistoryOpen(false)}
+          onAddToQueue={handleAddSong}
+          roomId={roomId}
+        />
+      )}
       {inviteOpen && roomId && (
         <InviteModal roomId={roomId} onClose={() => setInviteOpen(false)} />
       )}

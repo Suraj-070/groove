@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import MarqueeText from './MarqueeText'
 
+const BACKEND = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'
 let YT = null
 
 // Global beat energy bus — Visualizer writes here, BeatBorder reads it
@@ -185,6 +186,8 @@ export default function Player({ socket, roomId, videoId, title, onEnded, onSkip
   const [showVolume, setShowVolume] = useState(false)
   const [bpm, setBpm] = useState(null)
   const [bpmLoading, setBpmLoading] = useState(false)
+  const [stamped, setStamped]       = useState(false)
+  const [stampAnim, setStampAnim]   = useState(false)
 
   const onEndedRef = useRef(onEnded)
   useEffect(() => { onEndedRef.current = onEnded }, [onEnded])
@@ -434,6 +437,25 @@ export default function Player({ socket, roomId, videoId, title, onEnded, onSkip
   }
   const handleVolumeChange = (e) => { const v = parseInt(e.target.value); setVolume(v); onVolumeChange?.(v) }
 
+  const handleStamp = async () => {
+    if (!videoId || !title) return
+    const time = getTime()
+    setStampAnim(true)
+    setTimeout(() => setStampAnim(false), 600)
+    try {
+      const res = await fetch(`${BACKEND}/moments`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ videoId, title, timestamp: Math.floor(time), roomId })
+      })
+      if (res.ok) {
+        setStamped(true)
+        setTimeout(() => setStamped(false), 3000)
+      }
+    } catch {}
+  }
+
   const formatTime = (s) => {
     if (!s || isNaN(s)) return '0:00'
     return `${Math.floor(s / 60)}:${Math.floor(s % 60).toString().padStart(2, '0')}`
@@ -517,6 +539,21 @@ export default function Player({ socket, roomId, videoId, title, onEnded, onSkip
           </div>
         </div>
       </div>
+
+      {/* Moment stamp button */}
+      {videoId && (
+        <button
+          className={`stamp-btn ${stamped ? 'stamped' : ''} ${stampAnim ? 'stamp-anim' : ''}`}
+          onClick={handleStamp}
+          title={stamped ? 'Moment stamped!' : 'Stamp this moment ★'}
+        >
+          {stamped
+            ? <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
+            : <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" width="16" height="16"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z" strokeLinejoin="round"/></svg>
+          }
+          <span>{stamped ? 'Stamped!' : `★ ${formatTime(currentTime)}`}</span>
+        </button>
+      )}
 
       <div className="sync-badge">
         <span className="sync-dot" />

@@ -194,6 +194,45 @@ const sharedSongsSchema = new mongoose.Schema({
 sharedSongsSchema.index({ createdAt: 1 }, { expireAfterSeconds: 60 * 60 * 24 });
 const SharedSongs = mongoose.models.SharedSongs || mongoose.model('SharedSongs', sharedSongsSchema);
 
+// ─── LISTEN HISTORY SCHEMA ───────────────────────────────────
+const listenHistorySchema = new mongoose.Schema({
+  userId:    { type: String, required: true, index: true },
+  videoId:   { type: String, required: true },
+  title:     { type: String, required: true },
+  roomId:    { type: String, default: '' },
+  listenedAt:{ type: Number, default: () => Date.now() },
+}, { _id: false });
+// Keep last 500 per user — TTL after 90 days
+listenHistorySchema.index({ listenedAt: 1 }, { expireAfterSeconds: 60 * 60 * 24 * 90 });
+listenHistorySchema.index({ userId: 1, listenedAt: -1 });
+const ListenHistory = mongoose.models.ListenHistory || mongoose.model('ListenHistory', listenHistorySchema);
+
+// ─── MOMENT STAMP SCHEMA ─────────────────────────────────────
+const momentSchema = new mongoose.Schema({
+  userId:    { type: String, required: true, index: true },
+  videoId:   { type: String, required: true },
+  title:     { type: String, required: true },
+  timestamp: { type: Number, required: true }, // seconds into the song
+  roomId:    { type: String, default: '' },
+  note:      { type: String, default: '' },    // optional user note
+  stampedAt: { type: Number, default: () => Date.now() },
+}, { _id: false });
+momentSchema.index({ userId: 1, stampedAt: -1 });
+const Moment = mongoose.models.Moment || mongoose.model('Moment', momentSchema);
+
+async function recordListen(userId, videoId, title, roomId) {
+  if (!MONGO_URI || !userId) return;
+  try {
+    // Avoid duplicate entries for same song within 5 minutes
+    const recent = await ListenHistory.findOne({
+      userId, videoId, listenedAt: { $gt: Date.now() - 5 * 60 * 1000 }
+    });
+    if (!recent) {
+      await ListenHistory.create({ userId, videoId, title, roomId, listenedAt: Date.now() });
+    }
+  } catch (e) { console.error('recordListen error:', e.message); }
+}
+
 // In-memory fallback for when MongoDB is unavailable
 const memMessages = {}; // { roomId: [msg, ...] }
 
@@ -576,6 +615,64 @@ app.get('/youtube/search', requireAuth, async (req, res) => {
   }
 });
 
+// ─── LISTEN HISTORY ENDPOINTS ────────────────────────────────
+
+app.get('/history', requireAuth, async (req, res) => {
+  try {
+    const page  = parseInt(req.query.page  || '1');
+    const limit = parseInt(req.query.limit || '50');
+    const history = await ListenHistory.find({ userId: req.user.id })
+      .sort({ listenedAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit)
+      .lean();
+    const total = await ListenHistory.countDocuments({ userId: req.user.id });
+    res.json({ history, total, page, pages: Math.ceil(total / limit) });
+  } catch (e) { res.status(500).json({ error: 'Failed to load history' }); }
+});
+
+app.delete('/history', requireAuth, async (req, res) => {
+  try {
+    await ListenHistory.deleteMany({ userId: req.user.id });
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: 'Failed to clear history' }); }
+});
+
+// ─── MOMENT STAMP ENDPOINTS ──────────────────────────────────
+
+app.get('/moments', requireAuth, async (req, res) => {
+  try {
+    const moments = await Moment.find({ userId: req.user.id })
+      .sort({ stampedAt: -1 })
+      .limit(200)
+      .lean();
+    res.json({ moments });
+  } catch (e) { res.status(500).json({ error: 'Failed to load moments' }); }
+});
+
+app.post('/moments', requireAuth, async (req, res) => {
+  const { videoId, title, timestamp, roomId, note } = req.body;
+  if (!videoId || timestamp === undefined)
+    return res.status(400).json({ error: 'videoId and timestamp required' });
+  try {
+    // Check duplicate — same song + within 10s of existing stamp
+    const existing = await Moment.findOne({
+      userId: req.user.id, videoId,
+      timestamp: { $gte: timestamp - 10, $lte: timestamp + 10 }
+    });
+    if (existing) return res.status(409).json({ error: 'Already stamped this moment' });
+    await Moment.create({ userId: req.user.id, videoId, title, timestamp, roomId: roomId || '', note: note || '' });
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: 'Failed to save moment' }); }
+});
+
+app.delete('/moments/:videoId', requireAuth, async (req, res) => {
+  try {
+    await Moment.deleteMany({ userId: req.user.id, videoId: req.params.videoId });
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: 'Failed to delete moment' }); }
+});
+
 // ─── SHARED SONGS ENDPOINTS ──────────────────────────────────
 
 // Create a share link for selected songs
@@ -777,6 +874,13 @@ io.on('connection', (socket) => {
     if (prev && !room.songsPlayed.find(s => s.videoId === prev.videoId))
       room.songsPlayed.push({ ...prev, playedAt: Date.now() });
     room.currentIndex = index; room.currentTime = 0; room.isPlaying = true;
+    // Record listen history for all users in room
+    const song = room.queue[index];
+    if (song) {
+      Object.values(room.users).forEach(u => {
+        if (u.discordId) recordListen(u.discordId, song.videoId, song.title, roomId);
+      });
+    }
     io.to(roomId).emit('load-song', { index, videoId: room.queue[index]?.videoId, title: room.queue[index]?.title, queue: room.queue });
     await saveRoom(roomId);
   });
@@ -796,6 +900,35 @@ io.on('connection', (socket) => {
     io.to(roomId).emit('queue-updated', { queue: room.queue });
     io.to(roomId).emit('category-pushed', { categoryName, username, count: songs.length });
     await saveRoom(roomId);
+  });
+
+  // DJ hands crown to another user
+  socket.on('transfer-dj', async ({ roomId, toSocketId }) => {
+    const room = await getRoom(roomId);
+    if (socket.id !== room.djId) return; // only current DJ can transfer
+    const target = room.users[toSocketId];
+    if (!target) return;
+    const fromUsername = room.users[socket.id]?.username || 'DJ';
+    room.djId = toSocketId;
+    room.djMode = true; // ensure DJ mode is on
+    io.to(roomId).emit('dj-mode-changed', { djMode: true, djId: toSocketId });
+    io.to(roomId).emit('dj-transferred', {
+      fromUsername,
+      toUsername: target.username,
+      toSocketId,
+    });
+    // Push notification to new DJ
+    if (target.discordId) {
+      sendPush(target.discordId, {
+        type: 'dj_crown',
+        title: 'You are now the DJ 👑',
+        body: `${fromUsername} passed the crown to you in room ${roomId}`,
+        icon: '/web-app-manifest-192x192.png',
+        badge: '/favicon-96x96.png',
+        tag: `dj-${roomId}`,
+        data: { roomId, url: `/?room=${roomId}`, type: 'dj_crown' }
+      });
+    }
   });
 
   socket.on('toggle-dj-mode', async ({ roomId }) => {
