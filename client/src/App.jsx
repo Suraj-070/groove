@@ -13,7 +13,6 @@ import Library from './components/Library'
 import Visualizer from './components/Visualizer'
 import MarqueeText from './components/MarqueeText'
 import VideoPanel from './components/VideoPanel'
-import SharedSongsPage from './components/SharedSongsPage'
 import { registerServiceWorker, isPushSupported, getPushStatus, subscribeToPush, unsubscribeFromPush } from './services/NotificationService'
 import './App.css'
 
@@ -954,16 +953,7 @@ function App() {
       )}
       {showShortcuts && <ShortcutsModal onClose={() => setShowShortcuts(false)} />}
       {showSleepTimer && <SleepTimerModal onClose={() => setShowSleepTimer(false)} onSet={handleSetSleepTimer} />}
-      {shareId && (
-        <SharedSongsPage
-          shareId={shareId}
-          roomId={roomId}
-          onAddToQueue={(songs) => {
-            socket.emit('add-songs-batch', { roomId, songs, addedBy: user?.username })
-          }}
-          onClose={() => setShareId(null)}
-        />
-      )}
+  
       <VideoPanel
         videoId={currentSong?.videoId}
         title={currentSong?.title}
