@@ -315,7 +315,7 @@ body {
   min-width: 0;
   overflow: hidden;
   flex-shrink: 0;
-  border-left: 1px solid rgba(255,255,255,0.06);
+  border-left: none; /* no border when closed */
   transition: width 0.35s cubic-bezier(0.4,0,0.2,1),
               min-width 0.35s cubic-bezier(0.4,0,0.2,1);
   display: flex;
@@ -326,12 +326,16 @@ body {
 .chat-panel-inline--open {
   width: 320px;
   min-width: 320px;
+  border-left: 1px solid rgba(255,255,255,0.06); /* border only when open */
 }
 .chat-panel-inline .chat-panel {
   opacity: 0;
   transform: translateX(16px);
   transition: opacity 0.25s ease, transform 0.25s ease;
   pointer-events: none;
+  /* Prevent any content from leaking outside the panel width */
+  min-width: 320px;
+  overflow: hidden;
 }
 .chat-panel-inline--open .chat-panel {
   opacity: 1;
@@ -6799,5 +6803,27 @@ h1, h2, h3 {
   .shared-overlay {
     align-items: flex-end;
     padding: 0;
+  }
+}
+
+/* ── Prevent 3-column layout on normal screens ─────────────
+   On screens < 1280px chat replaces queue (queue auto-collapses).
+   On screens >= 1280px all 3 can coexist.                    */
+@media (max-width: 1279px) {
+  .app-main.chat-open .right-panel:not(.collapsed) {
+    /* Force queue collapsed when chat opens on smaller screens */
+    flex: 0 !important;
+    width: 0 !important;
+    min-width: 0 !important;
+    overflow: hidden !important;
+  }
+  .app-main.queue-collapsed.chat-open .left-panel {
+    flex: 1;
+    min-width: 300px;
+    max-width: 480px;
+  }
+  .chat-panel-inline--open {
+    width: 360px !important;
+    min-width: 360px !important;
   }
 }

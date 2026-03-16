@@ -13,6 +13,7 @@ import Library from './components/Library'
 import Visualizer from './components/Visualizer'
 import MarqueeText from './components/MarqueeText'
 import VideoPanel from './components/VideoPanel'
+import SharedSongsPage from './components/SharedSongsPage'
 import { registerServiceWorker, isPushSupported, getPushStatus, subscribeToPush, unsubscribeFromPush } from './services/NotificationService'
 import './App.css'
 
@@ -153,6 +154,7 @@ function App() {
   const [chatOpen, setChatOpen] = useState(false)
   const [chatHistory, setChatHistory] = useState([])
   const [videoOpen, setVideoOpen] = useState(false)
+  const [shareId, setShareId]     = useState(null)
   const [pushEnabled, setPushEnabled]   = useState(false)
   const [pushLoading, setPushLoading]   = useState(false)
   const [pushSupported, setPushSupported] = useState(false)
@@ -682,7 +684,17 @@ function App() {
             </button>
           )}
 
-          <button className={`chat-toggle-btn ${chatOpen ? "active" : ""}`} onClick={() => { setChatOpen(p => !p); setUnread(0) }}>
+          <button className={`chat-toggle-btn ${chatOpen ? "active" : ""}`} onClick={() => {
+              setChatOpen(p => {
+                const opening = !p
+                // Auto-collapse queue when opening chat on normal screens
+                if (opening && window.innerWidth < 1280) setQueueCollapsed(true)
+                // Auto-restore queue when closing chat
+                if (!opening && window.innerWidth < 1280) setQueueCollapsed(false)
+                return opening
+              })
+              setUnread(0)
+            }}>
             💬
             {unread > 0 && <span className="unread-badge">{unread}</span>}
           </button>
@@ -959,6 +971,16 @@ function App() {
       )}
       {showShortcuts && <ShortcutsModal onClose={() => setShowShortcuts(false)} />}
       {showSleepTimer && <SleepTimerModal onClose={() => setShowSleepTimer(false)} onSet={handleSetSleepTimer} />}
+      {shareId && (
+        <SharedSongsPage
+          shareId={shareId}
+          roomId={roomId}
+          onAddToQueue={(songs) => {
+            socket.emit('add-songs-batch', { roomId, songs, addedBy: user?.username })
+          }}
+          onClose={() => setShareId(null)}
+        />
+      )}
       <VideoPanel
         videoId={currentSong?.videoId}
         title={currentSong?.title}
