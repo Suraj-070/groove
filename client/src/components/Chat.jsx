@@ -143,7 +143,7 @@ const ScrollBtn = memo(({ count, onClick }) => (
 ))
 
 // ── Main Chat component ───────────────────────────────────────────────────────
-export default function Chat({ socket, roomId, username, isOpen, onClose, currentSong, chatHistory = [], users = [] }) {
+export default function Chat({ socket, roomId, username, userAvatar, isOpen, onClose, currentSong, chatHistory = [], users = [] }) {
   const [messages, setMessages]   = useState([])
   const [input, setInput]         = useState('')
   const [showPicker, setShowPicker] = useState(false)
@@ -256,7 +256,8 @@ export default function Chat({ socket, roomId, username, isOpen, onClose, curren
     const msg = {
       id: Date.now(), type: 'msg', username,
       text: input.trim(),
-      ts: Date.now()  // UTC milliseconds — each client formats to their own timezone
+      avatar: userAvatar || null,
+      ts: Date.now()
     }
     socket.emit('chat-msg', { roomId, msg })
     setMessages(prev => [...prev, { ...msg, self: true }])

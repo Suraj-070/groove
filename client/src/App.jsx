@@ -1063,7 +1063,7 @@ function App() {
       )}
 
       {/* Chat overlay — floats over everything on both desktop and mobile */}
-      <Chat socket={socket} roomId={roomId} username={user?.username} isOpen={chatOpen} onClose={() => setChatOpen(false)} currentSong={currentSong} chatHistory={chatHistory} users={users} />
+      <Chat socket={socket} roomId={roomId} username={user?.username} userAvatar={user?.avatar} isOpen={chatOpen} onClose={() => setChatOpen(false)} currentSong={currentSong} chatHistory={chatHistory} users={users} />
       {showRecap && recap && (
         <SessionDNACard recap={recap} onClose={() => setShowRecap(false)} />
       )}
