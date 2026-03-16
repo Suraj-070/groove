@@ -205,6 +205,9 @@ function VisualizerCanvas({ isPlaying, partyMode }) {
       raf = requestAnimationFrame(loop)
     }
 
+    // Mobile — skip animation entirely, zero battery drain
+    if (IS_MOBILE) return
+
     raf = requestAnimationFrame(loop)
 
     const onVisibility = () => {

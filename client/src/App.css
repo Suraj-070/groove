@@ -396,7 +396,6 @@ body {
 .chat-close:hover { background: rgba(255,255,255,0.08); color: var(--text); }
 /* chat-panel-inline styles removed — chat is now a floating overlay */
 
-
 /* ── Messages area ───────────────────────────────────────── */
 .chat-messages {
   flex: 1;
@@ -727,7 +726,6 @@ body {
 .chat-send-btn.active:hover { transform: scale(1.06); }
 .chat-send-btn:disabled { opacity: 0.4; cursor: default; }
 
-
 .emoji-toggle-btn.active {
   background: var(--surface2);
 }
@@ -745,11 +743,6 @@ body {
   max-height: 340px;
 }
 
-.ep-search-wrap {
-  position: relative;
-  padding: 10px 10px 6px;
-  flex-shrink: 0;
-}
 .ep-search {
   width: 100%;
   background: rgba(255,255,255,0.07);
@@ -824,16 +817,6 @@ body {
 .ep-emoji-btn:hover {
   background: rgba(255,255,255,0.1);
   transform: scale(1.2);
-}
-
-.ep-no-results {
-  grid-column: 1 / -1;
-  text-align: center;
-  color: var(--muted2);
-  font-family: 'Outfit', sans-serif;
-  font-size: 0.82rem;
-  padding: 16px;
-  margin: 0;
 }
 
 .chat-input-row {
@@ -1212,54 +1195,6 @@ body {
 }
 
 /* Volume popup */
-.volume-wrap {
-  position: relative;
-}
-
-.volume-popup {
-  position: absolute;
-  bottom: 52px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: rgba(15,15,26,0.95);
-  border: 1px solid rgba(255,255,255,0.12);
-  border-radius: 12px;
-  padding: 14px 10px 10px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  z-index: 100;
-  backdrop-filter: blur(12px);
-  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
-}
-
-.volume-slider {
-  writing-mode: vertical-lr;
-  direction: rtl;
-  width: 6px;
-  height: 80px;
-  appearance: none;
-  background: rgba(255,255,255,0.12);
-  border-radius: 4px;
-  outline: none;
-  cursor: pointer;
-}
-
-.volume-slider::-webkit-slider-thumb {
-  appearance: none;
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  background: var(--accent);
-  box-shadow: 0 0 8px var(--accent-glow);
-}
-
-.volume-label {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.7rem;
-  color: var(--muted);
-}
 
 .play-btn {
   width: 60px;
@@ -1709,35 +1644,6 @@ body {
 }
 
 /* ─── RECAP BUTTON ───────────────────────────── */
-.recap-btn {
-  width: 42px;
-  height: 42px;
-  border-radius: 50%;
-  background: var(--surface2);
-  border: 1px solid var(--border);
-  font-size: 1.25rem;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s;
-}
-
-.recap-btn:hover {
-  border-color: var(--accent);
-  background: var(--surface3);
-}
-
-.party-btn {
-  font-size: 1.35rem;
-}
-
-.party-active {
-  border-color: #ff6a8a !important;
-  background: rgba(255,106,138,0.15) !important;
-  box-shadow: 0 0 14px rgba(255,106,138,0.4);
-  animation: party-pulse 1s ease-in-out infinite alternate;
-}
 
 @keyframes party-pulse {
   from { box-shadow: 0 0 10px rgba(255,106,138,0.3); }
@@ -2114,179 +2020,24 @@ body {
 .lib-crate-grid::-webkit-scrollbar { width: 4px; }
 .lib-crate-grid::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 4px; }
 
-/* ── Crate card ── */
-.crate-card {
-  position: relative;
-  background: rgba(255,255,255,0.04);
-  border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 20px;
-  padding: 20px;
-  cursor: pointer;
-  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  height: 220px;
-  max-height: 220px;
-}
-.crate-card:hover {
-  transform: translateY(-4px);
-  border-color: rgba(255,255,255,0.14);
-  box-shadow: 0 16px 40px rgba(0,0,0,0.4);
-}
-.crate-card.crate-active {
-  border-color: var(--crate-accent, #7c6aff);
-  box-shadow: 0 0 0 1px var(--crate-accent, #7c6aff), 0 16px 40px rgba(124,106,255,0.2);
-}
-
-.crate-card::before {
-  content: '';
-  position: absolute;
-  top: 0; left: 0; right: 0;
-  height: 3px;
-  background: var(--crate-bg, linear-gradient(135deg,#7c6aff,#ff6a8a));
-  border-radius: 20px 20px 0 0;
-  opacity: 0.8;
-}
-
 /* glow behind card */
-.crate-glow {
-  position: absolute;
-  top: -30%;
-  right: -20%;
-  width: 160%;
-  height: 160%;
-  background: var(--crate-bg, linear-gradient(135deg,#7c6aff,#ff6a8a));
-  opacity: 0.13;
-  border-radius: 50%;
-  pointer-events: none;
-  transition: opacity 0.2s;
-}
-.crate-card:hover .crate-glow { opacity: 0.22; }
+
+.crate-card:hover 
 
 /* delete btn */
-.crate-delete-btn {
-  position: absolute;
-  top: 12px;
-  right: 12px;
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  background: rgba(0,0,0,0.4);
-  border: 1px solid rgba(255,255,255,0.1);
-  color: var(--muted);
-  font-size: 1rem;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  opacity: 0;
-  transition: opacity 0.15s, color 0.15s;
-  z-index: 3;
-  line-height: 1;
-  padding: 0;
-}
-.crate-card:hover .crate-delete-btn { opacity: 1; }
-.crate-delete-btn:hover { color: #ff6a8a; border-color: rgba(255,106,138,0.4); }
+
+.crate-card:hover 
 
 /* thumbnail stack */
-.crate-thumbs {
-  position: relative;
-  height: 58px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin: 0;
-  flex-shrink: 0;
-}
-.crate-thumb-img {
-  position: absolute;
-  width: 70px;
-  height: 52px;
-  object-fit: cover;
-  border-radius: 8px;
-  border: 2px solid rgba(255,255,255,0.12);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.5);
-  transition: transform 0.2s;
-}
-.crate-card:hover .crate-thumb-img { transform: var(--thumb-hover, none) !important; }
 
-.crate-empty-thumb {
-  font-size: 2.2rem;
-  opacity: 0.3;
-}
+.crate-card:hover 
 
 /* info */
-.crate-info { flex: 0; }
-.crate-name {
-  font-family: 'Outfit', sans-serif;
-  font-weight: 700;
-  font-size: 1rem;
-  color: #fff;
-  margin: 0 0 4px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.crate-count {
-  font-family: 'Outfit', sans-serif;
-  font-size: 0.75rem;
-  color: var(--muted2);
-  margin: 0;
-}
 
 /* crate action buttons */
-.crate-actions {
-  display: flex;
-  gap: 8px;
-  margin-top: auto;
-}
-.crate-action-btn {
-  flex: 1;
-  border: none;
-  border-radius: 8px;
-  font-family: 'Outfit', sans-serif;
-  font-size: 0.78rem;
-  font-weight: 600;
-  padding: 7px 10px;
-  cursor: pointer;
-  transition: all 0.15s;
-  opacity: 1;
-}
-.crate-action-btn.play {
-  background: var(--crate-accent, #7c6aff);
-  color: #fff;
-}
-.crate-action-btn.play:hover { filter: brightness(1.15); }
-.crate-action-btn.shuffle {
-  background: rgba(255,255,255,0.1);
-  border: 1px solid rgba(255,255,255,0.1);
-  color: var(--text2);
-  flex: 0 0 36px;
-  font-size: 0.9rem;
-}
-.crate-action-btn.shuffle:hover { background: rgba(255,255,255,0.16); }
-.crate-action-btn:disabled { opacity: 0.3 !important; cursor: not-allowed; }
 
 /* now playing badge */
-.crate-now-playing-badge {
-  position: absolute;
-  bottom: 12px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: var(--crate-accent, #7c6aff);
-  color: #fff;
-  font-family: 'Outfit', sans-serif;
-  font-size: 0.68rem;
-  font-weight: 700;
-  padding: 3px 10px;
-  border-radius: 20px;
-  letter-spacing: 1px;
-  animation: npPulse 2s ease infinite;
-}
-@keyframes npPulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(124,106,255,0.4); }
+
   50% { box-shadow: 0 0 0 6px rgba(124,106,255,0); }
 }
 
@@ -3009,7 +2760,6 @@ body {
   .lib-back-room span, .cd-back span { display: none; }
 }
 
-
 /* ─── AUTH LOADING ───────────────────────────── */
 .auth-loading {
   height: 100vh;
@@ -3388,13 +3138,6 @@ body {
 }
 
 /* ─── VISUALIZER ─────────────────────────────── */
-.visualizer-bg {
-  position: fixed;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;
-  background: transparent;
-}
 
 .visualizer-canvas {
   display: block;
@@ -3522,7 +3265,6 @@ body {
   max-width: 380px;
 }
 
-
 /* ─── QUEUE COLLAPSE TOGGLE ──────────────────── */
 .queue-collapse-btn {
   position: fixed;
@@ -3636,7 +3378,6 @@ body {
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }
-
 
 /* ═══════════════════════════════════════════════════════════
    MOBILE — Complete redesign ≤768px
@@ -3902,11 +3643,8 @@ body {
   }
 
   /* Volume — tucked into ctrl-right nicely */
-  .volume-wrap { position: relative; }
-  .volume-popup {
-    bottom: 56px !important;
-    right: -8px !important;
-  }
+  
+  
 
   /* DJ badge */
   .dj-badge {
@@ -4070,9 +3808,7 @@ body {
   }
 
   /* ── Kill reactions on mobile — invisible on touch, pure layout cost ── */
-  .song-reactions {
-    display: none !important;
-  }
+  
 
   .queue-collapse-btn { display: none !important; }
 
@@ -4303,36 +4039,17 @@ body {
     border-radius: 16px !important;
   }
 
-  .crate-thumbs {
-    height: 48px !important;
-    margin-bottom: 8px !important;
-  }
+  
 
-  .crate-thumb-img {
-    width: 42px !important;
-    height: 32px !important;
-  }
+  
 
-  .crate-name {
-    font-size: 0.82rem !important;
-    margin-bottom: 1px !important;
-  }
+  
 
-  .crate-count {
-    font-size: 0.68rem !important;
-  }
+  
 
-  .crate-actions {
-    margin-top: 8px !important;
-    gap: 6px !important;
-  }
+  
 
-  .crate-action-btn {
-    padding: 7px 8px !important;
-    font-size: 0.72rem !important;
-    border-radius: 8px !important;
-    flex: 1 !important;
-  }
+  
 
   .crate-new-card {
     border-radius: 16px !important;
@@ -4526,10 +4243,7 @@ body {
   }
 
   /* ── Volume popup ─────────────────────────────────────── */
-  .volume-popup {
-    bottom: 60px !important;
-    right: 0 !important;
-  }
+  
 
   /* ── Reaction button ──────────────────────────────────── */
   .reaction-trigger {
@@ -4618,9 +4332,7 @@ body {
   }
 
   /* ── Song preview tooltip — disable on mobile (use tap) ── */
-  .song-preview-tooltip {
-    display: none !important;
-  }
+  
 }
 
 /* ── Very small phones (iPhone SE etc) ───────────────────── */
@@ -4698,7 +4410,6 @@ body {
   /* Disable hover on drag handle — pointless on touch */
   .drag-handle { display: none !important; }
 }
-
 
 /* ═══════════════════════════════════════════════════════
    PROFILE DROPDOWN
@@ -4859,70 +4570,11 @@ body {
 }
 
 /* ── Stats ── */
-.pd-stats {
-  display: flex;
-  justify-content: space-around;
-  padding: 10px 4px;
-}
-
-.pd-stat {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-}
-
-.pd-stat-val {
-  font-size: 1.1rem;
-  font-weight: 800;
-  color: var(--text);
-}
-
-.pd-stat-lbl {
-  font-size: 0.65rem;
-  color: var(--muted);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
 
 /* ── Actions ── */
-.pd-actions {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: 4px 0;
-}
-
-.pd-action {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-  background: none;
-  border: none;
-  color: var(--text);
-  font-family: 'Outfit', sans-serif;
-  font-size: 0.88rem;
-  font-weight: 600;
-  padding: 9px 12px;
-  border-radius: 10px;
-  cursor: pointer;
-  transition: background 0.15s;
-  text-align: left;
-}
-
-.pd-action:hover {
-  background: rgba(255,255,255,0.07);
-}
 
 .pd-action:active {
   background: rgba(124,106,255,0.15);
-}
-
-.pd-action-icon {
-  font-size: 1.05rem;
-  width: 22px;
-  text-align: center;
 }
 
 /* Party mode toggle pill */
@@ -4961,43 +4613,6 @@ body {
 }
 
 /* ── Room row ── */
-.pd-room {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-}
-
-.pd-room-label {
-  font-size: 0.72rem;
-  color: var(--muted);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.pd-room-id {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.85rem;
-  color: var(--accent);
-  font-weight: 500;
-  flex: 1;
-}
-
-.pd-copy {
-  background: none;
-  border: none;
-  color: var(--muted);
-  font-size: 1rem;
-  cursor: pointer;
-  padding: 2px 6px;
-  border-radius: 6px;
-  transition: all 0.15s;
-}
-
-.pd-copy:hover {
-  color: var(--accent);
-  background: rgba(124,106,255,0.12);
-}
 
 /* ── Logout ── */
 .pd-logout {
@@ -5036,7 +4651,6 @@ body {
     display: none !important;
   }
 }
-
 
 /* ═══════════════════════════════════════════════════════
    FONT OVERRIDES — Unbounded for all display text
@@ -5118,10 +4732,6 @@ h1, h2, h3 {
 .pd-name {
   font-family: 'Unbounded', sans-serif !important;
   font-size: 0.82rem !important;
-}
-
-.pd-stat-val {
-  font-family: 'Unbounded', sans-serif !important;
 }
 
 /* Room badge */
@@ -5322,53 +4932,6 @@ h1, h2, h3 {
   z-index: 300;
 }
 
-.quick-emoji-bar {
-  padding: 8px 10px;
-  border-bottom: 1px solid var(--border);
-  background: var(--surface);
-}
-.quick-label {
-  font-size: 0.68rem;
-  color: var(--muted2);
-  font-family: 'Outfit', sans-serif;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  display: block;
-  margin-bottom: 5px;
-}
-.quick-emoji-row {
-  display: flex;
-  gap: 2px;
-  flex-wrap: wrap;
-}
-
-.recent-emojis {
-  padding: 8px 10px 4px;
-  border-bottom: 1px solid var(--border);
-}
-.emoji-cat-label {
-  font-size: 0.7rem;
-  color: var(--muted2);
-  font-family: 'Outfit', sans-serif;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  display: block;
-  margin-bottom: 6px;
-}
-.emoji-quick-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 2px;
-}
-
-.emoji-category-tabs {
-  display: flex;
-  gap: 2px;
-  padding: 6px 8px;
-  border-bottom: 1px solid var(--border);
-  overflow-x: auto;
-  scrollbar-width: none;
-}
 .emoji-category-tabs::-webkit-scrollbar { display: none; }
 .emoji-cat-tab {
   background: none;
@@ -5882,110 +5445,16 @@ h1, h2, h3 {
 }
 
 /* ── Song preview tooltip ───────────────────────────────── */
-.song-preview-tooltip {
-  position: fixed;
-  z-index: 9999;
-  background: rgba(16, 16, 28, 0.97);
-  border: 1px solid rgba(255,255,255,0.12);
-  border-radius: 12px;
-  padding: 10px;
-  display: flex;
-  gap: 10px;
-  width: 260px;
-  box-shadow: 0 12px 32px rgba(0,0,0,0.5);
-  pointer-events: auto;
-  animation: popIn 0.18s cubic-bezier(.34,1.56,.64,1);
-}
-.song-preview-thumb {
-  width: 64px;
-  height: 48px;
-  border-radius: 6px;
-  object-fit: cover;
-  flex-shrink: 0;
-}
-.song-preview-info {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-}
-.song-preview-title {
-  margin: 0;
-  font-size: 0.8rem;
-  font-weight: 600;
-  font-family: 'Outfit', sans-serif;
-  color: var(--text);
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-.song-preview-by {
-  margin: 0;
-  font-size: 0.72rem;
-  color: var(--text-muted, #888);
-  font-family: 'Outfit', sans-serif;
-}
-.song-preview-link {
-  font-size: 0.72rem;
-  color: var(--accent, #7c6aff);
-  text-decoration: none;
-  font-family: 'Outfit', sans-serif;
-  margin-top: auto;
-}
+
 .song-preview-link:hover { text-decoration: underline; }
 
 /* ── Per-song reactions ─────────────────────────────────── */
-.song-reactions {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  flex-shrink: 0;
-  z-index: 10;
-}
-.song-reaction-counts {
-  display: flex;
-  gap: 3px;
-  flex-wrap: wrap;
-  max-width: 80px;
-}
-.song-reaction-pill {
-  font-size: 0.72rem;
-  background: rgba(255,255,255,0.07);
-  border-radius: 10px;
-  padding: 1px 5px;
-  cursor: pointer;
-  transition: background 0.15s;
-  white-space: nowrap;
-}
+
 .song-reaction-pill:hover { background: rgba(255,255,255,0.14); }
-.song-react-btn {
-  background: none;
-  border: none;
-  font-size: 0.85rem;
-  cursor: pointer;
-  opacity: 0.5;
-  transition: opacity 0.15s;
-  padding: 2px 4px;
-  border-radius: 6px;
-}
-.song-item:hover .song-react-btn { opacity: 0.7; }
+
+.song-item:hover 
 .song-react-btn:hover { opacity: 1 !important; background: rgba(255,255,255,0.08); }
-.song-react-picker {
-  position: absolute;
-  right: 0;
-  bottom: calc(100% + 6px);
-  background: rgba(20, 20, 35, 0.97);
-  border: 1px solid rgba(255,255,255,0.12);
-  border-radius: 12px;
-  padding: 6px;
-  display: flex;
-  gap: 4px;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
-  z-index: 200;
-  animation: popIn 0.15s cubic-bezier(.34,1.56,.64,1);
-}
+
 .song-react-picker button {
   background: none;
   border: none;
@@ -5996,7 +5465,6 @@ h1, h2, h3 {
   transition: background 0.12s;
 }
 .song-react-picker button:hover { background: rgba(255,255,255,0.1); }
-
 
 /* ═══════════════════════════════════════════════════════════
    MARQUEE / AUTO-SCROLL FOR LONG TITLES
@@ -6048,12 +5516,6 @@ h1, h2, h3 {
 .recap-song-title,
 .cd-song-title,
 .pd-name,
-.song-preview-title {
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;    /* fallback if JS hasn't run yet */
-}
-
 
 /* ═══════════════════════════════════════════════════════════
    MOBILE PERFORMANCE — Nuclear mode
@@ -6149,10 +5611,7 @@ h1, h2, h3 {
   .song-thumb img,
   .now-playing-box-thumb img,
   .user-avatar,
-  .crate-thumb-img {
-    image-rendering: auto;
-    /* Tell browser these don't need high-quality downscaling */
-  }
+  
 
   /* ── Disable the player card entrance animation after first load */
   /* It re-fires every time isPlaying changes on some browsers */
@@ -6166,8 +5625,8 @@ h1, h2, h3 {
   }
 
   /* ── Turn off glow effects in library cards ──────────── */
-  .crate-glow { display: none !important; }
-  .crate-card::before { display: none !important; }
+  
+  
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -7546,19 +7005,6 @@ body {
 }
 
 /* ── Profile dropdown theme row ─────────────────────────── */
-.pd-theme-row {
-  padding: 10px 12px 6px;
-  border-top: 1px solid rgba(255,255,255,0.05);
-}
-.pd-theme-label {
-  font-size: 0.68rem;
-  color: var(--muted2);
-  text-transform: uppercase;
-  letter-spacing: .06em;
-  font-weight: 600;
-  display: block;
-  margin-bottom: 8px;
-}
 
 @media (max-width: 768px) {
   .hist-overlay { align-items: flex-end; padding: 0; }
@@ -8123,7 +7569,6 @@ body {
   white-space: nowrap; flex-shrink: 0;
 }
 .pd-streak { font-size: 0.68rem; color: #ffb300; margin: 2px 0 0; font-weight: 600; }
-.pd-action--active { background: rgba(124,106,255,0.1) !important; }
 
 /* Streak toast */
 .streak-toast {
@@ -8604,9 +8049,7 @@ body {
   
 
   /* Quick emoji row — horizontal scroll on mobile */
-  .quick-emoji-bar {
-    max-width: 240px !important;
-  }
+  
 
   /* Bursts — full screen float */
   .burst-overlay {
@@ -8873,7 +8316,7 @@ body {
 }
 
 /* Hide old volume popup completely */
-.volume-wrap, .volume-popup { display: none !important; }
+.volume-wrap, 
 
 /* ── Mobile overrides ───────────────────────────────────── */
 @media (max-width: 768px) {
