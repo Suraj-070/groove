@@ -8735,3 +8735,153 @@ body {
   .reaction-quick-btn { font-size: 1.3rem; }
   .stamp-btn-compact { font-size: 0.68rem; padding: 4px 10px 4px 8px; }
 }
+
+/* ═══════════════════════════════════════════════════════════
+   ADVANCED PLAYER CONTROLS
+   ═══════════════════════════════════════════════════════════ */
+
+/* Thicker progress bar */
+.progress-track {
+  height: 6px !important;
+  border-radius: 4px !important;
+  cursor: pointer;
+  position: relative;
+}
+.progress-track:hover .progress-fill { filter: brightness(1.2); }
+.progress-input {
+  height: 6px !important;
+  cursor: pointer;
+}
+
+/* Shuffle / loop icon buttons */
+.ctrl-icon-btn {
+  width: 32px !important;
+  height: 32px !important;
+  border-radius: 8px !important;
+  color: var(--muted) !important;
+  background: transparent !important;
+  border: none !important;
+  transition: color 0.15s, background 0.15s !important;
+}
+.ctrl-icon-btn:hover:not(:disabled) {
+  color: var(--text) !important;
+  background: rgba(255,255,255,0.06) !important;
+}
+.ctrl-active {
+  color: var(--accent) !important;
+  background: rgba(124,106,255,0.12) !important;
+}
+.ctrl-active:hover:not(:disabled) {
+  background: rgba(124,106,255,0.2) !important;
+}
+
+/* Mobile shuffle/loop row */
+.mobile-extra-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin: -4px 0 -4px;
+}
+
+/* ── Inline volume row ───────────────────────────────────── */
+.volume-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 4px;
+}
+.volume-icon-btn {
+  background: none !important;
+  border: none !important;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 0;
+  width: 20px;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  transition: color 0.15s;
+}
+.volume-icon-btn:hover { color: var(--text); }
+
+/* Custom range slider for volume */
+.volume-inline-slider {
+  flex: 1;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255,255,255,0.1);
+  outline: none;
+  cursor: pointer;
+}
+.volume-inline-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--text);
+  cursor: pointer;
+  transition: transform 0.1s;
+}
+.volume-inline-slider::-webkit-slider-thumb:hover { transform: scale(1.2); }
+.volume-inline-slider::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--text);
+  border: none;
+  cursor: pointer;
+}
+
+/* Style the filled portion using background gradient */
+.volume-inline-slider {
+  background: linear-gradient(
+    to right,
+    var(--accent) 0%,
+    var(--accent) var(--vol, 80%),
+    rgba(255,255,255,0.1) var(--vol, 80%),
+    rgba(255,255,255,0.1) 100%
+  );
+}
+
+.volume-pct {
+  font-size: 0.68rem;
+  color: var(--muted2);
+  min-width: 28px;
+  text-align: right;
+  font-family: 'JetBrains Mono', monospace;
+  flex-shrink: 0;
+}
+
+/* Speed button */
+.speed-btn {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 8px;
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 3px 7px;
+  cursor: pointer;
+  font-family: 'JetBrains Mono', monospace;
+  flex-shrink: 0;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+.speed-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: rgba(124,106,255,0.1);
+}
+
+/* Hide old volume popup completely */
+.volume-wrap, .volume-popup { display: none !important; }
+
+/* ── Mobile overrides ───────────────────────────────────── */
+@media (max-width: 768px) {
+  .volume-pct { display: none; }
+  .volume-row { gap: 6px; }
+  .ctrl-icon-btn { width: 36px !important; height: 36px !important; }
+}

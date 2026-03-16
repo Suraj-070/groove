@@ -907,6 +907,8 @@ function App() {
             externalVolume={volume}
             onVolumeChange={setVolume}
             loop={loop}
+            onToggleLoop={() => setLoop(p => !p)}
+            onShuffle={() => socket.emit('shuffle-queue', { roomId })}
           />
           <UserList users={users} currentUser={socket.id} djId={djId} isDJ={isDJ} onTransferDJ={handleTransferDJ} />
         </div>

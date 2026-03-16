@@ -167,7 +167,9 @@ function BpmBadge({ bpm, loading }) {
   return <span className="bpm-badge">♩ {bpm} BPM</span>
 }
 
-export default function Player({ socket, roomId, videoId, title, onEnded, onSkip, onPrev, isDJ, djMode, initialTime, initialPlaying, onPlayStateChange, hasPrev, externalVolume, onVolumeChange, loop }) {
+const SPEEDS = [0.75, 1, 1.25, 1.5, 2]
+
+export default function Player({ socket, roomId, videoId, title, onEnded, onSkip, onPrev, isDJ, djMode, initialTime, initialPlaying, onPlayStateChange, hasPrev, externalVolume, onVolumeChange, loop, onToggleLoop, onShuffle }) {
   const playerRef = useRef(null)
   const playerInstanceRef = useRef(null)
   const isSyncingRef = useRef(false)
@@ -183,7 +185,7 @@ export default function Player({ socket, roomId, videoId, title, onEnded, onSkip
   useEffect(() => {
     if (externalVolume !== undefined) setVolume(externalVolume)
   }, [externalVolume])
-  const [showVolume, setShowVolume] = useState(false)
+  const [speedIdx, setSpeedIdx]     = useState(1) // index into SPEEDS array
   const [bpm, setBpm] = useState(null)
   const [bpmLoading, setBpmLoading] = useState(false)
   const [stamped, setStamped]       = useState(false)
@@ -450,6 +452,12 @@ export default function Player({ socket, roomId, videoId, title, onEnded, onSkip
     socket.emit('seek', { roomId, time })
   }
   const handleVolumeChange = (e) => { const v = parseInt(e.target.value); setVolume(v); onVolumeChange?.(v) }
+  const handleSpeedCycle = () => {
+    const next = (speedIdx + 1) % SPEEDS.length
+    setSpeedIdx(next)
+    const p = playerInstanceRef.current
+    if (p && typeof p.setPlaybackRate === 'function') p.setPlaybackRate(SPEEDS[next])
+  }
 
   const handleStamp = async () => {
     if (!videoId || !title) return
@@ -529,12 +537,21 @@ export default function Player({ socket, roomId, videoId, title, onEnded, onSkip
         <span className="time-label">{formatTime(duration)}</span>
       </div>
 
+      {/* ── Main controls row ── */}
       <div className="player-controls-wrap">
+        {/* Left: shuffle (desktop) */}
         <div className="ctrl-slot ctrl-left">
+          {!IS_MOBILE && onShuffle && (
+            <button className="ctrl-btn ctrl-icon-btn" onClick={onShuffle} title="Shuffle queue" disabled={isLocked}>
+              <svg viewBox="0 0 24 24" fill="currentColor" width="17" height="17"><path d="M10.59 9.17 5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4h-5.5zm.33 9.41-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z"/></svg>
+            </button>
+          )}
           <button className="ctrl-btn prev-btn" onClick={onPrev} disabled={!hasPrev || isLocked} title="Previous">
             <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/></svg>
           </button>
         </div>
+
+        {/* Center: play/pause */}
         <div className="ctrl-slot ctrl-center">
           <button className={`play-btn ${isPlaying ? 'playing' : ''}`}
             onClick={isPlaying ? handlePause : handlePlay} disabled={!videoId || isLocked}>
@@ -543,28 +560,59 @@ export default function Player({ socket, roomId, videoId, title, onEnded, onSkip
               : <svg viewBox="0 0 24 24" fill="currentColor" width="28" height="28"><path d="M8 5v14l11-7z"/></svg>}
           </button>
         </div>
+
+        {/* Right: next + loop */}
         <div className="ctrl-slot ctrl-right">
           <button className="ctrl-btn skip-btn" onClick={onSkip} disabled={!videoId || isLocked} title="Next">
             <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20"><path d="M6 18l8.5-6L6 6v12zm2-8.14L11.03 12 8 14.14V9.86zM16 6h2v12h-2z"/></svg>
           </button>
-          <div className="volume-wrap">
-            <button className="ctrl-btn volume-btn" onClick={() => setShowVolume(p => !p)} title="Volume">
-              {volume === 0
-                ? <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20"><path d="M16.5 12A4.5 4.5 0 0 0 14 7.97v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51A8.8 8.8 0 0 0 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3 3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25A6.97 6.97 0 0 1 14 18.98v2.06A9 9 0 0 0 17.54 19l1.73 1.73L20.54 19 5.54 4 4.27 3zM12 4 9.91 6.09 12 8.18V4z"/></svg>
-                : volume < 50
-                ? <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20"><path d="M18.5 12A4.5 4.5 0 0 0 16 7.97v8.05c1.48-.73 2.5-2.25 2.5-4.02zM5 9v6h4l5 5V4L9 9H5z"/></svg>
-                : <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3A4.5 4.5 0 0 0 14 7.97v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
-              }
+          {!IS_MOBILE && onToggleLoop && (
+            <button className={`ctrl-btn ctrl-icon-btn ${loop ? 'ctrl-active' : ''}`} onClick={onToggleLoop} title={loop ? 'Loop on' : 'Loop off'}>
+              <svg viewBox="0 0 24 24" fill="currentColor" width="17" height="17"><path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z"/></svg>
             </button>
-            {showVolume && (
-              <div className="volume-popup">
-                <input type="range" min={0} max={100} value={volume}
-                  onChange={handleVolumeChange} className="volume-slider" orient="vertical" />
-                <span className="volume-label">{volume}%</span>
-              </div>
-            )}
-          </div>
+          )}
         </div>
+      </div>
+
+      {/* ── Mobile: shuffle + loop row ── */}
+      {IS_MOBILE && (
+        <div className="mobile-extra-controls">
+          {onShuffle && (
+            <button className={`ctrl-btn ctrl-icon-btn`} onClick={onShuffle} title="Shuffle" disabled={isLocked}>
+              <svg viewBox="0 0 24 24" fill="currentColor" width="17" height="17"><path d="M10.59 9.17 5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4h-5.5zm.33 9.41-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z"/></svg>
+            </button>
+          )}
+          {onToggleLoop && (
+            <button className={`ctrl-btn ctrl-icon-btn ${loop ? 'ctrl-active' : ''}`} onClick={onToggleLoop} title={loop ? 'Loop on' : 'Loop off'}>
+              <svg viewBox="0 0 24 24" fill="currentColor" width="17" height="17"><path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z"/></svg>
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* ── Inline volume slider ── */}
+      <div className="volume-row">
+        <button className="ctrl-btn volume-icon-btn" onClick={() => { const v = volume === 0 ? 80 : 0; setVolume(v); onVolumeChange?.(v) }} title="Mute/Unmute">
+          {volume === 0
+            ? <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M16.5 12A4.5 4.5 0 0 0 14 7.97v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51A8.8 8.8 0 0 0 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3 3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25A6.97 6.97 0 0 1 14 18.98v2.06A9 9 0 0 0 17.54 19l1.73 1.73L20.54 19 5.54 4 4.27 3zM12 4 9.91 6.09 12 8.18V4z"/></svg>
+            : volume < 50
+            ? <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M18.5 12A4.5 4.5 0 0 0 16 7.97v8.05c1.48-.73 2.5-2.25 2.5-4.02zM5 9v6h4l5 5V4L9 9H5z"/></svg>
+            : <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3A4.5 4.5 0 0 0 14 7.97v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
+          }
+        </button>
+        <input
+          type="range" min={0} max={100} value={volume} step={1}
+          onChange={handleVolumeChange}
+          className="volume-inline-slider"
+          title={`Volume: ${volume}%`}
+          style={{ '--vol': `${volume}%` }}
+        />
+        <span className="volume-pct">{volume}%</span>
+        {!IS_MOBILE && (
+          <button className="speed-btn" onClick={handleSpeedCycle} title="Playback speed">
+            {SPEEDS[speedIdx]}×
+          </button>
+        )}
       </div>
 
       {/* Stamp + info row — compact, sits between controls and sync */}
