@@ -9093,3 +9093,29 @@ body {
 .fcb-avatar, .fcb-avatar-img,
 .fcb-avatar-placeholder, .fcb-ring,
 .fcb-close-ring { display: none !important; }
+
+/* ── Hide floating chat bubble when chat is open ────────── */
+body.chat-is-open .fcb-bubble { opacity: 0; pointer-events: none; }
+
+/* ── Draggable reaction button on mobile ────────────────── */
+.reaction-trigger--draggable {
+  position: fixed !important;
+  cursor: grab;
+  touch-action: none;
+}
+.reaction-trigger--dragging {
+  cursor: grabbing !important;
+  transform: scale(1.1) !important;
+  transition: none !important;
+}
+/* Snap bounce */
+.reaction-trigger--draggable:not(.reaction-trigger--dragging) {
+  transition: left 0.3s cubic-bezier(0.34,1.4,0.64,1),
+              top  0.3s cubic-bezier(0.34,1.4,0.64,1) !important;
+}
+
+/* ── Desktop logo — always show full logo ───────────────── */
+@media (min-width: 769px) {
+  .logo-small { display: block !important; }
+  .logo svg   { width: 32px !important; height: 32px !important; }
+}

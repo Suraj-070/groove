@@ -206,6 +206,13 @@ function App() {
   const currentSongRef    = useRef(null)
   const triggerRadioRef   = useRef(null)
 
+  // ── Hide floating bubble when chat open on mobile ───────────
+  useEffect(() => {
+    if (isMobileView) {
+      document.body.classList.toggle('chat-is-open', chatOpen)
+    }
+  }, [chatOpen, isMobileView])
+
   // ── Apply room theme ─────────────────────────────────────
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme)

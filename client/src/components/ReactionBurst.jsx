@@ -19,6 +19,58 @@ export default function ReactionBurst({ socket, roomId, username }) {
   const isHoldingRef    = useRef(false)
   const activeEmojiRef  = useRef(null)
   const sendReactionRef = useRef(null)
+  const IS_MOBILE = window.innerWidth <= 768
+
+  // Drag state for mobile
+  const [btnPos, setBtnPos]     = useState(null) // null = use CSS default
+  const [isDragging, setIsDragging] = useState(false)
+  const [didDrag, setDidDrag]   = useState(false)
+  const dragStartRef            = useRef(null)
+  const btnPosRef               = useRef(null)
+  const btnRef                  = useRef(null)
+  const BTN_SIZE                = 52
+
+  const snapToEdge = (x, y) => {
+    const midX = window.innerWidth / 2
+    const snappedX = x < midX ? 16 : window.innerWidth - BTN_SIZE - 16
+    const clampedY = Math.max(80, Math.min(window.innerHeight - BTN_SIZE - 80, y))
+    return { x: snappedX, y: clampedY }
+  }
+
+  const onBtnPointerDown = (e) => {
+    if (!IS_MOBILE) return
+    e.stopPropagation()
+    const cur = btnPosRef.current || { x: window.innerWidth - BTN_SIZE - 16, y: window.innerHeight - BTN_SIZE - 160 }
+    dragStartRef.current = { px: e.clientX, py: e.clientY, bx: cur.x, by: cur.y }
+    setIsDragging(true)
+    setDidDrag(false)
+    btnRef.current?.setPointerCapture(e.pointerId)
+  }
+  const onBtnPointerMove = (e) => {
+    if (!dragStartRef.current) return
+    const dx = e.clientX - dragStartRef.current.px
+    const dy = e.clientY - dragStartRef.current.py
+    if (Math.abs(dx) > 4 || Math.abs(dy) > 4) setDidDrag(true)
+    const next = {
+      x: Math.max(0, Math.min(window.innerWidth - BTN_SIZE, dragStartRef.current.bx + dx)),
+      y: Math.max(80, Math.min(window.innerHeight - BTN_SIZE - 64, dragStartRef.current.by + dy))
+    }
+    btnPosRef.current = next
+    setBtnPos({ ...next })
+  }
+  const onBtnPointerUp = (e) => {
+    if (!dragStartRef.current) return
+    const wasDrag = didDrag
+    dragStartRef.current = null
+    setIsDragging(false)
+    if (wasDrag) {
+      const snapped = snapToEdge(btnPosRef.current.x, btnPosRef.current.y)
+      btnPosRef.current = snapped
+      setBtnPos({ ...snapped })
+    } else {
+      setShowPicker(p => !p)
+    }
+  }
 
   // ── Burst cleanup: single interval instead of one setTimeout per burst ──
   useEffect(() => {
@@ -117,10 +169,21 @@ export default function ReactionBurst({ socket, roomId, username }) {
         ))}
       </div>
 
-      <div className="reaction-trigger">
-        <button className={`react-btn ${showPicker ? 'active' : ''}`}
-          onClick={() => setShowPicker(p => !p)} title="Send reactions">
-          <span>🎉</span>
+      <div
+        ref={btnRef}
+        className={`reaction-trigger ${IS_MOBILE && btnPos ? 'reaction-trigger--draggable' : ''} ${isDragging ? 'reaction-trigger--dragging' : ''}`}
+        style={IS_MOBILE && btnPos ? { left: btnPos.x, top: btnPos.y, bottom: 'auto', right: 'auto', transform: 'none' } : {}}
+        onPointerDown={IS_MOBILE ? onBtnPointerDown : undefined}
+        onPointerMove={IS_MOBILE ? onBtnPointerMove : undefined}
+        onPointerUp={IS_MOBILE ? onBtnPointerUp : undefined}
+      >
+        <button
+          className={`react-btn ${showPicker ? 'active' : ''}`}
+          onClick={!IS_MOBILE ? () => setShowPicker(p => !p) : undefined}
+          title="Send reactions"
+          style={{ touchAction: 'none' }}
+        >
+          <span>😊</span>
         </button>
 
         {showPicker && (
