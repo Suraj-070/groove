@@ -22,10 +22,10 @@ export default function ReactionBurst({ socket, roomId, username }) {
   const IS_MOBILE = window.innerWidth <= 768
 
   // Drag state for mobile
-  const [btnPos, setBtnPos]     = useState(null) // null = use CSS default
+  const [btnPos, setBtnPos]     = useState(IS_MOBILE ? { x: 16, y: window.innerHeight - 160 } : null)
   const [isDragging, setIsDragging] = useState(false)
   const [didDrag, setDidDrag]   = useState(false)
-  const [dockedSide, setDockedSide] = useState('left') // 'left' | 'right'
+  const [dockedSide, setDockedSide] = useState('left')
   const dragStartRef            = useRef(null)
   const btnPosRef               = useRef(null)
   const btnRef                  = useRef(null)

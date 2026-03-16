@@ -9123,10 +9123,10 @@ body.chat-is-open .fcb-bubble { opacity: 0; pointer-events: none; }
 
 /* ── No overlap: chat bubble right, reaction left by default ── */
 @media (max-width: 768px) {
-  /* Reaction button defaults to bottom-LEFT */
+  /* Reaction button — bottom-LEFT default */
   .reaction-trigger {
     bottom: 78px !important;
-    left: 14px !important;
+    left: 16px !important;
     right: auto !important;
     transform: none !important;
   }
