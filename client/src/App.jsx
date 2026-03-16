@@ -99,33 +99,20 @@ function OfflineBanner() {
   const [offline, setOffline] = useState(!navigator.onLine)
   // Register service worker + check push support
   useEffect(() => {
-    const init = async () => {
-      try {
-        // Step 1: register + wait for activation
-        await registerServiceWorker()
+    // Check push support immediately — APIs are available at page load
+    // No need to wait for SW ready just to check support
+    const supported = isPushSupported()
+    setPushSupported(supported)
 
-        // Step 2: double-check using navigator.serviceWorker.ready
-        // This resolves only when an active SW controls the page
-        if ('serviceWorker' in navigator) {
-          await navigator.serviceWorker.ready
-        }
+    // Register SW in background — don't block the support check on it
+    registerServiceWorker()
 
-        // Step 3: now check push support
-        const supported = isPushSupported()
-        setPushSupported(supported)
-
-        // Step 4: check existing subscription
-        if (supported) {
-          const status = await getPushStatus()
-          if (status.subscribed) setPushEnabled(true)
-        }
-      } catch (e) {
-        console.warn('[Groove Push] init error:', e.message)
-        // Still check support even if something failed
-        setPushSupported(isPushSupported())
-      }
+    // Check existing subscription separately
+    if (supported) {
+      getPushStatus()
+        .then(s => { if (s.subscribed) setPushEnabled(true) })
+        .catch(() => {})
     }
-    init()
   }, [])
 
   useEffect(() => {
@@ -776,20 +763,7 @@ function App() {
                       </button>
                       <button
                         className="pd-action"
-                        onClick={pushSupported ? handleTogglePush : () => {
-                          const sw  = 'serviceWorker' in navigator
-                          const pm  = 'PushManager'   in window
-                          const nt  = 'Notification'  in window
-                          alert(
-                            'Push debug:\n' +
-                            'serviceWorker: ' + sw + '\n' +
-                            'PushManager:   ' + pm + '\n' +
-                            'Notification:  ' + nt + '\n' +
-                            'protocol:      ' + location.protocol + '\n' +
-                            'display mode:  ' + (window.matchMedia('(display-mode: standalone)').matches ? 'standalone (PWA)' : 'browser') + '\n' +
-                            'SW state:      ' + (navigator.serviceWorker?.controller?.state || 'none')
-                          )
-                        }}
+                        onClick={handleTogglePush}
                       >
                         <span className="pd-action-icon">{pushEnabled ? '🔔' : '🔕'}</span>
                         <span>

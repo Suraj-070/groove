@@ -1,5 +1,16 @@
 const BACKEND = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'
 
+// Get SW registration with a timeout — navigator.serviceWorker.ready
+// can hang if old SW is stuck in waiting state
+async function getSwRegistration(timeoutMs = 3000) {
+  return Promise.race([
+    navigator.serviceWorker.ready,
+    new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('SW ready timeout')), timeoutMs)
+    )
+  ])
+}
+
 function urlBase64ToUint8Array(base64String) {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4)
   const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/')
@@ -21,18 +32,21 @@ export async function registerServiceWorker() {
   if (!('serviceWorker' in navigator)) return null
   try {
     const reg = await navigator.serviceWorker.register('/sw.js', { scope: '/' })
-    // Wait for SW to become active — required before using PushManager
-    if (reg.installing) {
-      await new Promise(resolve => {
-        reg.installing.addEventListener('statechange', function handler(e) {
-          if (e.target.state === 'activated') {
-            reg.installing?.removeEventListener('statechange', handler)
-            resolve()
+    // If a new SW is waiting, tell it to skip waiting and take over immediately
+    // This fixes the "SW stuck in waiting" problem that causes ready to hang
+    if (reg.waiting) {
+      reg.waiting.postMessage('SKIP_WAITING')
+    }
+    reg.addEventListener('updatefound', () => {
+      const newSW = reg.installing
+      if (newSW) {
+        newSW.addEventListener('statechange', () => {
+          if (newSW.state === 'installed' && navigator.serviceWorker.controller) {
+            newSW.postMessage('SKIP_WAITING')
           }
         })
-      })
-    }
-    await navigator.serviceWorker.ready
+      }
+    })
     return reg
   } catch (e) {
     console.warn('[Groove SW] failed:', e.message)
@@ -43,7 +57,7 @@ export async function registerServiceWorker() {
 export async function getPushStatus() {
   if (!isPushSupported()) return { supported: false }
   try {
-    const reg = await navigator.serviceWorker.ready
+    const reg = await getSwRegistration()
     const sub = await reg.pushManager.getSubscription()
     return {
       supported: true,
@@ -72,7 +86,7 @@ export async function subscribeToPush(prefs = {}) {
   const { key } = await keyRes.json()
 
   // Subscribe
-  const reg = await navigator.serviceWorker.ready
+  const reg = await getSwRegistration()
   const subscription = await reg.pushManager.subscribe({
     userVisibleOnly: true,
     applicationServerKey: urlBase64ToUint8Array(key)
@@ -92,7 +106,7 @@ export async function subscribeToPush(prefs = {}) {
 export async function unsubscribeFromPush() {
   if (!isPushSupported()) return
   try {
-    const reg = await navigator.serviceWorker.ready
+    const reg = await getSwRegistration()
     const sub = await reg.pushManager.getSubscription()
     if (sub) {
       await sub.unsubscribe()
