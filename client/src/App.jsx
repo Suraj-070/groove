@@ -13,6 +13,7 @@ import Library from './components/Library'
 import Visualizer from './components/Visualizer'
 import MarqueeText from './components/MarqueeText'
 import VideoPanel from './components/VideoPanel'
+import InviteModal from './components/InviteModal'
 import { registerServiceWorker, isPushSupported, getPushStatus, subscribeToPush, unsubscribeFromPush } from './services/NotificationService'
 import './App.css'
 
@@ -152,8 +153,8 @@ function App() {
   const [users, setUsers] = useState([])
   const [chatOpen, setChatOpen] = useState(false)
   const [chatHistory, setChatHistory] = useState([])
-  const [videoOpen, setVideoOpen] = useState(false)
-  const [shareId, setShareId]     = useState(null)
+  const [videoOpen, setVideoOpen]   = useState(false)
+  const [inviteOpen, setInviteOpen] = useState(false)
   const [pushEnabled, setPushEnabled]   = useState(false)
   const [pushLoading, setPushLoading]   = useState(false)
   const [pushSupported, setPushSupported] = useState(false)
@@ -493,11 +494,7 @@ function App() {
     setRoomId(null)
   }
 
-  // Copy invite link to clipboard
-  const handleCopyInvite = () => {
-    const url = `${window.location.origin}?room=${roomId}`
-    navigator.clipboard?.writeText(url)
-  }
+  const handleCopyInvite = () => setInviteOpen(true)
 
   useEffect(() => {
     const handleNewMsg = () => {
@@ -953,7 +950,10 @@ function App() {
       )}
       {showShortcuts && <ShortcutsModal onClose={() => setShowShortcuts(false)} />}
       {showSleepTimer && <SleepTimerModal onClose={() => setShowSleepTimer(false)} onSet={handleSetSleepTimer} />}
-  
+
+      {inviteOpen && roomId && (
+        <InviteModal roomId={roomId} onClose={() => setInviteOpen(false)} />
+      )}
       <VideoPanel
         videoId={currentSong?.videoId}
         title={currentSong?.title}

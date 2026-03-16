@@ -189,6 +189,75 @@ export default function Player({ socket, roomId, videoId, title, onEnded, onSkip
   const onEndedRef = useRef(onEnded)
   useEffect(() => { onEndedRef.current = onEnded }, [onEnded])
 
+  // ── Lock screen / Media Session API ─────────────────────────
+  useEffect(() => {
+    if (!('mediaSession' in navigator)) return
+    if (!title) return
+
+    navigator.mediaSession.metadata = new window.MediaMetadata({
+      title: title || 'Groove Together',
+      artist: 'Groove Together',
+      album: 'Room ' + (roomId || ''),
+      artwork: videoId ? [
+        { src: `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`,  sizes: '320x180', type: 'image/jpeg' },
+        { src: `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`,  sizes: '480x360', type: 'image/jpeg' },
+        { src: `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`, sizes: '1280x720', type: 'image/jpeg' },
+      ] : [],
+    })
+  }, [title, videoId, roomId])
+
+  // ── Media Session action handlers ──────────────────────────
+  useEffect(() => {
+    if (!('mediaSession' in navigator)) return
+
+    navigator.mediaSession.setActionHandler('play', () => {
+      handlePlay()
+    })
+    navigator.mediaSession.setActionHandler('pause', () => {
+      handlePause()
+    })
+    navigator.mediaSession.setActionHandler('nexttrack', () => {
+      onSkip?.()
+    })
+    navigator.mediaSession.setActionHandler('previoustrack', () => {
+      onPrev?.()
+    })
+    navigator.mediaSession.setActionHandler('seekto', (details) => {
+      if (details.seekTime !== undefined) {
+        const p = playerInstanceRef.current
+        if (p && typeof p.seekTo === 'function') {
+          p.seekTo(details.seekTime, true)
+          setCurrentTime(details.seekTime)
+        }
+      }
+    })
+
+    return () => {
+      // Clean up handlers on unmount
+      ;['play','pause','nexttrack','previoustrack','seekto'].forEach(action => {
+        try { navigator.mediaSession.setActionHandler(action, null) } catch {}
+      })
+    }
+  }, [onSkip, onPrev])
+
+  // ── Sync playback state with lock screen ──────────────────
+  useEffect(() => {
+    if (!('mediaSession' in navigator)) return
+    navigator.mediaSession.playbackState = isPlaying ? 'playing' : 'paused'
+  }, [isPlaying])
+
+  // ── Update position state for lock screen scrubber ────────
+  useEffect(() => {
+    if (!('mediaSession' in navigator) || !duration) return
+    try {
+      navigator.mediaSession.setPositionState({
+        duration,
+        playbackRate: 1,
+        position: Math.min(currentTime, duration),
+      })
+    } catch {}
+  }, [currentTime, duration])
+
   // ── Fetch BPM whenever title changes ──
   useEffect(() => {
     if (!title) { setBpm(null); return }

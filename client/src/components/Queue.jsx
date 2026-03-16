@@ -213,6 +213,12 @@ export default function Queue({
   const [hoverSong, setHoverSong]           = useState(null)
   const [hoverPos, setHoverPos]             = useState(null)
 
+  const [searchQuery, setSearchQuery]       = useState('')
+  const [searchResults, setSearchResults]   = useState([])
+  const [searching, setSearching]           = useState(false)
+  const [searchError, setSearchError]       = useState('')
+  const searchTimer                         = useRef(null)
+
   const hoverTimer   = useRef(null)
   const toastTimer   = useRef(null)
   const inputRef     = useRef(null)
@@ -293,6 +299,34 @@ export default function Queue({
       setError('Failed to import playlist'); setImportProgress(null)
     } finally { setImporting(false) }
   }
+
+  const handleSearch = useCallback(async (query) => {
+    if (!query.trim()) { setSearchResults([]); return }
+    setSearching(true); setSearchError('')
+    try {
+      const res = await fetch(`${BACKEND}/youtube/search?q=${encodeURIComponent(query)}`, { credentials: 'include' })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Search failed')
+      setSearchResults(data.results || [])
+    } catch (e) {
+      setSearchError(e.message)
+      setSearchResults([])
+    } finally { setSearching(false) }
+  }, [])
+
+  const handleSearchInput = (value) => {
+    setSearchQuery(value)
+    clearTimeout(searchTimer.current)
+    if (!value.trim()) { setSearchResults([]); return }
+    searchTimer.current = setTimeout(() => handleSearch(value), 500)
+  }
+
+  const handleAddFromSearch = useCallback(async (result) => {
+    onAddSong({ videoId: result.videoId, title: result.title })
+    setAddedFlash(true)
+    setTimeout(() => setAddedFlash(false), 800)
+    showToast(`🎵 Added "${result.title}"`)
+  }, [onAddSong, showToast])
 
   const handleShuffle = useCallback(() => {
     if (queue.length < 2) return
@@ -428,10 +462,14 @@ export default function Queue({
 
       <div className="queue-tabs">
         <button className={`queue-tab ${tab === 'song' ? 'active' : ''}`} onClick={() => { setTab('song'); setError('') }}>Add Song</button>
-        <button className={`queue-tab ${tab === 'playlist' ? 'active' : ''}`} onClick={() => { setTab('playlist'); setError('') }}>🎵 Import Playlist</button>
+        <button className={`queue-tab ${tab === 'search' ? 'active' : ''}`} onClick={() => { setTab('search'); setError('') }}>
+          <svg viewBox="0 0 24 24" fill="currentColor" width="13" height="13" style={{marginRight:'4px'}}><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+          Search
+        </button>
+        <button className={`queue-tab ${tab === 'playlist' ? 'active' : ''}`} onClick={() => { setTab('playlist'); setError('') }}>Import Playlist</button>
       </div>
 
-      <div className="add-song">
+      <div className={`add-song ${tab === 'search' ? 'add-song--hidden' : ''}`}>
         <input ref={inputRef} type="text"
           placeholder={tab === 'song' ? 'Paste YouTube URL...' : 'Paste YouTube playlist URL...'}
           value={sharedUrl} onChange={e => { setSharedUrl(e.target.value); setError('') }}
@@ -451,11 +489,72 @@ export default function Queue({
         )}
       </div>
 
-      {sharedUrl && (
+      {sharedUrl && tab !== 'search' && (
         <div className="url-hint">
           {isValidSong && <span className="url-hint-good">✓ Valid YouTube video</span>}
           {isValidPlaylist && <span className="url-hint-playlist">📋 Playlist detected — switch to Import tab</span>}
           {!isValidSong && !isValidPlaylist && sharedUrl.length > 5 && <span className="url-hint-bad">✗ Not a valid YouTube URL</span>}
+        </div>
+      )}
+
+      {/* YouTube Search UI */}
+      {tab === 'search' && (
+        <div className="yt-search">
+          <div className="yt-search-input-wrap">
+            <svg className="yt-search-icon" viewBox="0 0 24 24" fill="currentColor" width="15" height="15"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+            <input
+              className="yt-search-input"
+              type="text"
+              placeholder="Search for a song..."
+              value={searchQuery}
+              onChange={e => handleSearchInput(e.target.value)}
+              autoFocus
+            />
+            {searchQuery && (
+              <button className="yt-search-clear" onClick={() => { setSearchQuery(''); setSearchResults([]) }}>×</button>
+            )}
+          </div>
+
+          {searching && (
+            <div className="yt-search-loading">
+              <span className="loading-spinner" />
+              <span>Searching…</span>
+            </div>
+          )}
+
+          {searchError && (
+            <p className="yt-search-error">{searchError}</p>
+          )}
+
+          {!searching && searchResults.length > 0 && (
+            <ul className="yt-search-results">
+              {searchResults.map(result => (
+                <li key={result.videoId} className="yt-result-item" onClick={() => handleAddFromSearch(result)}>
+                  <div className="yt-result-thumb">
+                    <img src={result.thumbnail} alt="" loading="lazy" />
+                    <div className="yt-result-play">
+                      <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><path d="M8 5v14l11-7z"/></svg>
+                    </div>
+                  </div>
+                  <div className="yt-result-info">
+                    <p className="yt-result-title">{result.title}</p>
+                    <p className="yt-result-channel">{result.channel}</p>
+                  </div>
+                  <button className="yt-result-add" title="Add to queue">
+                    <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/></svg>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          {!searching && searchQuery && searchResults.length === 0 && !searchError && (
+            <p className="yt-search-empty">No results for "{searchQuery}"</p>
+          )}
+
+          {!searchQuery && (
+            <p className="yt-search-hint">Type to search YouTube music</p>
+          )}
         </div>
       )}
 

@@ -180,6 +180,20 @@ async function sendPushToRoom(roomId, exceptUserId, payload) {
   await Promise.all(userIds.map(uid => sendPush(uid, payload)));
 }
 
+// ─── SHARED SONGS SCHEMA ─────────────────────────────────────
+// Stores a temporary selection of songs shared via a short link.
+// TTL index auto-deletes after 24 hours.
+const sharedSongsSchema = new mongoose.Schema({
+  shareId:   { type: String, required: true, unique: true, index: true },
+  sharedBy:  { type: String, required: true },   // username
+  crateName: { type: String, default: '' },       // source crate name
+  songs:     { type: Array,  required: true },    // [{ videoId, title }]
+  createdAt: { type: Date,   default: Date.now }
+});
+// Auto-delete after 24 hours
+sharedSongsSchema.index({ createdAt: 1 }, { expireAfterSeconds: 60 * 60 * 24 });
+const SharedSongs = mongoose.models.SharedSongs || mongoose.model('SharedSongs', sharedSongsSchema);
+
 // In-memory fallback for when MongoDB is unavailable
 const memMessages = {}; // { roomId: [msg, ...] }
 
@@ -532,6 +546,81 @@ async function saveRoom(roomId) {
     console.error('saveRoom error:', e.message);
   }
 }
+
+// ─── YOUTUBE SEARCH ──────────────────────────────────────────
+app.get('/youtube/search', requireAuth, async (req, res) => {
+  const { q } = req.query;
+  if (!q?.trim()) return res.status(400).json({ error: 'Query required' });
+  const apiKey = process.env.YOUTUBE_API_KEY;
+  if (!apiKey) return res.status(503).json({ error: 'Search not configured' });
+  try {
+    const url = new URL('https://www.googleapis.com/youtube/v3/search');
+    url.searchParams.set('part', 'snippet');
+    url.searchParams.set('q', q.trim());
+    url.searchParams.set('type', 'video');
+    url.searchParams.set('videoCategoryId', '10'); // Music category
+    url.searchParams.set('maxResults', '10');
+    url.searchParams.set('key', apiKey);
+    const response = await fetch(url.toString());
+    const data = await response.json();
+    if (data.error) return res.status(400).json({ error: data.error.message });
+    const results = (data.items || []).map(item => ({
+      videoId: item.id.videoId,
+      title: item.snippet.title,
+      channel: item.snippet.channelTitle,
+      thumbnail: item.snippet.thumbnails?.medium?.url || item.snippet.thumbnails?.default?.url,
+    }));
+    res.json({ results });
+  } catch (e) {
+    res.status(500).json({ error: 'Search failed' });
+  }
+});
+
+// ─── SHARED SONGS ENDPOINTS ──────────────────────────────────
+
+// Create a share link for selected songs
+app.post('/share/songs', requireAuth, async (req, res) => {
+  const { songs, crateName } = req.body;
+  if (!Array.isArray(songs) || songs.length === 0)
+    return res.status(400).json({ error: 'No songs provided' });
+  if (songs.length > 100)
+    return res.status(400).json({ error: 'Max 100 songs per share' });
+
+  // Generate short 8-char ID
+  const shareId = randomUUID().replace(/-/g, '').slice(0, 8);
+
+  try {
+    if (MONGO_URI) {
+      await SharedSongs.create({
+        shareId,
+        sharedBy: req.user.username || req.user.id,
+        crateName: crateName || '',
+        songs: songs.map(s => ({ videoId: s.videoId, title: s.title })),
+      });
+    }
+    res.json({ shareId, url: `${FRONTEND}/shared/${shareId}` });
+  } catch (e) {
+    console.error('POST /share/songs error:', e);
+    res.status(500).json({ error: 'Failed to create share link' });
+  }
+});
+
+// Get shared songs by shareId — public, no auth required
+app.get('/share/songs/:shareId', async (req, res) => {
+  try {
+    const share = await SharedSongs.findOne({ shareId: req.params.shareId }).lean();
+    if (!share) return res.status(404).json({ error: 'Share link not found or expired' });
+    res.json({
+      shareId: share.shareId,
+      sharedBy: share.sharedBy,
+      crateName: share.crateName,
+      songs: share.songs,
+      createdAt: share.createdAt,
+    });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to load shared songs' });
+  }
+});
 
 // ─── PUSH NOTIFICATION ENDPOINTS ─────────────────────────────
 
