@@ -132,31 +132,40 @@ const PushSub = mongoose.models.PushSub || mongoose.model('PushSub', pushSubSche
 
 // Send push to all subs of a user — silently removes stale subs
 async function sendPush(userId, payload) {
-  if (!VAPID_PUBLIC || !VAPID_PRIVATE) return;
+  if (!VAPID_PUBLIC || !VAPID_PRIVATE) {
+    console.log('[Push] VAPID not configured — skipping');
+    return;
+  }
   try {
     const subs = await PushSub.find({ userId }).lean();
+    console.log(`[Push] userId="${userId}" type="${payload.type}" subs=${subs.length}`);
+    if (subs.length === 0) {
+      // Check if ANY subs exist in DB at all — helps diagnose save vs lookup mismatch
+      const total = await PushSub.countDocuments();
+      console.log(`[Push] Total subs in DB: ${total}`);
+    }
     for (const sub of subs) {
-      // Respect per-user notification preferences
       const prefs = sub.prefs || {};
-      if (payload.type === 'chat'       && prefs.chatMsg    === false) continue;
-      if (payload.type === 'song_added' && prefs.songAdded  === false) continue;
-      if (payload.type === 'user_joined'&& prefs.userJoined === false) continue;
-      if (payload.type === 'dj_crown'   && prefs.djCrown    === false) continue;
+      if (payload.type === 'chat'        && prefs.chatMsg    === false) continue;
+      if (payload.type === 'song_added'  && prefs.songAdded  === false) continue;
+      if (payload.type === 'user_joined' && prefs.userJoined === false) continue;
+      if (payload.type === 'dj_crown'    && prefs.djCrown    === false) continue;
       try {
         await webpush.sendNotification(
           { endpoint: sub.endpoint, keys: sub.keys },
           JSON.stringify(payload),
-          { TTL: 60 }  // discard if not delivered within 60s — stale notifications are annoying
+          { TTL: 60 }
         );
+        console.log(`[Push] ✅ sent to ${userId}`);
       } catch (e) {
+        console.log(`[Push] ❌ send failed: ${e.statusCode} ${e.message}`);
         if (e.statusCode === 404 || e.statusCode === 410) {
-          // Subscription expired — clean it up
           await PushSub.deleteOne({ endpoint: sub.endpoint });
         }
       }
     }
   } catch (e) {
-    console.error('sendPush error:', e.message);
+    console.error('[Push] sendPush error:', e.message);
   }
 }
 
@@ -167,6 +176,7 @@ async function sendPushToRoom(roomId, exceptUserId, payload) {
   const userIds = Object.values(room.users)
     .filter(u => u.id !== exceptUserId && u.discordId)
     .map(u => u.discordId);
+  console.log(`[Push] room="${roomId}" type="${payload.type}" targets=${JSON.stringify(userIds)}`);
   await Promise.all(userIds.map(uid => sendPush(uid, payload)));
 }
 
@@ -547,6 +557,7 @@ app.post('/push/subscribe', requireAuth, async (req, res) => {
       },
       { upsert: true, new: true }
     );
+    console.log(`[Push] ✅ subscription saved for userId="${req.user.id}"`);
     res.json({ success: true });
   } catch (e) {
     res.status(500).json({ error: 'Failed to save subscription' });
