@@ -1,5 +1,7 @@
 import { useState, useRef, useCallback, useEffect, memo, useMemo, forwardRef } from 'react'
 import { createPortal } from 'react-dom'
+import CategoryFilter from './CategoryFilter'
+import { useCategories, getCategoryDef } from '../hooks/useCategories'
 
 const BACKEND = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'
 
