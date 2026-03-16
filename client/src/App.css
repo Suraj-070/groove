@@ -191,8 +191,6 @@ body {
   padding: 18px 32px;
   border-bottom: 1px solid var(--border);
   background: rgba(10,10,20,0.85);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
   min-height: 66px;
   z-index: 150;
 }
@@ -950,8 +948,6 @@ body {
   cursor: pointer;
   transition: all 0.2s;
   box-shadow: 0 8px 28px rgba(0,0,0,0.4);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
 }
 
 .react-btn:hover {
@@ -1000,8 +996,6 @@ body {
   transition: width 0.35s cubic-bezier(0.4,0,0.2,1),
               flex 0.35s cubic-bezier(0.4,0,0.2,1);
   background: rgba(10, 10, 20, 0.45);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
   border-left: 1px solid rgba(255, 255, 255, 0.06);
 }
 
@@ -1412,8 +1406,6 @@ body {
   outline: none;
   transition: border-color 0.2s;
   min-width: 0;
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
 }
 
 .add-song input:focus {
@@ -1746,7 +1738,7 @@ body {
   position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, 0.75);
-  backdrop-filter: blur(8px);
+  
   z-index: 200;
   display: flex;
   align-items: center;
@@ -4530,8 +4522,11 @@ body {
 
   /* ── Reaction button ──────────────────────────────────── */
   .reaction-trigger {
-    bottom: 76px !important;
-    right: 16px !important;
+    bottom: 78px !important;
+    left: 16px !important;
+    right: auto !important;
+    top: auto !important;
+    transform: none !important;
   }
 
   /* ── Keyboard shortcuts modal ─────────────────────────── */
@@ -4745,8 +4740,6 @@ body {
   border-radius: 18px;
   padding: 6px;
   z-index: 200;
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
   box-shadow: 0 24px 60px rgba(0,0,0,0.7),
               0 0 0 1px rgba(124,106,255,0.15);
   animation: dropdownIn 0.22s cubic-bezier(0.34,1.3,0.64,1);
@@ -5643,7 +5636,7 @@ h1, h2, h3 {
   display: flex;
   align-items: center;
   gap: 8px;
-  backdrop-filter: blur(8px);
+  
 }
 .sleep-timer-badge button {
   background: none;
@@ -5838,7 +5831,7 @@ h1, h2, h3 {
   margin: 0 0 10px;
   text-align: center;
   animation: toastPop 0.25s cubic-bezier(.34,1.56,.64,1);
-  backdrop-filter: blur(8px);
+  
 }
 
 /* ── Drag-to-reorder ────────────────────────────────────── */
@@ -9108,11 +9101,12 @@ body.chat-is-open .fcb-bubble { opacity: 0; pointer-events: none; }
 
 /* ── No overlap: chat bubble right, reaction left by default ── */
 @media (max-width: 768px) {
-  /* Reaction button — bottom-LEFT default */
+  /* Reaction button — bottom-LEFT always */
   .reaction-trigger {
     bottom: 78px !important;
     left: 16px !important;
     right: auto !important;
+    top: auto !important;
     transform: none !important;
   }
   /* Chat bubble defaults to bottom-RIGHT (already is) */
@@ -9183,6 +9177,7 @@ body.chat-is-open .fcb-bubble { opacity: 0; pointer-events: none; }
     overflow-y: auto !important;
   }
   .chat-input-wrap {
+  padding-bottom: max(12px, env(keyboard-inset-height, 0px));
     padding-bottom: max(12px, env(safe-area-inset-bottom)) !important;
   }
 }
@@ -9243,100 +9238,156 @@ body.chat-is-open .fcb-bubble { opacity: 0; pointer-events: none; }
 
 .lc-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 18px; padding: 28px 32px;
-  overflow-y: auto; flex: 1; align-content: start;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 20px;
+  padding: 32px 40px;
+  overflow-y: auto;
+  flex: 1;
+  align-content: start;
 }
 .lc-grid::-webkit-scrollbar { width: 4px; }
 .lc-grid::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 4px; }
 
-/* ── Crate card ─────────────────────────────────────────────── */
+/* ── Crate card — advanced ──────────────────────────────────── */
 .lc-card {
-  background: rgba(255,255,255,0.04);
-  border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 16px; overflow: hidden;
-  cursor: pointer; transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
-  display: flex; flex-direction: column;
+  background: rgba(18,15,30,0.8);
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 20px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: transform 0.25s cubic-bezier(0.34,1.2,0.64,1),
+              box-shadow 0.25s ease,
+              border-color 0.2s;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+.lc-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 20px;
+  background: var(--lc-gradient);
+  opacity: 0;
+  transition: opacity 0.25s;
+  pointer-events: none;
+  z-index: 0;
 }
 .lc-card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 20px 50px rgba(0,0,0,0.5);
-  border-color: rgba(255,255,255,0.14);
+  transform: translateY(-8px) scale(1.01);
+  box-shadow: 0 32px 64px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.1);
 }
+.lc-card:hover::after { opacity: 0.05; }
 .lc-card--active {
   border-color: var(--lc-accent);
-  box-shadow: 0 0 0 1px var(--lc-accent), 0 20px 50px rgba(0,0,0,0.4);
+  box-shadow: 0 0 0 2px var(--lc-accent),
+              0 24px 60px rgba(0,0,0,0.5),
+              0 0 40px rgba(124,106,255,0.15);
 }
 
-/* Card header — gradient with thumbnail collage */
+/* Card header — full bleed thumbnail collage */
 .lc-card-header {
-  position: relative; height: 130px; overflow: hidden;
+  position: relative;
+  height: 160px;
+  overflow: hidden;
   background: var(--lc-gradient);
+  flex-shrink: 0;
 }
 .lc-thumbs { position: absolute; inset: 0; }
 .lc-thumb {
-  position: absolute; object-fit: cover;
-  border-radius: 0;
+  position: absolute;
+  object-fit: cover;
+  transition: transform 0.4s ease;
 }
-.lc-thumb--0 { width: 60%; height: 100%; left: 0; top: 0; }
-.lc-thumb--1 { width: 40%; height: 50%; right: 0; top: 0; }
-.lc-thumb--2 { width: 40%; height: 50%; right: 0; bottom: 0; }
+.lc-card:hover .lc-thumb { transform: scale(1.05); }
+.lc-thumb--0 { width: 58%; height: 100%; left: 0; top: 0; }
+.lc-thumb--1 { width: 43%; height: 51%; right: 0; top: 0; border-left: 2px solid rgba(8,8,15,0.4); }
+.lc-thumb--2 { width: 43%; height: 51%; right: 0; bottom: 0; border-left: 2px solid rgba(8,8,15,0.4); border-top: 2px solid rgba(8,8,15,0.4); }
 .lc-thumb-overlay {
   position: absolute; inset: 0;
-  background: linear-gradient(135deg, rgba(0,0,0,0.2) 0%, rgba(0,0,0,0.5) 100%);
+  background: linear-gradient(
+    180deg,
+    rgba(0,0,0,0) 30%,
+    rgba(8,8,15,0.85) 100%
+  );
 }
 .lc-thumb-empty {
   position: absolute; inset: 0;
   display: flex; align-items: center; justify-content: center;
-  font-size: 2.5rem; opacity: 0.4;
+  font-size: 3rem; opacity: 0.3;
 }
+
+/* Name overlaid on image bottom */
+.lc-card-header-info {
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  padding: 10px 14px;
+  z-index: 2;
+}
+.lc-card-name {
+  font-size: 1rem; font-weight: 800; color: #fff;
+  margin: 0 0 2px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  text-shadow: 0 1px 4px rgba(0,0,0,0.5);
+}
+.lc-card-count {
+  font-size: 0.68rem; color: rgba(255,255,255,0.55); margin: 0;
+  font-weight: 500;
+}
+
 .lc-playing-badge {
-  position: absolute; top: 10px; left: 10px;
+  position: absolute; top: 10px; left: 10px; z-index: 3;
   display: flex; align-items: center; gap: 5px;
-  background: rgba(0,0,0,0.6); backdrop-filter: blur(8px);
+  background: rgba(0,0,0,0.65);
   border-radius: 20px; padding: 4px 10px;
-  font-size: 0.65rem; font-weight: 700; color: #fff;
+  font-size: 0.62rem; font-weight: 700; color: #fff;
   border: 1px solid rgba(255,255,255,0.2);
+  letter-spacing: .03em;
 }
 .lc-delete {
-  position: absolute; top: 8px; right: 8px;
-  width: 26px; height: 26px; border-radius: 50%;
-  background: rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.15);
-  color: rgba(255,255,255,0.6); cursor: pointer;
+  position: absolute; top: 10px; right: 10px; z-index: 3;
+  width: 28px; height: 28px; border-radius: 50%;
+  background: rgba(0,0,0,0.55);
+  border: 1px solid rgba(255,255,255,0.18);
+  color: rgba(255,255,255,0.7); cursor: pointer;
   display: flex; align-items: center; justify-content: center;
-  opacity: 0; transition: opacity 0.15s, color 0.15s;
+  opacity: 0; transition: opacity 0.15s, background 0.15s;
 }
 .lc-card:hover .lc-delete { opacity: 1; }
-.lc-delete:hover { color: #ff6a8a; border-color: rgba(255,106,138,0.4); }
+.lc-delete:hover { background: rgba(255,45,70,0.5); color: #fff; border-color: rgba(255,45,70,0.5); }
 
-/* Card body */
-.lc-card-body { padding: 12px 14px 8px; flex: 1; }
-.lc-card-name {
-  font-size: 0.95rem; font-weight: 700; color: #fff;
-  margin: 0 0 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
-.lc-card-count { font-size: 0.7rem; color: var(--muted2); margin: 0; }
+/* Card body — minimal, name is already on image */
+.lc-card-body { display: none; }
 
 /* Card actions */
 .lc-card-actions {
-  display: flex; gap: 8px; padding: 0 14px 14px;
+  display: flex; gap: 8px;
+  padding: 10px 14px 14px;
+  position: relative; z-index: 1;
 }
 .lc-btn-play {
-  flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px;
-  background: var(--lc-accent); border: none; border-radius: 8px;
-  color: #fff; font-size: 0.78rem; font-weight: 700; padding: 8px 12px;
-  cursor: pointer; font-family: inherit; transition: filter 0.15s;
+  flex: 1; display: flex; align-items: center; justify-content: center; gap: 7px;
+  background: var(--lc-accent);
+  border: none; border-radius: 10px;
+  color: #fff; font-size: 0.8rem; font-weight: 700;
+  padding: 10px 14px;
+  cursor: pointer; font-family: inherit;
+  transition: filter 0.15s, transform 0.1s;
+  letter-spacing: .02em;
 }
-.lc-btn-play:hover:not(:disabled) { filter: brightness(1.15); }
-.lc-btn-play:disabled { opacity: 0.3; cursor: not-allowed; }
+.lc-btn-play:hover:not(:disabled) { filter: brightness(1.18); transform: scale(1.02); }
+.lc-btn-play:active:not(:disabled) { transform: scale(0.97); }
+.lc-btn-play:disabled { opacity: 0.25; cursor: not-allowed; }
 .lc-btn-shuffle {
-  width: 36px; height: 36px; flex-shrink: 0;
+  width: 40px; height: 40px; flex-shrink: 0;
   display: flex; align-items: center; justify-content: center;
-  background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.1);
-  border-radius: 8px; color: var(--muted); cursor: pointer; transition: all 0.15s;
+  background: rgba(255,255,255,0.07);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 10px; color: var(--muted);
+  cursor: pointer; transition: all 0.15s;
 }
-.lc-btn-shuffle:hover:not(:disabled) { background: rgba(255,255,255,0.14); color: #fff; }
-.lc-btn-shuffle:disabled { opacity: 0.3; cursor: not-allowed; }
+.lc-btn-shuffle:hover:not(:disabled) { background: rgba(255,255,255,0.13); color: #fff; transform: scale(1.05); }
+.lc-btn-shuffle:disabled { opacity: 0.25; cursor: not-allowed; }
 
 /* New collection card */
 .lc-new-card {
@@ -9435,7 +9486,7 @@ body.chat-is-open .fcb-bubble { opacity: 0; pointer-events: none; }
 .lc-detail-back {
   position: absolute; top: 16px; left: 16px; z-index: 10;
   width: 36px; height: 36px; border-radius: 50%;
-  background: rgba(0,0,0,0.4); backdrop-filter: blur(8px);
+  background: rgba(0,0,0,0.4); 
   border: 1px solid rgba(255,255,255,0.15); color: #fff;
   cursor: pointer; display: flex; align-items: center; justify-content: center;
   transition: background 0.15s;
@@ -9572,4 +9623,93 @@ body.chat-is-open .fcb-bubble { opacity: 0; pointer-events: none; }
   .lc-detail-actions { padding: 10px 12px; gap: 6px; }
   .lc-detail-btn { font-size: 0.72rem; padding: 7px 10px; }
   .lc-grid-view { display: flex; flex-direction: column; }
+}
+
+/* Stamp button first-time pulse */
+@keyframes stampDiscover {
+  0%,100% { box-shadow: 0 0 0 0 rgba(255,179,0,0); }
+  50%      { box-shadow: 0 0 0 6px rgba(255,179,0,0.3); }
+}
+.stamp-btn-compact--discover { animation: stampDiscover 1.5s ease 2s 3; }
+
+/* Queue rows — bigger touch targets on mobile */
+@media (max-width: 768px) {
+  .song-item { min-height: 56px !important; padding: 8px 10px !important; }
+  .song-info { gap: 2px; }
+  .lc-song { min-height: 52px !important; padding: 10px 14px !important; }
+}
+
+/* Burst area capped to top half on mobile */
+@media (max-width: 768px) {
+  .burst-item { bottom: 50vh !important; }
+}
+
+/* together subtitle — readable size */
+@media (max-width: 768px) {
+  .logo-text .logo-small { font-size: 0.52rem !important; letter-spacing: 2px !important; }
+}
+
+/* Synced badge — ensure no overlap with stamp on small screens */
+@media (max-width: 380px) {
+  .player-action-row { display: none; }
+}
+
+/* ── Player art skeleton loader ────────────────────────── */
+.art-img {
+  animation: artFadeIn 0.3s ease;
+}
+@keyframes artFadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.art-placeholder {
+  background: linear-gradient(135deg, rgba(124,106,255,0.15), rgba(255,106,138,0.1));
+  animation: artSkeleton 1.5s ease-in-out infinite;
+}
+@keyframes artSkeleton {
+  0%,100% { opacity: 0.6; }
+  50%     { opacity: 1; }
+}
+
+/* ── Improved chat empty state ──────────────────────────── */
+.chat-empty--improved {
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 10px; padding: 40px 24px; text-align: center;
+  flex: 1;
+}
+.chat-empty--improved::before {
+  content: '💬'; font-size: 2.5rem; display: block; margin-bottom: 4px; opacity: 0.4;
+}
+
+/* ── Profile focus trap marker ──────────────────────────── */
+.profile-dropdown { contain: layout style; }
+
+/* ── CSS dedup — consolidate important rules ────────────── */
+@media (max-width: 768px) {
+  /* Single source of truth for all mobile overlays bottom position */
+  .lc-library,
+  .mg-panel,
+  .settings-modal { bottom: 64px !important; }
+}
+
+/* ── Library desktop advanced extras ───────────────────── */
+/* New collection card matches card height */
+.lc-new-card {
+  min-height: 220px !important;
+}
+
+/* Desktop header — bigger, more breathing room */
+@media (min-width: 769px) {
+  .lc-header { padding: 24px 40px; }
+  .lc-title { font-size: 1.6rem; letter-spacing: -0.5px; }
+  .lc-subtitle { font-size: 0.78rem; margin-top: 4px; }
+  .lc-new-btn { padding: 10px 22px; font-size: 0.85rem; }
+}
+
+/* Mobile — restore card body visibility */
+@media (max-width: 768px) {
+  .lc-card-body { display: block !important; padding: 10px 12px 6px !important; }
+  .lc-card-header { height: 110px !important; }
+  .lc-card-header-info { display: none; }
 }
