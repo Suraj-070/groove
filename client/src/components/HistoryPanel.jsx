@@ -63,27 +63,34 @@ export default function HistoryPanel({ isOpen, onClose, onAddToQueue, roomId }) 
   const [loading, setLoading]   = useState(false)
   const [page, setPage]         = useState(1)
   const [totalPages, setTotalPages] = useState(1)
+  const [error, setError]         = useState('')
 
   const fetchHistory = useCallback(async (p = 1) => {
     setLoading(true)
+    setError('')
     try {
       const res = await fetch(`${BACKEND}/history?page=${p}&limit=50`, { credentials: 'include' })
+      if (res.status === 401) { setError('Please log in to view history'); return }
       const data = await res.json()
+      if (!res.ok) { setError(data.error || 'Failed to load'); return }
       if (p === 1) setHistory(data.history || [])
       else setHistory(prev => [...prev, ...(data.history || [])])
       setTotalPages(data.pages || 1)
       setPage(p)
-    } catch {}
+    } catch (e) { setError('Network error: ' + e.message) }
     finally { setLoading(false) }
   }, [])
 
   const fetchMoments = useCallback(async () => {
     setLoading(true)
+    setError('')
     try {
       const res = await fetch(`${BACKEND}/moments`, { credentials: 'include' })
+      if (res.status === 401) { setError('Please log in to view moments'); return }
       const data = await res.json()
+      if (!res.ok) { setError(data.error || 'Failed to load'); return }
       setMoments(data.moments || [])
-    } catch {}
+    } catch (e) { setError('Network error: ' + e.message) }
     finally { setLoading(false) }
   }, [])
 
@@ -139,6 +146,11 @@ export default function HistoryPanel({ isOpen, onClose, onAddToQueue, roomId }) 
         </div>
 
         <div className="hist-body">
+          {error && (
+            <div className="hist-empty">
+              <p style={{color:'#ff6a6a'}}>{error}</p>
+            </div>
+          )}
           {loading && history.length === 0 && moments.length === 0 && (
             <div className="hist-loading">
               <div className="shared-spinner" />

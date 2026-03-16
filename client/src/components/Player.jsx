@@ -452,8 +452,21 @@ export default function Player({ socket, roomId, videoId, title, onEnded, onSkip
       if (res.ok) {
         setStamped(true)
         setTimeout(() => setStamped(false), 3000)
+      } else {
+        const err = await res.json().catch(() => ({}))
+        // 409 = already stamped this moment (duplicate within 10s) — still show success
+        if (res.status === 409) {
+          setStamped(true)
+          setTimeout(() => setStamped(false), 3000)
+        } else if (res.status === 401 || res.status === 403) {
+          alert('Please log in to save moments')
+        } else {
+          console.warn('[Stamp] failed:', res.status, err.error)
+        }
       }
-    } catch {}
+    } catch (e) {
+      console.warn('[Stamp] network error:', e.message)
+    }
   }
 
   const formatTime = (s) => {

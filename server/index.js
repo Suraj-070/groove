@@ -221,16 +221,21 @@ momentSchema.index({ userId: 1, stampedAt: -1 });
 const Moment = mongoose.models.Moment || mongoose.model('Moment', momentSchema);
 
 async function recordListen(userId, videoId, title, roomId) {
-  if (!MONGO_URI || !userId) return;
+  if (!MONGO_URI || !userId) {
+    console.log('[History] skipped — MONGO_URI:', !!MONGO_URI, 'userId:', userId);
+    return;
+  }
   try {
-    // Avoid duplicate entries for same song within 5 minutes
     const recent = await ListenHistory.findOne({
       userId, videoId, listenedAt: { $gt: Date.now() - 5 * 60 * 1000 }
     });
     if (!recent) {
       await ListenHistory.create({ userId, videoId, title, roomId, listenedAt: Date.now() });
+      console.log(`[History] ✅ saved for userId="${userId}" title="${title.slice(0,30)}"`);
+    } else {
+      console.log(`[History] skipped duplicate for userId="${userId}"`);
     }
-  } catch (e) { console.error('recordListen error:', e.message); }
+  } catch (e) { console.error('[History] recordListen error:', e.message); }
 }
 
 // In-memory fallback for when MongoDB is unavailable
@@ -627,6 +632,7 @@ app.get('/history', requireAuth, async (req, res) => {
       .limit(limit)
       .lean();
     const total = await ListenHistory.countDocuments({ userId: req.user.id });
+    console.log(`[History] GET userId="${req.user.id}" found=${total}`);
     res.json({ history, total, page, pages: Math.ceil(total / limit) });
   } catch (e) { res.status(500).json({ error: 'Failed to load history' }); }
 });
@@ -662,6 +668,7 @@ app.post('/moments', requireAuth, async (req, res) => {
     });
     if (existing) return res.status(409).json({ error: 'Already stamped this moment' });
     await Moment.create({ userId: req.user.id, videoId, title, timestamp, roomId: roomId || '', note: note || '' });
+    console.log(`[Moment] ✅ saved for userId="${req.user.id}" title="${(title||'').slice(0,30)}" ts=${timestamp}`);
     res.json({ success: true });
   } catch (e) { res.status(500).json({ error: 'Failed to save moment' }); }
 });
