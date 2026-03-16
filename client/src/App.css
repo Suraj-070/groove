@@ -9713,3 +9713,34 @@ body.chat-is-open .fcb-bubble { opacity: 0; pointer-events: none; }
   .lc-card-header { height: 110px !important; }
   .lc-card-header-info { display: none; }
 }
+
+/* ── Library icon buttons (shuffle + share in card actions) ── */
+.lc-btn-icon {
+  width: 40px; height: 40px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(255,255,255,0.07);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 10px; color: var(--muted);
+  cursor: pointer; transition: all 0.15s;
+}
+.lc-btn-icon:hover:not(:disabled) {
+  background: rgba(255,255,255,0.13);
+  color: #fff; transform: scale(1.05);
+}
+.lc-btn-icon:disabled { opacity: 0.25; cursor: not-allowed; }
+
+/* ── lc-card-header-info — name on image ────────────────── */
+.lc-card-header-info {
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  padding: 28px 14px 10px;
+  background: linear-gradient(transparent, rgba(8,8,15,0.9));
+  z-index: 2;
+  pointer-events: none;
+}
+
+@media (max-width: 768px) {
+  .lc-card-header-info { display: none !important; }
+  .lc-card-body { display: block !important; }
+  .lc-btn-icon { width: 36px !important; height: 36px !important; }
+}
