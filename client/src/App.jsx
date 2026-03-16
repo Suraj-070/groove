@@ -97,23 +97,6 @@ function SleepTimerModal({ onClose, onSet }) {
 // ── Offline Banner ────────────────────────────────────────────
 function OfflineBanner() {
   const [offline, setOffline] = useState(!navigator.onLine)
-  // Register service worker + check push support
-  useEffect(() => {
-    // Check push support immediately — APIs are available at page load
-    // No need to wait for SW ready just to check support
-    const supported = isPushSupported()
-    setPushSupported(supported)
-
-    // Register SW in background — don't block the support check on it
-    registerServiceWorker()
-
-    // Check existing subscription separately
-    if (supported) {
-      getPushStatus()
-        .then(s => { if (s.subscribed) setPushEnabled(true) })
-        .catch(() => {})
-    }
-  }, [])
 
   useEffect(() => {
     const goOffline = () => setOffline(true)
@@ -189,6 +172,18 @@ function App() {
   const profileRef = useRef(null)
   const [windowWidth, setWindowWidth] = useState(window.innerWidth)
   const touchStartY = useRef(null)
+
+  // ── Register SW + check push support ─────────────────────
+  useEffect(() => {
+    const supported = isPushSupported()
+    setPushSupported(supported)
+    registerServiceWorker()
+    if (supported) {
+      getPushStatus()
+        .then(s => { if (s.subscribed) setPushEnabled(true) })
+        .catch(() => {})
+    }
+  }, [])
 
   // ── New feature state ─────────────────────────────────────
   const [loop, setLoop] = useState(false)
