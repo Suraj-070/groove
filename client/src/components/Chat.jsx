@@ -3,15 +3,19 @@ import EmojiPicker from './EmojiPicker'
 
 // ── Unique user colors derived from username ──────────────────────────────────
 const USER_COLORS = [
-  '#7c6aff', '#ff6a8a', '#6affb8', '#ffb86a',
-  '#6ab8ff', '#ff6aff', '#afffaf', '#ffd96a',
+  '#a78bfa', '#f472b6', '#34d399', '#fb923c',
+  '#60a5fa', '#e879f9', '#4ade80', '#facc15',
+  '#f87171', '#38bdf8', '#a3e635', '#ff6a8a',
 ]
 function userColor(name = '') {
   let h = 0
   for (let i = 0; i < name.length; i++) h = name.charCodeAt(i) + ((h << 5) - h)
   return USER_COLORS[Math.abs(h) % USER_COLORS.length]
 }
-function userInitial(name = '') { return name.slice(0, 1).toUpperCase() || '?' }
+function userInitial(name = '') {
+  const clean = name.replace(/^[^a-zA-Z]+/, '')
+  return (clean[0] || name[0] || '?').toUpperCase()
+}
 
 // Format a UTC timestamp (ms) into the viewer's local time
 // Shows time only for today, "Yesterday HH:MM" for yesterday, date for older
@@ -68,6 +72,15 @@ const ChatBubble = memo(({ msg, isSelf, showAvatar, avatarSrc, onEdit, isEditing
       <div className="chat-bubble-col">
         {!isSelf && showAvatar && (
           <span className="chat-name" style={{ color }}>{msg.username}</span>
+        )}
+
+        {/* Edit button — shows on hover for own messages */}
+        {isSelf && !isEditing && (
+          <button className="chat-edit-btn" onClick={onEdit} title="Edit message">
+            <svg viewBox="0 0 24 24" fill="currentColor" width="11" height="11">
+              <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+            </svg>
+          </button>
         )}
 
         {isEditing ? (
