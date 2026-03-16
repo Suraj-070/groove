@@ -333,6 +333,13 @@ export default function Queue({
     else setSelected(new Set(queue.map((_, i) => i)))
   }, [selected.size, queue.length])
 
+  const removeSelected = useCallback(() => {
+    // Remove in reverse order so indices don't shift
+    const indices = [...selected].sort((a, b) => b - a)
+    indices.forEach(i => onRemoveSong(i))
+    exitSelectMode()
+  }, [selected, onRemoveSong, exitSelectMode])
+
   const handleShuffle = useCallback(() => {
     if (queue.length < 2) return
     const before = queue.slice(0, currentIndex + 1)
