@@ -51,13 +51,13 @@
       "purpose": "any"
     },
     {
-      "src": "/web-app-manifest-192x192.png",
+      "src": "/icons/icon-192x192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/web-app-manifest-192x192.png",
+      "src": "/icons/icon-192x192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "maskable"
@@ -69,13 +69,13 @@
       "purpose": "any"
     },
     {
-      "src": "/web-app-manifest-512x512.png",
+      "src": "/icons/icon-512x512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/web-app-manifest-512x512.png",
+      "src": "/icons/icon-512x512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
@@ -83,11 +83,11 @@
   ],
   "screenshots": [
     {
-      "src": "/web-app-manifest-512x512.png",
+      "src": "/icons/icon-512x512.png",
       "sizes": "512x512",
       "type": "image/png",
       "form_factor": "narrow",
-      "label": "Groove Together \u2014 Listen together in real time"
+      "label": "Groove Together"
     }
   ],
   "shortcuts": [

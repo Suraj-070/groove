@@ -3,23 +3,22 @@ const fs = require('fs')
 const path = require('path')
 
 const svg = fs.readFileSync(path.join(__dirname, 'public/groove-icon.svg'))
-const sizes = [72, 96, 128, 144, 152, 192, 384, 512]
+const iconsDir = path.join(__dirname, 'public/icons')
 
-// Make sure icons folder exists
-if (!fs.existsSync(path.join(__dirname, 'public/icons'))) {
-  fs.mkdirSync(path.join(__dirname, 'public/icons'), { recursive: true })
+if (!fs.existsSync(iconsDir)) {
+  fs.mkdirSync(iconsDir, { recursive: true })
 }
 
+const sizes = [72, 96, 128, 144, 152, 192, 384, 512]
+
 sizes.forEach(size => {
-  const out = path.join(__dirname, 'public/icons/icon-' + size + 'x' + size + '.png')
+  const out = path.join(iconsDir, `icon-${size}x${size}.png`)
   sharp(svg).resize(size, size).png().toFile(out, (err) => {
-    if (err) console.error('Error ' + size + ':', err.message)
-    else console.log('Generated ' + size + 'x' + size)
+    if (err) console.error(`Error ${size}:`, err.message)
+    else console.log(`✓ Generated icons/icon-${size}x${size}.png`)
   })
 })
 
-// Also generate the manifest + apple touch icon versions
-sharp(svg).resize(192, 192).png().toFile(path.join(__dirname, 'public/web-app-manifest-192x192.png'), () => console.log('Generated manifest 192'))
-sharp(svg).resize(512, 512).png().toFile(path.join(__dirname, 'public/web-app-manifest-512x512.png'), () => console.log('Generated manifest 512'))
-sharp(svg).resize(180, 180).png().toFile(path.join(__dirname, 'public/apple-touch-icon.png'), () => console.log('Generated apple-touch-icon'))
-sharp(svg).resize(96, 96).png().toFile(path.join(__dirname, 'public/favicon-96x96.png'), () => console.log('Generated favicon'))
+console.log('\nAll icons go into public/icons/')
+console.log('manifest.json and sw.js already reference /icons/icon-*.png')
+console.log('Deploy the whole public/ folder to Vercel.')
