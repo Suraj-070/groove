@@ -310,6 +310,29 @@ export default function Queue({
     return () => clearTimeout(t)
   }, [queue.map(s=>s.videoId).join(',')])
 
+  // Select a song — plays it when not in select mode, toggles selection when in select mode
+  const handleSelect = useCallback((index) => {
+    if (selectMode) {
+      setSelected(prev => {
+        const next = new Set(prev)
+        next.has(index) ? next.delete(index) : next.add(index)
+        return next
+      })
+    } else {
+      onSelectSong(index)
+    }
+  }, [selectMode, onSelectSong])
+
+  const exitSelectMode = useCallback(() => {
+    setSelectMode(false)
+    setSelected(new Set())
+  }, [])
+
+  const selectAll = useCallback(() => {
+    if (selected.size === queue.length) setSelected(new Set())
+    else setSelected(new Set(queue.map((_, i) => i)))
+  }, [selected.size, queue.length])
+
   const handleShuffle = useCallback(() => {
     if (queue.length < 2) return
     const before = queue.slice(0, currentIndex + 1)
