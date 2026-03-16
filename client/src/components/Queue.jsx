@@ -219,6 +219,9 @@ export default function Queue({
   const [searchError, setSearchError]       = useState('')
   const searchTimer                         = useRef(null)
 
+  const [flowScores, setFlowScores] = useState({}) // { videoId: score }
+  const [dnaData, setDnaData]       = useState({}) // { videoId: dna }
+
   const hoverTimer   = useRef(null)
   const toastTimer   = useRef(null)
   const inputRef     = useRef(null)
@@ -327,6 +330,29 @@ export default function Queue({
     setTimeout(() => setAddedFlash(false), 800)
     showToast(`🎵 Added "${result.title}"`)
   }, [onAddSong, showToast])
+
+  // Fetch flow scores when queue changes
+  useEffect(() => {
+    if (queue.length < 2) { setFlowScores({}); return }
+    const fetchFlows = async () => {
+      try {
+        const res = await fetch(`${BACKEND}/flow-scores`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ songs: queue.map(s => ({ videoId: s.videoId, title: s.title })) })
+        })
+        if (!res.ok) return
+        const data = await res.json()
+        const map = {}
+        ;(data.scores || []).forEach(s => { map[s.videoId] = s })
+        setFlowScores(map)
+      } catch {}
+    }
+    // Debounce — don't fetch on every single queue change
+    const t = setTimeout(fetchFlows, 1500)
+    return () => clearTimeout(t)
+  }, [queue.map(s=>s.videoId).join(',')])
 
   const handleShuffle = useCallback(() => {
     if (queue.length < 2) return

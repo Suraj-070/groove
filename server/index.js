@@ -220,6 +220,118 @@ const momentSchema = new mongoose.Schema({
 momentSchema.index({ userId: 1, stampedAt: -1 });
 const Moment = mongoose.models.Moment || mongoose.model('Moment', momentSchema);
 
+// ─── SONG DNA CACHE ──────────────────────────────────────────
+// Caches enriched song data so we don't re-fetch for the same song
+const songDNASchema = new mongoose.Schema({
+  videoId:  { type: String, required: true, unique: true, index: true },
+  title:    { type: String },
+  bpm:      { type: Number },
+  energy:   { type: Number },  // 0-1
+  mood:     { type: String },  // euphoric/confident/calm/sad/aggressive/chill
+  danceability: { type: Number }, // 0-1
+  genre:    { type: String },
+  fetchedAt:{ type: Number, default: () => Date.now() },
+});
+songDNASchema.index({ fetchedAt: 1 }, { expireAfterSeconds: 60 * 60 * 24 * 30 }); // 30 day cache
+const SongDNA = mongoose.models.SongDNA || mongoose.model('SongDNA', songDNASchema);
+
+// Mood mapping from AcousticBrainz mood/mirex tags
+function mapMood(abData) {
+  const mood = abData?.highlevel?.mood_happy?.value ||
+               abData?.highlevel?.mood_aggressive?.value ||
+               abData?.highlevel?.mood_relaxed?.value ||
+               abData?.highlevel?.mood_sad?.value || null;
+  const happy    = parseFloat(abData?.highlevel?.mood_happy?.probability    || 0);
+  const sad      = parseFloat(abData?.highlevel?.mood_sad?.probability      || 0);
+  const relax    = parseFloat(abData?.highlevel?.mood_relaxed?.probability  || 0);
+  const aggr     = parseFloat(abData?.highlevel?.mood_aggressive?.probability || 0);
+  const scores = { euphoric: happy, sad, chill: relax, aggressive: aggr };
+  const best = Object.entries(scores).sort((a,b) => b[1]-a[1])[0];
+  return best[1] > 0.3 ? best[0] : 'neutral';
+}
+
+async function enrichSong(videoId, title) {
+  // Check cache first
+  if (MONGO_URI) {
+    const cached = await SongDNA.findOne({ videoId }).lean();
+    if (cached) return cached;
+  }
+
+  const dna = { videoId, title, bpm: null, energy: null, mood: 'neutral', danceability: null, genre: null };
+
+  try {
+    const clean = (title || '').replace(/\(.*?\)|\[.*?\]/g, '').trim().slice(0, 60);
+    const query = encodeURIComponent(clean);
+
+    // MusicBrainz lookup
+    const mbRes = await fetch(
+      `https://musicbrainz.org/ws/2/recording/?query=${query}&limit=3&fmt=json`,
+      { headers: { 'Accept': 'application/json', 'User-Agent': 'GrooveTogether/1.0' } }
+    );
+    if (!mbRes.ok) return dna;
+    const mbData = await mbRes.json();
+    const rec = mbData?.recordings?.[0];
+    if (!rec?.id) return dna;
+
+    // AcousticBrainz high-level (mood, genre, danceability)
+    const [llRes, hlRes] = await Promise.all([
+      fetch(`https://acousticbrainz.org/${rec.id}/low-level`),
+      fetch(`https://acousticbrainz.org/${rec.id}/high-level`),
+    ]);
+
+    if (llRes.ok) {
+      const ll = await llRes.json();
+      const bpm = ll?.rhythm?.bpm;
+      if (bpm && bpm > 40 && bpm < 220) dna.bpm = Math.round(bpm);
+      const rms = ll?.lowlevel?.average_loudness;
+      if (rms) dna.energy = Math.min(1, Math.max(0, parseFloat(rms)));
+    }
+    if (hlRes.ok) {
+      const hl = await hlRes.json();
+      dna.mood = mapMood(hl);
+      const danceable = hl?.highlevel?.danceability?.value;
+      dna.danceability = danceable === 'danceable' ? 0.8 : 0.3;
+      const genre = hl?.highlevel?.genre_rosamerica?.value;
+      if (genre) dna.genre = genre;
+    }
+
+    // Cache it
+    if (MONGO_URI) {
+      await SongDNA.findOneAndUpdate({ videoId }, { ...dna, fetchedAt: Date.now() }, { upsert: true });
+    }
+  } catch (e) { /* enrichment is best-effort — never block */ }
+
+  return dna;
+}
+
+// Flow score between two songs (0-100)
+function flowScore(songA, songB) {
+  if (!songA || !songB) return 50;
+  let score = 100;
+  // BPM compatibility (within 20 BPM = smooth, >40 BPM = jarring)
+  if (songA.bpm && songB.bpm) {
+    const bpmDiff = Math.abs(songA.bpm - songB.bpm);
+    score -= Math.min(40, bpmDiff * 1.2);
+  }
+  // Energy delta
+  if (songA.energy != null && songB.energy != null) {
+    const eDiff = Math.abs(songA.energy - songB.energy);
+    score -= eDiff * 30;
+  }
+  // Mood compatibility
+  const moodCompat = {
+    euphoric: { euphoric:10, confident:5, chill:-5, sad:-15, aggressive:0, neutral:0 },
+    confident:{ euphoric:5, confident:10, chill:0, sad:-10, aggressive:5, neutral:3 },
+    chill:    { euphoric:-5, confident:0, chill:10, sad:5, aggressive:-15, neutral:5 },
+    sad:      { euphoric:-15, confident:-10, chill:5, sad:10, aggressive:-10, neutral:0 },
+    aggressive:{ euphoric:0, confident:5, chill:-15, sad:-10, aggressive:10, neutral:0 },
+    neutral:  { euphoric:0, confident:3, chill:5, sad:0, aggressive:0, neutral:10 },
+  };
+  const moodDelta = moodCompat[songA.mood]?.[songB.mood] ?? 0;
+  score += moodDelta;
+  return Math.max(0, Math.min(100, Math.round(score)));
+}
+
 async function recordListen(userId, videoId, title, roomId) {
   if (!MONGO_URI || !userId) {
     console.log('[History] skipped — MONGO_URI:', !!MONGO_URI, 'userId:', userId);
@@ -620,6 +732,96 @@ app.get('/youtube/search', requireAuth, async (req, res) => {
   }
 });
 
+// ─── SONG DNA ENDPOINTS ──────────────────────────────────────
+
+// Enrich a single song (or batch)
+app.post('/song-dna', requireAuth, async (req, res) => {
+  const { songs } = req.body; // [{ videoId, title }]
+  if (!Array.isArray(songs)) return res.status(400).json({ error: 'songs array required' });
+  const capped = songs.slice(0, 20); // max 20 at a time
+  try {
+    const results = await Promise.all(
+      capped.map(s => enrichSong(s.videoId, s.title))
+    );
+    res.json({ dna: results });
+  } catch (e) {
+    res.status(500).json({ error: 'Enrichment failed' });
+  }
+});
+
+// Flow scores for a queue
+app.post('/flow-scores', requireAuth, async (req, res) => {
+  const { songs } = req.body; // [{ videoId, title }]
+  if (!Array.isArray(songs) || songs.length < 2)
+    return res.json({ scores: [] });
+  try {
+    const dnaList = await Promise.all(songs.map(s => enrichSong(s.videoId, s.title)));
+    const scores = dnaList.slice(1).map((song, i) => ({
+      videoId: song.videoId,
+      score: flowScore(dnaList[i], song),
+      fromMood: dnaList[i].mood,
+      toMood: song.mood,
+      bpmDiff: (dnaList[i].bpm && song.bpm) ? Math.abs(dnaList[i].bpm - song.bpm) : null,
+    }));
+    res.json({ scores });
+  } catch (e) {
+    res.status(500).json({ error: 'Flow score failed' });
+  }
+});
+
+// Personal taste fingerprint
+app.get('/taste-fingerprint', requireAuth, async (req, res) => {
+  try {
+    // Get user's listen history
+    const history = await ListenHistory.find({ userId: req.user.id })
+      .sort({ listenedAt: -1 })
+      .limit(100)
+      .lean();
+
+    if (history.length < 3) {
+      return res.json({ fingerprint: null, message: 'Listen to more songs to build your fingerprint' });
+    }
+
+    // Fetch DNA for all songs (use cache heavily)
+    const dnaList = await Promise.all(
+      history.map(h => enrichSong(h.videoId, h.title))
+    );
+
+    // Aggregate
+    const valid = dnaList.filter(d => d.bpm || d.energy != null);
+    const avgBpm = valid.filter(d=>d.bpm).reduce((a,d)=>a+d.bpm,0) / (valid.filter(d=>d.bpm).length||1);
+    const avgEnergy = valid.filter(d=>d.energy!=null).reduce((a,d)=>a+d.energy,0) / (valid.filter(d=>d.energy!=null).length||1);
+    const avgDance = valid.filter(d=>d.danceability!=null).reduce((a,d)=>a+d.danceability,0) / (valid.filter(d=>d.danceability!=null).length||1);
+
+    // Mood distribution
+    const moodCounts = {};
+    dnaList.forEach(d => { moodCounts[d.mood||'neutral'] = (moodCounts[d.mood||'neutral']||0)+1; });
+    const dominantMood = Object.entries(moodCounts).sort((a,b)=>b[1]-a[1])[0]?.[0] || 'neutral';
+
+    // Variety score — how diverse are the BPMs?
+    const bpms = valid.filter(d=>d.bpm).map(d=>d.bpm);
+    const bpmStdDev = bpms.length > 1
+      ? Math.sqrt(bpms.reduce((s,b)=>s+(b-avgBpm)**2,0)/bpms.length)
+      : 0;
+    const variety = Math.min(100, Math.round(bpmStdDev / 0.5));
+
+    res.json({
+      fingerprint: {
+        energy:       Math.round(avgEnergy * 100),
+        danceability: Math.round(avgDance * 100),
+        bpm:          Math.round(avgBpm),
+        variety,
+        dominantMood,
+        moodBreakdown: moodCounts,
+        totalSongs:   history.length,
+      }
+    });
+  } catch (e) {
+    console.error('taste-fingerprint error:', e.message);
+    res.status(500).json({ error: 'Failed to build fingerprint' });
+  }
+});
+
 // ─── LISTEN HISTORY ENDPOINTS ────────────────────────────────
 
 app.get('/history', requireAuth, async (req, res) => {
@@ -1004,11 +1206,20 @@ io.on('connection', (socket) => {
     const allSongs = [...room.songsPlayed];
     if (currentSong && !allSongs.find(s => s.videoId === currentSong.videoId))
       allSongs.push({ ...currentSong, playedAt: room.sessionStart });
+    // Enrich songs with DNA for the DNA card
+    const enrichedSongs = await Promise.all(
+      allSongs.map(async s => {
+        const dna = await enrichSong(s.videoId, s.title).catch(() => ({}));
+        return { ...s, ...dna };
+      })
+    );
     socket.emit('recap-data', {
-      songsPlayed: allSongs, sessionStart: room.sessionStart,
+      songsPlayed: enrichedSongs,
+      sessionStart: room.sessionStart,
       sessionDuration: Date.now() - room.sessionStart,
       userCount: Object.keys(room.users).length,
-      users: Object.values(room.users)
+      users: Object.values(room.users),
+      roomId,
     });
   });
 

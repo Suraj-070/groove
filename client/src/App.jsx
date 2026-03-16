@@ -15,6 +15,8 @@ import MarqueeText from './components/MarqueeText'
 import VideoPanel from './components/VideoPanel'
 import InviteModal from './components/InviteModal'
 import HistoryPanel from './components/HistoryPanel'
+import SessionDNACard from './components/SessionDNACard'
+import TasteFingerprint from './components/TasteFingerprint'
 import { registerServiceWorker, isPushSupported, getPushStatus, subscribeToPush, unsubscribeFromPush } from './services/NotificationService'
 import './App.css'
 
@@ -156,7 +158,9 @@ function App() {
   const [chatHistory, setChatHistory] = useState([])
   const [videoOpen, setVideoOpen]   = useState(false)
   const [inviteOpen, setInviteOpen]   = useState(false)
-  const [historyOpen, setHistoryOpen] = useState(false)
+  const [historyOpen, setHistoryOpen]         = useState(false)
+  const [fingerprintOpen, setFingerprintOpen] = useState(false)
+  const [showDNACard, setShowDNACard]         = useState(false)
   const [theme, setTheme]             = useState(() => localStorage.getItem('groove_theme') || 'violet')
   const [pushEnabled, setPushEnabled]   = useState(false)
   const [pushLoading, setPushLoading]   = useState(false)
@@ -774,6 +778,9 @@ function App() {
                       <button className="pd-action" onClick={() => { setHistoryOpen(true); setProfileOpen(false) }}>
                         <span className="pd-action-icon">🕐</span><span>Listen History & Moments</span>
                       </button>
+                      <button className="pd-action" onClick={() => { setFingerprintOpen(true); setProfileOpen(false) }}>
+                        <span className="pd-action-icon">🫆</span><span>My Taste Fingerprint</span>
+                      </button>
                       <div className="pd-theme-row">
                         <span className="pd-theme-label">Room theme</span>
                         <div className="theme-picker">
@@ -976,7 +983,9 @@ function App() {
 
       {/* Chat overlay — floats over everything on both desktop and mobile */}
       <Chat socket={socket} roomId={roomId} username={user?.username} isOpen={chatOpen} onClose={() => setChatOpen(false)} currentSong={currentSong} chatHistory={chatHistory} />
-      {showRecap && <SessionRecap recap={recap} onClose={() => setShowRecap(false)} />}
+      {showRecap && recap && (
+        <SessionDNACard recap={recap} onClose={() => setShowRecap(false)} />
+      )}
       {libraryOpen && (
         <Library
           isOpen={libraryOpen}
@@ -992,6 +1001,7 @@ function App() {
       {showShortcuts && <ShortcutsModal onClose={() => setShowShortcuts(false)} />}
       {showSleepTimer && <SleepTimerModal onClose={() => setShowSleepTimer(false)} onSet={handleSetSleepTimer} />}
 
+      <TasteFingerprint isOpen={fingerprintOpen} onClose={() => setFingerprintOpen(false)} />
       {historyOpen && (
         <HistoryPanel
           isOpen={historyOpen}
