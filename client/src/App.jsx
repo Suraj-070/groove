@@ -17,6 +17,8 @@ import InviteModal from './components/InviteModal'
 import HistoryPanel from './components/HistoryPanel'
 import SessionDNACard from './components/SessionDNACard'
 import TasteFingerprint from './components/TasteFingerprint'
+import MyGroovePanel from './components/MyGroovePanel'
+import SettingsPanel from './components/SettingsPanel'
 import GrooveRadar from './components/GrooveRadar'
 import TimeMachine from './components/TimeMachine'
 import WeeklyWrapped from './components/WeeklyWrapped'
@@ -166,6 +168,9 @@ function App() {
   const [fingerprintOpen, setFingerprintOpen] = useState(false)
   const [showDNACard, setShowDNACard]         = useState(false)
   const [radarOpen, setRadarOpen]             = useState(false)
+  const [myGrooveOpen, setMyGrooveOpen]       = useState(false)
+  const [myGrooveTab, setMyGrooveTab]         = useState('radar')
+  const [settingsOpen, setSettingsOpen]       = useState(false)
   const [timeMachineOpen, setTimeMachineOpen] = useState(false)
   const [wrappedOpen, setWrappedOpen]         = useState(false)
   const [chemistryOpen, setChemistryOpen]     = useState(false)
@@ -737,38 +742,37 @@ function App() {
           </div>
         </div>
         <div className="header-right">
-          <div className="room-badge">Room: <span>{roomId}</span></div>
+          {/* Zone 1 — Room context */}
+          <div className="room-badge" title={`Room ${roomId}`}>
+            <span className="room-badge-dot" />
+            <span>{roomId}</span>
+          </div>
 
           {isDJ && (
             <button className={`dj-toggle-btn ${djMode ? 'active' : ''}`} onClick={handleToggleDJMode}>
-              {djMode ? '👑 DJ Mode' : '🎛 Free Mode'}
+              {djMode ? '👑 DJ' : '🎛 Free'}
             </button>
           )}
 
-          <button className="recap-btn" onClick={() => setShowSleepTimer(true)} title="Sleep Timer">😴</button>
-          <button className="recap-btn" onClick={() => setShowShortcuts(true)} title="Keyboard Shortcuts">⌨️</button>
-          <button className={`recap-btn party-btn ${partyMode ? 'party-active' : ''}`} onClick={() => setPartyMode(p => !p)} title="Party Mode">🎊</button>
-          <button className="recap-btn" onClick={handleGetRecap} title="Session Recap">📊</button>
-          <button className={`recap-btn ${libraryOpen ? 'active' : ''}`} onClick={() => setLibraryOpen(p => !p)} title="My Library">📚</button>
-
-          {/* Watch button — only shown when a song is loaded */}
-          {currentSong && (
-            <button
-              className={`watch-btn ${videoOpen ? 'active' : ''}`}
-              onClick={() => setVideoOpen(p => !p)}
-              title={videoOpen ? 'Close video' : 'Watch video'}
-            >
-              <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14">
-                <path d="M21 3H3C2 3 1 4 1 5v14c0 1.1.9 2 2 2h18c1 0 2-1 2-2V5c0-1-1-2-2-2zm0 16H3V5h18v14zM8 15l5-3-5-3v6z"/>
-              </svg>
-              <span>{videoOpen ? 'Close' : 'Watch'}</span>
+          {/* Zone 2 — Session tools (affect current room) */}
+          <div className="header-tools">
+            <button className={`tool-btn ${partyMode ? 'active' : ''}`} onClick={() => setPartyMode(p => !p)} title="Party Mode">🎊</button>
+            {currentSong && (
+              <button className={`tool-btn ${videoOpen ? 'active' : ''}`} onClick={() => setVideoOpen(p => !p)} title="Watch video">
+                <svg viewBox="0 0 24 24" fill="currentColor" width="15" height="15">
+                  <path d="M21 3H3C2 3 1 4 1 5v14c0 1.1.9 2 2 2h18c1 0 2-1 2-2V5c0-1-1-2-2-2zm0 16H3V5h18v14zM8 15l5-3-5-3v6z"/>
+                </svg>
+              </button>
+            )}
+            <button className={`tool-btn ${libraryOpen ? 'active' : ''}`} onClick={() => setLibraryOpen(p => !p)} title="My Library">📚</button>
+            <button className="tool-btn" onClick={handleGetRecap} title="Session Recap">📊</button>
+            <button className={`tool-btn ${chatOpen ? 'active' : ''}`} onClick={() => { setChatOpen(p => !p); setUnread(0) }} title="Room Chat">
+              <span style={{position:'relative', display:'flex'}}>
+                💬
+                {unread > 0 && <span className="unread-badge">{unread}</span>}
+              </span>
             </button>
-          )}
-
-          <button className={`chat-toggle-btn ${chatOpen ? "active" : ""}`} onClick={() => { setChatOpen(p => !p); setUnread(0) }}>
-            💬
-            {unread > 0 && <span className="unread-badge">{unread}</span>}
-          </button>
+          </div>
 
           {user && (
             <div className="profile-wrap" ref={profileRef}>
@@ -793,7 +797,9 @@ function App() {
                 <>
                   <div className="profile-backdrop" onClick={() => setProfileOpen(false)} />
                   <div className="profile-dropdown profile-dropdown--portal">
-                    <div className="pd-header">
+
+                    {/* ── Identity ── */}
+                    <div className="pd-identity">
                       <div className="pd-avatar-wrap">
                         {user.avatar
                           ? <img src={user.avatar} alt="" className="pd-avatar" />
@@ -803,116 +809,49 @@ function App() {
                       </div>
                       <div className="pd-info">
                         <p className="pd-name">{user.username}</p>
-                        <p className="pd-tag">{IS_DISCORD ? 'Discord Activity' : user.provider === 'google' ? 'via Google' : 'via Discord'}</p>
-                      {streakData?.streak > 0 && (
-                        <p className="pd-streak">🔥 {streakData.streak} day streak{streakData.longestStreak > streakData.streak ? ` · best ${streakData.longestStreak}` : ''}</p>
-                      )}
+                        {streakData?.streak > 0
+                          ? <p className="pd-streak-line">🔥 {streakData.streak} day streak{streakData.longestStreak > streakData.streak ? ` · best ${streakData.longestStreak}` : ''}</p>
+                          : <p className="pd-tag">{IS_DISCORD ? 'Discord Activity' : user.provider === 'google' ? 'via Google' : 'via Discord'}</p>
+                        }
+                      </div>
+                      <div className="pd-identity-stats">
+                        <div className="pd-istat"><span>{queue.length}</span><span>queue</span></div>
+                        <div className="pd-istat"><span>{users.length}</span><span>listeners</span></div>
                       </div>
                     </div>
 
                     <div className="pd-divider" />
 
-                    <div className="pd-stats">
-                      <div className="pd-stat">
-                        <span className="pd-stat-val">{queue.length}</span>
-                        <span className="pd-stat-lbl">In Queue</span>
-                      </div>
-                      <div className="pd-stat">
-                        <span className="pd-stat-val">{users.length}</span>
-                        <span className="pd-stat-lbl">Listening</span>
-                      </div>
-                      <div className="pd-stat">
-                        <span className="pd-stat-val">{isDJ ? '👑' : '🎧'}</span>
-                        <span className="pd-stat-lbl">{isDJ ? 'DJ' : 'Listener'}</span>
-                      </div>
-                    </div>
-
-                    <div className="pd-divider" />
-
-                    <div className="pd-actions">
-                      <button className="pd-action" onClick={() => { handleGetRecap(); setProfileOpen(false) }}>
-                        <span className="pd-action-icon">📊</span><span>Session Recap</span>
+                    {/* ── Two big buttons ── */}
+                    <div className="pd-big-btns">
+                      <button className="pd-big-btn" onClick={() => { setMyGrooveOpen(true); setMyGrooveTab('radar'); setProfileOpen(false) }}>
+                        <span className="pd-big-btn-icon">📡</span>
+                        <span className="pd-big-btn-label">My Groove</span>
+                        <span className="pd-big-btn-sub">Radar · History · Stats</span>
                       </button>
-                      <button className="pd-action" onClick={() => { setLibraryOpen(true); setProfileOpen(false) }}>
-                        <span className="pd-action-icon">📚</span><span>My Library</span>
-                      </button>
-                      <button className="pd-action" onClick={() => { setPartyMode(p => !p); setProfileOpen(false) }}>
-                        <span className="pd-action-icon">🎊</span>
-                        <span>Party Mode {partyMode ? 'ON' : 'OFF'}</span>
-                        <span className={`pd-toggle ${partyMode ? 'on' : ''}`} />
-                      </button>
-                      <button className="pd-action" onClick={() => { setShowSleepTimer(true); setProfileOpen(false) }}>
-                        <span className="pd-action-icon">😴</span><span>Sleep Timer {sleepTimer ? `(${Math.ceil((sleepTimer.endsAt - Date.now()) / 60000)}m)` : ''}</span>
-                      </button>
-                      <button className="pd-action" onClick={() => { setShowShortcuts(true); setProfileOpen(false) }}>
-                        <span className="pd-action-icon">⌨️</span><span>Shortcuts</span>
-                      </button>
-                      <button className="pd-action" onClick={() => { setHistoryOpen(true); setProfileOpen(false) }}>
-                        <span className="pd-action-icon">🕐</span><span>Listen History & Moments</span>
-                      </button>
-                      <button className="pd-action" onClick={() => { setFingerprintOpen(true); setProfileOpen(false) }}>
-                        <span className="pd-action-icon">🫆</span><span>Taste Fingerprint</span>
-                      </button>
-                      <button className="pd-action" onClick={() => { setRadarOpen(true); setProfileOpen(false) }}>
-                        <span className="pd-action-icon">📡</span><span>Groove Radar</span>
-                      </button>
-                      <button className="pd-action" onClick={() => { setTimeMachineOpen(true); setProfileOpen(false) }}>
-                        <span className="pd-action-icon">⏰</span><span>Time Machine</span>
-                      </button>
-                      <button className="pd-action" onClick={() => { setWrappedOpen(true); setProfileOpen(false) }}>
-                        <span className="pd-action-icon">📊</span><span>Weekly Wrapped</span>
-                      </button>
-                      <button className="pd-action" onClick={() => { setChemistryOpen(true); setProfileOpen(false) }}>
-                        <span className="pd-action-icon">💜</span><span>Room Chemistry</span>
-                      </button>
-                      <button className={`pd-action ${radioMode ? 'pd-action--active' : ''}`} onClick={() => { setRadioMode(p => !p); setProfileOpen(false) }}>
-                        <span className="pd-action-icon">📻</span>
-                        <span>Radio Mode {radioMode ? 'ON' : 'OFF'}</span>
-                        <span className={`pd-toggle ${radioMode ? 'on' : ''}`} />
-                      </button>
-                      <div className="pd-theme-row">
-                        <span className="pd-theme-label">Room theme</span>
-                        <div className="theme-picker">
-                          {[
-                            { id:'violet',   color:'#7c6aff', label:'Violet' },
-                            { id:'midnight', color:'#3b8bff', label:'Midnight' },
-                            { id:'synthwave',color:'#ff2d78', label:'Synthwave' },
-                            { id:'forest',   color:'#00c974', label:'Forest' },
-                            { id:'amber',    color:'#ffb300', label:'Amber' },
-                            { id:'crimson',  color:'#ff3b3b', label:'Crimson' },
-                          ].map(t => (
-                            <button
-                              key={t.id}
-                              className={`theme-swatch ${theme === t.id ? 'active' : ''}`}
-                              style={{ background: t.color }}
-                              onClick={() => setTheme(t.id)}
-                              title={t.label}
-                            />
-                          ))}
-                        </div>
-                      </div>
-                      <button
-                        className="pd-action"
-                        onClick={handleTogglePush}
-                      >
-                        <span className="pd-action-icon">{pushEnabled ? '🔔' : '🔕'}</span>
-                        <span>
-                          {pushLoading
-                            ? 'Updating…'
-                            : pushEnabled
-                              ? 'Notifications ON'
-                              : 'Notifications OFF'}
-                        </span>
-                        <span className={`pd-toggle ${pushEnabled ? 'on' : ''}`} />
+                      <button className="pd-big-btn" onClick={() => { setSettingsOpen(true); setProfileOpen(false) }}>
+                        <span className="pd-big-btn-icon">⚙️</span>
+                        <span className="pd-big-btn-label">Settings</span>
+                        <span className="pd-big-btn-sub">Theme · Radio · Notifs</span>
                       </button>
                     </div>
 
                     <div className="pd-divider" />
 
-                    <div className="pd-room">
-                      <span className="pd-room-label">Room</span>
-                      <span className="pd-room-id">{roomId}</span>
-                      <button className="pd-copy" onClick={handleCopyInvite} title="Copy invite link">🔗</button>
+                    {/* ── Quick room actions ── */}
+                    <div className="pd-quick-actions">
+                      <button className="pd-quick" onClick={() => { handleCopyInvite(); setProfileOpen(false) }} title="Invite">
+                        <span>🔗</span><span>Invite</span>
+                      </button>
+                      <button className="pd-quick" onClick={() => { handleGetRecap(); setProfileOpen(false) }} title="Recap">
+                        <span>📊</span><span>Recap</span>
+                      </button>
+                      <button className="pd-quick" onClick={() => { setHistoryOpen(true); setProfileOpen(false) }} title="History">
+                        <span>🕐</span><span>History</span>
+                      </button>
+                      <button className="pd-quick" onClick={() => { setChemistryOpen(true); setProfileOpen(false) }} title="Chemistry">
+                        <span>💜</span><span>Chemistry</span>
+                      </button>
                     </div>
 
                     {!IS_DISCORD && (
@@ -1091,6 +1030,31 @@ function App() {
       {showSleepTimer && <SleepTimerModal onClose={() => setShowSleepTimer(false)} onSet={handleSetSleepTimer} />}
 
       <TasteFingerprint isOpen={fingerprintOpen} onClose={() => setFingerprintOpen(false)} />
+      <MyGroovePanel
+        isOpen={myGrooveOpen}
+        initialTab={myGrooveTab}
+        onClose={() => setMyGrooveOpen(false)}
+        onAddToQueue={song => socket.emit('add-song', { roomId, videoId: song.videoId, title: song.title, addedBy: user?.username })}
+        onLoadSession={songs => { socket.emit('add-songs-batch', { roomId, songs, addedBy: user?.username }); setMyGrooveOpen(false) }}
+        roomId={roomId}
+      />
+      <SettingsPanel
+        isOpen={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        theme={theme}
+        onThemeChange={setTheme}
+        partyMode={partyMode}
+        onPartyModeChange={setPartyMode}
+        radioMode={radioMode}
+        onRadioModeChange={setRadioMode}
+        pushEnabled={pushEnabled}
+        pushLoading={pushLoading}
+        onTogglePush={handleTogglePush}
+        sleepTimer={sleepTimer}
+        onSleepTimer={() => { setShowSleepTimer(true); setSettingsOpen(false) }}
+        onCancelSleep={() => setSleepTimer(null)}
+        onShortcuts={() => { setShowShortcuts(true); setSettingsOpen(false) }}
+      />
       <GrooveRadar isOpen={radarOpen} onClose={() => setRadarOpen(false)} onAddToQueue={song => socket.emit('add-song', { roomId, videoId: song.videoId, title: song.title, addedBy: user?.username })} />
       <TimeMachine isOpen={timeMachineOpen} onClose={() => setTimeMachineOpen(false)} onLoadSession={songs => { socket.emit('add-songs-batch', { roomId, songs, addedBy: user?.username }); setTimeMachineOpen(false) }} />
       <WeeklyWrapped isOpen={wrappedOpen} onClose={() => setWrappedOpen(false)} />
