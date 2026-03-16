@@ -3669,46 +3669,53 @@ body {
 
   /* ── Header — slim, essential only ───────────────────── */
   .app-header {
-    padding: 10px 14px 10px;
-    min-height: 52px;
+    padding: 8px 14px;
+    min-height: 54px;
     flex-shrink: 0;
-    gap: 0;
     justify-content: space-between;
+    gap: 8px;
+    background: rgba(8,8,16,0.92);
+    border-bottom: 1px solid rgba(255,255,255,0.05);
   }
 
-  .logo-text .logo-big { font-size: 1rem; letter-spacing: 3px; }
-  .logo-text .logo-small { font-size: 0.5rem; letter-spacing: 4px; }
-  .logo svg { width: 26px; height: 26px; }
+  /* Mobile logo — compact */
+  .logo svg { width: 24px; height: 24px; }
   .logo { gap: 7px; }
+  .logo-text .logo-big { font-size: 0.95rem; letter-spacing: 2px; }
+  .logo-text .logo-small { display: none; }
 
-  /* Hide all header buttons except profile + room badge on mobile */
-  .recap-btn,
-  .chat-toggle-btn,
-  .dj-toggle-btn,
-  .party-btn {
-    display: none !important;
-  }
+  /* Mobile header right — only room pill + profile */
+  .header-tools { display: none !important; }
+  .dj-toggle-btn { display: none !important; }
+  .recap-btn, .chat-toggle-btn, .party-btn { display: none !important; }
 
+  /* Mobile room badge — live pill style */
   .room-badge {
-    font-size: 0.68rem;
-    padding: 4px 10px;
+    font-size: 0.72rem;
+    padding: 5px 10px;
+    gap: 5px;
     border-radius: 20px;
     white-space: nowrap;
+    background: rgba(255,255,255,0.06);
+  }
+  .room-badge-dot {
+    width: 5px; height: 5px;
+    animation: livePulse 2s ease-in-out infinite;
+  }
+  @keyframes livePulse {
+    0%,100% { opacity: 1; box-shadow: 0 0 4px rgba(0,201,116,0.6); }
+    50% { opacity: 0.5; box-shadow: none; }
   }
 
-  .header-avatar {
-    width: 30px !important;
-    height: 30px !important;
-  }
-
-  .header-avatar-placeholder {
-    width: 30px !important;
-    height: 30px !important;
-    font-size: 0.7rem !important;
-  }
-
-  .profile-trigger { gap: 4px; }
+  /* Profile trigger — avatar only, no chevron */
+  .profile-trigger { gap: 0; padding: 0; background: none; border: none; }
   .profile-chevron { display: none; }
+  .streak-badge { display: none; }
+  .header-avatar { width: 32px !important; height: 32px !important; border-radius: 50% !important; }
+  .header-avatar-placeholder {
+    width: 32px !important; height: 32px !important;
+    font-size: 0.72rem !important; border-radius: 50% !important;
+  }
 
   /* Profile dropdown — full width bottom of screen */
   .profile-dropdown--portal {
@@ -8540,4 +8547,72 @@ body {
   height: 32px;
   background: rgba(255,255,255,0.07);
   flex-shrink: 0;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   MOBILE HEADER EXTRAS
+   ═══════════════════════════════════════════════════════════ */
+.mobile-dj-badge {
+  font-size: 0.85rem;
+  line-height: 1;
+  margin-left: 2px;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   MOBILE REACTION BUTTON — FLOATING BOTTOM RIGHT
+   ═══════════════════════════════════════════════════════════ */
+@media (max-width: 768px) {
+  /* Move reaction trigger to bottom-right, above nav bar */
+  .reaction-trigger {
+    bottom: 78px !important;
+    right: 14px !important;
+    left: auto !important;
+    transform: none !important;
+  }
+
+  /* Compact circular button on mobile */
+  .react-btn {
+    width: 52px !important;
+    height: 52px !important;
+    padding: 0 !important;
+    border-radius: 50% !important;
+    justify-content: center !important;
+    background: rgba(124,106,255,0.18) !important;
+    border-color: rgba(124,106,255,0.35) !important;
+    box-shadow: 0 4px 20px rgba(124,106,255,0.3) !important;
+    animation: floatBtn 3s ease-in-out infinite !important;
+  }
+  @keyframes floatBtn {
+    0%,100% { transform: translateY(0); }
+    50%      { transform: translateY(-4px); }
+  }
+  .react-btn:hover, .react-btn:active {
+    transform: scale(1.1) !important;
+    animation: none !important;
+  }
+  /* Hide label on mobile — icon only */
+  .react-label { display: none !important; }
+  .react-btn span:first-child { font-size: 1.5rem !important; }
+
+  /* Reaction picker opens upward from bottom-right */
+  .reaction-picker-wrap {
+    bottom: 58px !important;
+    right: 0 !important;
+    left: auto !important;
+    transform: none !important;
+  }
+
+  /* Quick emoji row — horizontal scroll on mobile */
+  .quick-emoji-bar {
+    max-width: 240px !important;
+  }
+
+  /* Bursts — full screen float */
+  .burst-overlay {
+    z-index: 45 !important;
+    pointer-events: none;
+  }
+  .burst-item {
+    bottom: 80px !important;
+  }
 }

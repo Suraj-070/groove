@@ -742,19 +742,22 @@ function App() {
           </div>
         </div>
         <div className="header-right">
-          {/* Zone 1 — Room context */}
+          {/* Room live pill */}
           <div className="room-badge" title={`Room ${roomId}`}>
             <span className="room-badge-dot" />
             <span>{roomId}</span>
+            {isMobileView && isDJ && (
+              <span className="mobile-dj-badge">{djMode ? '👑' : '🎛'}</span>
+            )}
           </div>
 
-          {isDJ && (
+          {!isMobileView && isDJ && (
             <button className={`dj-toggle-btn ${djMode ? 'active' : ''}`} onClick={handleToggleDJMode}>
               {djMode ? '👑 DJ' : '🎛 Free'}
             </button>
           )}
 
-          {/* Zone 2 — Session tools (affect current room) */}
+          {/* Session tools — desktop only */}
           <div className="header-tools">
             {!isMobileView && <button className={`tool-btn ${partyMode ? 'active' : ''}`} onClick={() => setPartyMode(p => !p)} title="Party Mode">🎊</button>}
             {currentSong && (
