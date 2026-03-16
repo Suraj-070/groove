@@ -146,6 +146,8 @@ const ScrollBtn = memo(({ count, onClick }) => (
 export default function Chat({ socket, roomId, username, userAvatar, isOpen, onClose, currentSong, chatHistory = [], users = [] }) {
   const [messages, setMessages]   = useState([])
   const [input, setInput]         = useState('')
+  const [editingId, setEditingId] = useState(null)
+  const [editText, setEditText]   = useState('')
   const [showPicker, setShowPicker] = useState(false)
   const [typers, setTypers]       = useState([])
   const [atBottom, setAtBottom]   = useState(true)
