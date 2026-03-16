@@ -756,7 +756,7 @@ function App() {
 
           {/* Zone 2 — Session tools (affect current room) */}
           <div className="header-tools">
-            <button className={`tool-btn ${partyMode ? 'active' : ''}`} onClick={() => setPartyMode(p => !p)} title="Party Mode">🎊</button>
+            {!isMobileView && <button className={`tool-btn ${partyMode ? 'active' : ''}`} onClick={() => setPartyMode(p => !p)} title="Party Mode">🎊</button>}
             {currentSong && (
               <button className={`tool-btn ${videoOpen ? 'active' : ''}`} onClick={() => setVideoOpen(p => !p)} title="Watch video">
                 <svg viewBox="0 0 24 24" fill="currentColor" width="15" height="15">

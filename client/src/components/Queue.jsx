@@ -117,7 +117,7 @@ const SongReactions = memo(function SongReactions({ reactions, videoId, onReact 
 const SongItem = memo(forwardRef(function SongItem(
   { song, index, currentIndex, selected, selectMode, dragOverIndex, dragIndex,
     onSelect, onDragStart, onDragOver, onDrop, onDragEnd,
-    onMouseEnter, onMouseLeave, onRemove, reactions, onReact, showReactions },
+    onMouseEnter, onMouseLeave, onRemove, showReactions },
   ref
 ) {
   const isActive   = index === currentIndex
@@ -173,7 +173,7 @@ const SongItem = memo(forwardRef(function SongItem(
       </div>
 
       {!selectMode && showReactions && (
-        <SongReactions reactions={reactions[song.videoId] || EMPTY_OBJ} videoId={song.videoId} onReact={onReact} />
+
       )}
 
       {!selectMode && (
@@ -210,10 +210,7 @@ export default function Queue({
   const [saveSuccess, setSaveSuccess]       = useState(false)
   const [dragIndex, setDragIndex]           = useState(null)
   const [dragOverIndex, setDragOverIndex]   = useState(null)
-  const [reactions, setReactions]           = useState({})
   const [toast, setToast]                   = useState(null)
-  const [hoverSong, setHoverSong]           = useState(null)
-  const [hoverPos, setHoverPos]             = useState(null)
 
   const [searchQuery, setSearchQuery]       = useState('')
   const [searchResults, setSearchResults]   = useState([])
@@ -245,7 +242,6 @@ export default function Queue({
     })
   }, [queue, activeCategory, categories])
 
-  const hoverTimer   = useRef(null)
   const toastTimer   = useRef(null)
   const inputRef     = useRef(null)
   const itemRefs     = useRef({})
@@ -266,25 +262,7 @@ export default function Queue({
     return () => socket.off('song-added-notify', handler)
   }, [socket, username, showToast])
 
-  useEffect(() => {
-    if (!socket) return
-    const handler = ({ videoId, emoji }) => {
-      setReactions(prev => ({
-        ...prev,
-        [videoId]: { ...(prev[videoId] || {}), [emoji]: ((prev[videoId]?.[emoji]) || 0) + 1 }
-      }))
-    }
-    socket.on('song-reaction', handler)
-    return () => socket.off('song-reaction', handler)
-  }, [socket])
 
-  const handleReact = useCallback((videoId, emoji) => {
-    setReactions(prev => ({
-      ...prev,
-      [videoId]: { ...(prev[videoId] || {}), [emoji]: ((prev[videoId]?.[emoji]) || 0) + 1 }
-    }))
-    socket?.emit('song-react', { roomId, videoId, emoji, username })
-  }, [socket, roomId, username])
 
   const videoId         = extractVideoId(sharedUrl)
   const playlistId      = extractPlaylistId(sharedUrl)
@@ -491,7 +469,6 @@ export default function Queue({
       {toast && <div className="queue-toast">{toast}</div>}
 
       {/* Single global hover preview — desktop only */}
-      {!isMobile && <SongPreview song={hoverSong} pos={hoverPos} />}
 
       <div className="queue-header">
         <h2>Queue</h2>
@@ -659,8 +636,6 @@ export default function Queue({
             onMouseEnter={isMobile ? null : handleMouseEnter}
             onMouseLeave={isMobile ? null : handleMouseLeave}
             onRemove={onRemoveSong}
-            reactions={isMobile ? EMPTY_OBJ : reactions}
-            onReact={handleReact}
             showReactions={!isMobile}
           />
         ))}

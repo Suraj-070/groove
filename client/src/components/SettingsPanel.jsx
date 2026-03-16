@@ -1,3 +1,5 @@
+const isMobile = window.innerWidth <= 768
+
 const THEMES = [
   { id:'violet',    color:'#7c6aff', label:'Violet'    },
   { id:'midnight',  color:'#3b8bff', label:'Midnight'  },
@@ -77,12 +79,14 @@ export default function SettingsPanel({
           {/* Playback */}
           <div className="settings-section">
             <p className="settings-section-label">Playback</p>
-            <Toggle
-              checked={partyMode}
-              onChange={onPartyModeChange}
-              label="Party Mode 🎊"
-              sub="Enhanced visualizer and effects"
-            />
+            {!isMobile && (
+              <Toggle
+                checked={partyMode}
+                onChange={onPartyModeChange}
+                label="Party Mode 🎊"
+                sub="Enhanced visualizer and effects"
+              />
+            )}
             <Toggle
               checked={radioMode}
               onChange={onRadioModeChange}
@@ -114,11 +118,13 @@ export default function SettingsPanel({
               <span>Sleep Timer {sleepTimer ? `· ${Math.ceil((sleepTimer.endsAt - Date.now()) / 60000)}m remaining` : ''}</span>
               <span className="settings-action-arrow">›</span>
             </button>
-            <button className="settings-action-btn" onClick={onShortcuts}>
-              <span>⌨️</span>
-              <span>Keyboard shortcuts</span>
-              <span className="settings-action-arrow">›</span>
-            </button>
+            {!isMobile && (
+              <button className="settings-action-btn" onClick={onShortcuts}>
+                <span>⌨️</span>
+                <span>Keyboard shortcuts</span>
+                <span className="settings-action-arrow">›</span>
+              </button>
+            )}
           </div>
 
         </div>
