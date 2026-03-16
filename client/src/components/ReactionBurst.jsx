@@ -171,17 +171,17 @@ export default function ReactionBurst({ socket, roomId, username }) {
 
       <div
         ref={btnRef}
+        style={{ ...(IS_MOBILE && btnPos ? { left: btnPos.x, top: btnPos.y, bottom: 'auto', right: 'auto', transform: 'none' } : {}), touchAction: 'none' }}
         className={`reaction-trigger ${IS_MOBILE && btnPos ? 'reaction-trigger--draggable' : ''} ${isDragging ? 'reaction-trigger--dragging' : ''}`}
-        style={IS_MOBILE && btnPos ? { left: btnPos.x, top: btnPos.y, bottom: 'auto', right: 'auto', transform: 'none' } : {}}
         onPointerDown={IS_MOBILE ? onBtnPointerDown : undefined}
         onPointerMove={IS_MOBILE ? onBtnPointerMove : undefined}
         onPointerUp={IS_MOBILE ? onBtnPointerUp : undefined}
       >
         <button
           className={`react-btn ${showPicker ? 'active' : ''}`}
-          onClick={!IS_MOBILE ? () => setShowPicker(p => !p) : undefined}
+          onClick={() => { if (!isDragging) setShowPicker(p => !p) }}
           title="Send reactions"
-          style={{ touchAction: 'none' }}
+          style={{ touchAction: 'none', pointerEvents: 'all' }}
         >
           <span>😊</span>
         </button>

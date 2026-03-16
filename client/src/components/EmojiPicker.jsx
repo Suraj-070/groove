@@ -33,6 +33,7 @@ export default function EmojiPicker({ onSelect, onClose }) {
             key={i}
             className={`ep-tab ${tab === i ? 'active' : ''}`}
             onClick={() => setTab(i)}
+            onTouchEnd={(e) => { e.preventDefault(); setTab(i) }}
             title={cat.name}
           >
             {cat.label}
@@ -46,6 +47,7 @@ export default function EmojiPicker({ onSelect, onClose }) {
             key={i}
             className="ep-emoji-btn"
             onClick={() => onSelect(emoji)}
+            onTouchEnd={(e) => { e.preventDefault(); onSelect(emoji) }}
           >
             {emoji}
           </button>

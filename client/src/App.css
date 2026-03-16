@@ -4214,18 +4214,16 @@ body {
     position: fixed !important;
     right: 0 !important;
     left: 0 !important;
-    bottom: 64px !important;
+    top: 0 !important;
+    bottom: 0 !important;
     width: 100% !important;
-    height: 78dvh !important;
-    border-radius: 28px 28px 0 0 !important;
-    border-left: none !important;
-    border-right: none !important;
-    border-bottom: none !important;
-    border-top: 1px solid rgba(124,106,255,0.2) !important;
+    height: 100dvh !important;
+    border-radius: 0 !important;
+    border: none !important;
     padding-bottom: env(safe-area-inset-bottom) !important;
-    box-shadow: 0 -8px 40px rgba(0,0,0,0.5) !important;
-    animation: chatIn 0.28s cubic-bezier(0.34,1.2,0.64,1) !important;
-    z-index: 200 !important;
+    box-shadow: none !important;
+    animation: chatIn 0.25s cubic-bezier(0.4,0,0.2,1) !important;
+    z-index: 250 !important;
   }
 
   /* ── Library ──────────────────────────────────────────── */
@@ -9118,4 +9116,55 @@ body.chat-is-open .fcb-bubble { opacity: 0; pointer-events: none; }
 @media (min-width: 769px) {
   .logo-small { display: block !important; }
   .logo svg   { width: 32px !important; height: 32px !important; }
+}
+
+/* ── No overlap: chat bubble right, reaction left by default ── */
+@media (max-width: 768px) {
+  /* Reaction button defaults to bottom-LEFT */
+  .reaction-trigger {
+    bottom: 78px !important;
+    left: 14px !important;
+    right: auto !important;
+    transform: none !important;
+  }
+  /* Chat bubble defaults to bottom-RIGHT (already is) */
+
+  /* Reaction picker opens to the RIGHT when docked left */
+  .reaction-trigger:not(.reaction-trigger--draggable) .reaction-picker-wrap,
+  .reaction-trigger.reaction-trigger--draggable .reaction-picker-wrap {
+    left: 0 !important;
+    right: auto !important;
+    bottom: 58px !important;
+    width: 260px !important;
+  }
+
+  /* Chat full screen — hide bottom nav */
+  body.chat-is-open .mobile-bottom-nav {
+    display: none !important;
+  }
+
+  /* Reaction emoji buttons — fix touch on mobile */
+  .ep-emoji-btn {
+    min-width: 36px !important;
+    min-height: 36px !important;
+    font-size: 1.4rem !important;
+    cursor: pointer !important;
+    -webkit-tap-highlight-color: rgba(255,255,255,0.1) !important;
+  }
+  .reaction-quick-btn {
+    min-width: 36px !important;
+    min-height: 36px !important;
+    -webkit-tap-highlight-color: rgba(255,255,255,0.1) !important;
+  }
+
+  /* Reaction picker wrap — ensure pointer events work */
+  .reaction-picker-wrap {
+    pointer-events: all !important;
+    touch-action: auto !important;
+  }
+  .ep-picker, .ep-grid, .ep-emoji-btn,
+  .reaction-quick-row, .reaction-quick-btn {
+    pointer-events: all !important;
+    touch-action: auto !important;
+  }
 }
