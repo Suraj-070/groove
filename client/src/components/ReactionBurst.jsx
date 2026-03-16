@@ -25,6 +25,7 @@ export default function ReactionBurst({ socket, roomId, username }) {
   const [btnPos, setBtnPos]     = useState(null) // null = use CSS default
   const [isDragging, setIsDragging] = useState(false)
   const [didDrag, setDidDrag]   = useState(false)
+  const [dockedSide, setDockedSide] = useState('left') // 'left' | 'right'
   const dragStartRef            = useRef(null)
   const btnPosRef               = useRef(null)
   const btnRef                  = useRef(null)
@@ -32,8 +33,10 @@ export default function ReactionBurst({ socket, roomId, username }) {
 
   const snapToEdge = (x, y) => {
     const midX = window.innerWidth / 2
-    const snappedX = x < midX ? 16 : window.innerWidth - BTN_SIZE - 16
+    const isLeft = x < midX
+    const snappedX = isLeft ? 16 : window.innerWidth - BTN_SIZE - 16
     const clampedY = Math.max(80, Math.min(window.innerHeight - BTN_SIZE - 80, y))
+    setDockedSide(isLeft ? 'left' : 'right')
     return { x: snappedX, y: clampedY }
   }
 
@@ -187,7 +190,18 @@ export default function ReactionBurst({ socket, roomId, username }) {
         </button>
 
         {showPicker && (
-          <div className="reaction-picker-wrap">
+          <div className="reaction-picker-wrap"
+            style={{
+              position: 'absolute',
+              bottom: BTN_SIZE + 8,
+              ...(IS_MOBILE
+                ? (dockedSide === 'left'
+                    ? { left: 0, right: 'auto' }
+                    : { right: 0, left: 'auto' })
+                : { left: '50%', transform: 'translateX(-50%)' }
+              )
+            }}
+          >
             {/* Hold-to-spam hint */}
             <div className="reaction-hold-hint">⚡ Tap once · Hold to spam</div>
             {/* Quick emojis — hold supported */}

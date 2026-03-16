@@ -932,6 +932,7 @@ body {
   left: 50%;
   transform: translateX(-50%);
   z-index: 50;
+  /* picker is absolute inside this — needs relative context */
 }
 
 .react-btn {
@@ -4212,16 +4213,15 @@ body {
   /* ── Chat ─────────────────────────────────────────────── */
   .chat-panel {
     position: fixed !important;
-    inset: 0 !important;
-    width: 100vw !important;
-    height: 100dvh !important;
-    max-height: 100dvh !important;
-    border-radius: 0 !important;
-    border: none !important;
     top: 0 !important;
     left: 0 !important;
     right: 0 !important;
-    bottom: 0 !important;
+    bottom: 64px !important;
+    width: 100vw !important;
+    height: calc(100dvh - 64px) !important;
+    max-height: calc(100dvh - 64px) !important;
+    border-radius: 0 !important;
+    border: none !important;
     padding-bottom: env(safe-area-inset-bottom) !important;
     box-shadow: none !important;
     animation: chatFadeIn 0.22s ease !important;
@@ -8635,10 +8635,6 @@ body {
 /* Override old reaction-picker-wrap sizing */
 .reaction-picker-wrap {
   position: absolute;
-  bottom: 60px;
-  right: 0;
-  left: auto;
-  transform: none;
   z-index: 300;
   width: 280px;
   background: #13111f;
@@ -9136,18 +9132,15 @@ body.chat-is-open .fcb-bubble { opacity: 0; pointer-events: none; }
   }
   /* Chat bubble defaults to bottom-RIGHT (already is) */
 
-  /* Reaction picker opens to the RIGHT when docked left */
-  .reaction-trigger:not(.reaction-trigger--draggable) .reaction-picker-wrap,
-  .reaction-trigger.reaction-trigger--draggable .reaction-picker-wrap {
-    left: 0 !important;
-    right: auto !important;
-    bottom: 58px !important;
+  /* Picker position handled inline by JS based on docked side */
+  .reaction-picker-wrap {
     width: 260px !important;
   }
 
   /* Chat full screen — hide bottom nav */
   body.chat-is-open .mobile-bottom-nav {
-    display: none !important;
+    display: flex !important;
+    z-index: 1000 !important;
   }
   body.chat-is-open .app-main,
   body.chat-is-open .reaction-trigger,
