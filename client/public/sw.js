@@ -1,55 +1,59 @@
-// Groove Together — Service Worker
-// Strategy: Network-first for API/socket, Cache-first for static assets
+const CACHE_NAME = 'groove-v4'
 
-const CACHE_NAME = 'groove-v3'
+// Only cache files we KNOW exist — don't fail install if optional files missing
 const STATIC_ASSETS = [
   '/',
   '/index.html',
   '/manifest.json',
-  '/favicon.ico',
-  '/favicon-96x96.png',
-  '/apple-touch-icon.png',
-  '/web-app-manifest-192x192.png',
-  '/web-app-manifest-512x512.png',
 ]
 
-// ── Install: pre-cache critical shell ────────────────────
+// ── Install ───────────────────────────────────────────────
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(STATIC_ASSETS))
+    caches.open(CACHE_NAME)
+      .then((cache) => {
+        // addAll fails if any file 404s — use individual adds with catch instead
+        return Promise.allSettled(
+          STATIC_ASSETS.map(url =>
+            cache.add(url).catch(err => console.warn('[SW] Failed to cache:', url, err))
+          )
+        )
+      })
+      .then(() => self.skipWaiting())
   )
-  self.skipWaiting()
 })
 
-// ── Activate: delete old caches ───────────────────────────
+// ── Activate ──────────────────────────────────────────────
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))
-    )
+    caches.keys()
+      .then((keys) =>
+        Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))
+      )
+      .then(() => self.clients.claim())
   )
-  self.clients.claim()
 })
 
-// ── Fetch: smart routing ──────────────────────────────────
+// ── Fetch ─────────────────────────────────────────────────
 self.addEventListener('fetch', (event) => {
   const { request } = event
   const url = new URL(request.url)
 
-  // Never intercept: socket.io, YouTube API, external APIs
+  // Skip non-GET and external/API requests
   if (
+    request.method !== 'GET' ||
     url.pathname.startsWith('/socket.io') ||
     url.hostname.includes('youtube') ||
     url.hostname.includes('youtu.be') ||
     url.hostname.includes('musicbrainz') ||
     url.hostname.includes('acousticbrainz') ||
     url.hostname.includes('render.com') ||
-    request.method !== 'GET'
+    url.hostname !== self.location.hostname
   ) {
-    return // let browser handle it normally
+    return
   }
 
-  // For navigation requests (HTML pages) — network first, fall back to cached index.html
+  // Navigation — network first, fallback to cached index.html
   if (request.mode === 'navigate') {
     event.respondWith(
       fetch(request)
@@ -58,95 +62,74 @@ self.addEventListener('fetch', (event) => {
     return
   }
 
-  // For static assets (JS, CSS, images, fonts) — cache first, then network
+  // Static assets — cache first, then network
   event.respondWith(
     caches.match(request).then((cached) => {
       if (cached) return cached
       return fetch(request).then((response) => {
-        // Only cache successful same-origin responses
         if (!response || response.status !== 200 || response.type !== 'basic') {
           return response
         }
-        const toCache = response.clone()
-        caches.open(CACHE_NAME).then((cache) => cache.put(request, toCache))
+        const clone = response.clone()
+        caches.open(CACHE_NAME).then((cache) => cache.put(request, clone))
         return response
       })
     })
   )
 })
 
-// ── Offline fallback message ───────────────────────────────
+// ── Messages ──────────────────────────────────────────────
 self.addEventListener('message', (event) => {
   if (event.data === 'SKIP_WAITING') self.skipWaiting()
 })
 
-// ═══════════════════════════════════════════════════════════
-// WEB PUSH NOTIFICATIONS
-// ═══════════════════════════════════════════════════════════
-
+// ── Push Notifications ────────────────────────────────────
 self.addEventListener('push', (event) => {
-  if (!event.data) return;
+  if (!event.data) return
+  let p
+  try { p = event.data.json() }
+  catch { p = { title: 'Groove Together', body: event.data.text() } }
 
-  let p;
-  try { p = event.data.json(); }
-  catch { p = { title: 'Groove Together', body: event.data.text() }; }
-
-  // Vibration patterns per notification type
   const vibes = {
     chat:        [80, 40, 80],
     song_added:  [100, 50, 100, 50, 100],
     user_joined: [60],
     dj_crown:    [200, 100, 200],
-  };
-
-  const options = {
-    body:      p.body  || '',
-    // icon: your Groove logo shown in the notification body
-    icon:      p.icon  || '/web-app-manifest-192x192.png',
-    // badge: tiny monochrome icon shown in status bar (Android)
-    badge:     p.badge || '/favicon-96x96.png',
-    // image: large preview image below the body (song thumbnail etc)
-    ...(p.image ? { image: p.image } : {}),
-    tag:       p.tag   || 'groove',
-    renotify:  p.renotify !== false,
-    silent:    p.silent === true,
-    vibrate:   vibes[p.type] || [100, 50, 100],
-    timestamp: Date.now(),
-    requireInteraction: false,  // auto-dismiss after a few seconds
-    data: { ...(p.data || {}), type: p.type },
-    actions: [
-      { action: 'open',    title: 'Open Groove' },
-      { action: 'dismiss', title: 'Dismiss'      },
-    ],
-  };
+  }
 
   event.waitUntil(
-    self.registration.showNotification(p.title || 'Groove Together', options)
-  );
-});
+    self.registration.showNotification(p.title || 'Groove Together', {
+      body:    p.body || '',
+      icon:    p.icon  || '/web-app-manifest-192x192.png',
+      badge:   p.badge || '/favicon-96x96.png',
+      ...(p.image ? { image: p.image } : {}),
+      tag:     p.tag   || 'groove',
+      renotify: p.renotify !== false,
+      silent:  p.silent === true,
+      vibrate: vibes[p.type] || [100, 50, 100],
+      timestamp: Date.now(),
+      requireInteraction: false,
+      data: { ...(p.data || {}), type: p.type },
+      actions: [
+        { action: 'open',    title: 'Open Groove' },
+        { action: 'dismiss', title: 'Dismiss' },
+      ],
+    })
+  )
+})
 
-// Notification click — focus existing tab or open new one
 self.addEventListener('notificationclick', (event) => {
-  event.notification.close();
-  if (event.action === 'dismiss') return;
-
-  const url = event.notification.data?.url || '/';
-  const full = new URL(url, self.location.origin).href;
-
+  event.notification.close()
+  if (event.action === 'dismiss') return
+  const url = event.notification.data?.url || '/'
+  const full = new URL(url, self.location.origin).href
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
-      // Prefer already-open Groove tab
-      const existing = list.find(c => c.url.startsWith(self.location.origin));
-      if (existing) {
-        existing.focus();
-        return existing.navigate(full);
-      }
-      return clients.openWindow(full);
+      const existing = list.find(c => c.url.startsWith(self.location.origin))
+      if (existing) { existing.focus(); return existing.navigate(full) }
+      return clients.openWindow(full)
     })
-  );
-});
+  )
+})
 
-// Notification close tracking (optional analytics hook)
-self.addEventListener('notificationclose', (event) => {
-  // Could send analytics — left as a no-op for now
-});
+self.addEventListener('notificationclose', () => {})
