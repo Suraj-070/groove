@@ -3680,7 +3680,7 @@ body {
   .logo svg { width: 24px; height: 24px; }
   .logo { gap: 7px; }
   .logo-text .logo-big { font-size: 0.95rem; letter-spacing: 2px; }
-  .logo-text .logo-small { display: none; }
+  .logo-text .logo-small { font-size: 0.42rem; letter-spacing: 3px; }
 
   /* Mobile header right — only room pill + profile */
   .header-tools { display: none !important; }
