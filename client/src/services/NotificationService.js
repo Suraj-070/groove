@@ -7,36 +7,78 @@ function urlBase64ToUint8Array(base64String) {
   return Uint8Array.from([...rawData].map(c => c.charCodeAt(0)))
 }
 
+// Simple check — just the three APIs we need
 export function isPushSupported() {
-  return 'serviceWorker' in navigator &&
-         'PushManager'   in window &&
-         'Notification'  in window &&
-         (location.protocol === 'https:' || location.hostname === 'localhost')
+  return (
+    'serviceWorker' in navigator &&
+    'PushManager'   in window    &&
+    'Notification'  in window
+  )
+}
+
+// Register and wait until active
+export async function registerServiceWorker() {
+  if (!('serviceWorker' in navigator)) return null
+  try {
+    const reg = await navigator.serviceWorker.register('/sw.js', { scope: '/' })
+    // Wait for SW to become active — required before using PushManager
+    if (reg.installing) {
+      await new Promise(resolve => {
+        reg.installing.addEventListener('statechange', function handler(e) {
+          if (e.target.state === 'activated') {
+            reg.installing?.removeEventListener('statechange', handler)
+            resolve()
+          }
+        })
+      })
+    }
+    await navigator.serviceWorker.ready
+    return reg
+  } catch (e) {
+    console.warn('[Groove SW] failed:', e.message)
+    return null
+  }
 }
 
 export async function getPushStatus() {
   if (!isPushSupported()) return { supported: false }
-  const reg = await navigator.serviceWorker.ready
-  const sub = await reg.pushManager.getSubscription()
-  return {
-    supported: true,
-    permission: Notification.permission,
-    subscribed: !!sub,
+  try {
+    const reg = await navigator.serviceWorker.ready
+    const sub = await reg.pushManager.getSubscription()
+    return {
+      supported: true,
+      permission: Notification.permission,
+      subscribed: !!sub,
+    }
+  } catch (e) {
+    return { supported: false, error: e.message }
   }
 }
 
 export async function subscribeToPush(prefs = {}) {
-  if (!isPushSupported()) throw new Error('Push not supported on this device')
-  if (Notification.permission === 'denied')
-    throw new Error('Notifications blocked. Enable them in browser settings.')
-  const keyRes = await fetch(`${BACKEND}/push/vapid-public-key`, { credentials: 'include' })
+  if (!isPushSupported()) throw new Error('Push not supported')
+
+  // Request permission first if not granted
+  if (Notification.permission !== 'granted') {
+    const result = await Notification.requestPermission()
+    if (result !== 'granted') throw new Error('Permission denied')
+  }
+
+  // Get VAPID key from server
+  const keyRes = await fetch(`${BACKEND}/push/vapid-public-key`, {
+    credentials: 'include'
+  })
   if (!keyRes.ok) throw new Error('Push not configured on server')
   const { key } = await keyRes.json()
+
+  // Subscribe
   const reg = await navigator.serviceWorker.ready
   const subscription = await reg.pushManager.subscribe({
     userVisibleOnly: true,
     applicationServerKey: urlBase64ToUint8Array(key)
   })
+
+  // Save to server
   const res = await fetch(`${BACKEND}/push/subscribe`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -49,16 +91,20 @@ export async function subscribeToPush(prefs = {}) {
 
 export async function unsubscribeFromPush() {
   if (!isPushSupported()) return
-  const reg = await navigator.serviceWorker.ready
-  const sub = await reg.pushManager.getSubscription()
-  if (sub) {
-    await sub.unsubscribe()
-    await fetch(`${BACKEND}/push/unsubscribe`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify({ endpoint: sub.endpoint })
-    })
+  try {
+    const reg = await navigator.serviceWorker.ready
+    const sub = await reg.pushManager.getSubscription()
+    if (sub) {
+      await sub.unsubscribe()
+      await fetch(`${BACKEND}/push/unsubscribe`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ endpoint: sub.endpoint })
+      })
+    }
+  } catch (e) {
+    console.warn('[Groove Push] unsubscribe failed:', e.message)
   }
 }
 
@@ -69,34 +115,4 @@ export async function updatePushPrefs(prefs) {
     credentials: 'include',
     body: JSON.stringify({ prefs })
   })
-}
-
-export async function registerServiceWorker() {
-  if (!('serviceWorker' in navigator)) {
-    console.warn('[Groove SW] serviceWorker not in navigator')
-    return null
-  }
-  try {
-    // Register the SW
-    const reg = await navigator.serviceWorker.register('/sw.js', { scope: '/' })
-    // Wait for it to be active — critical for PushManager to work
-    await navigator.serviceWorker.ready
-    console.log('[Groove SW] registered and ready:', reg.scope)
-    return reg
-  } catch (e) {
-    console.warn('[Groove SW] registration failed:', e.message)
-    return null
-  }
-}
-
-// Comprehensive support check with individual failure reasons
-export function getPushSupportDetails() {
-  const checks = {
-    serviceWorker: 'serviceWorker' in navigator,
-    pushManager:   'PushManager'   in window,
-    notification:  'Notification'  in window,
-    isSecure:      location.protocol === 'https:' || location.hostname === 'localhost',
-  }
-  const supported = Object.values(checks).every(Boolean)
-  return { supported, checks }
 }

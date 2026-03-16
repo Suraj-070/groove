@@ -97,27 +97,32 @@ function SleepTimerModal({ onClose, onSet }) {
 // ── Offline Banner ────────────────────────────────────────────
 function OfflineBanner() {
   const [offline, setOffline] = useState(!navigator.onLine)
-  // Register service worker + check push status
+  // Register service worker + check push support
   useEffect(() => {
     const init = async () => {
       try {
+        // Step 1: register + wait for activation
         await registerServiceWorker()
-        // Must check AFTER SW is ready — PushManager needs active SW
+
+        // Step 2: double-check using navigator.serviceWorker.ready
+        // This resolves only when an active SW controls the page
+        if ('serviceWorker' in navigator) {
+          await navigator.serviceWorker.ready
+        }
+
+        // Step 3: now check push support
         const supported = isPushSupported()
-        console.log('[Groove Push] supported:', supported, {
-          sw: 'serviceWorker' in navigator,
-          push: 'PushManager' in window,
-          notif: 'Notification' in window,
-          https: location.protocol === 'https:',
-        })
         setPushSupported(supported)
+
+        // Step 4: check existing subscription
         if (supported) {
           const status = await getPushStatus()
-          console.log('[Groove Push] status:', status)
           if (status.subscribed) setPushEnabled(true)
         }
       } catch (e) {
-        console.warn('[Groove Push] init failed:', e.message)
+        console.warn('[Groove Push] init error:', e.message)
+        // Still check support even if something failed
+        setPushSupported(isPushSupported())
       }
     }
     init()
@@ -771,18 +776,17 @@ function App() {
                       </button>
                       <button
                         className="pd-action"
-                        onClick={pushSupported ? handleTogglePush : undefined}
-                        disabled={pushLoading || !pushSupported}
-                        title={!pushSupported ? 'Open from home screen icon to enable notifications' : ''}
+                        onClick={pushSupported ? handleTogglePush : () => alert('To enable notifications:\n1. Add Groove to your home screen\n2. Open it from the home screen icon\n3. Come back here and tap this again')}
                       >
                         <span className="pd-action-icon">{pushEnabled ? '🔔' : '🔕'}</span>
                         <span>
-                          {pushLoading ? 'Updating…'
-                            : !pushSupported ? 'Notifications (not available)'
-                            : pushEnabled ? 'Notifications ON'
-                            : 'Notifications OFF'}
+                          {pushLoading
+                            ? 'Updating…'
+                            : pushEnabled
+                              ? 'Notifications ON'
+                              : 'Notifications OFF'}
                         </span>
-                        {pushSupported && <span className={`pd-toggle ${pushEnabled ? 'on' : ''}`} />}
+                        <span className={`pd-toggle ${pushEnabled ? 'on' : ''}`} />
                       </button>
                     </div>
 

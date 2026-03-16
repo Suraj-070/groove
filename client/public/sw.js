@@ -1,7 +1,7 @@
 // Groove Together — Service Worker
 // Strategy: Network-first for API/socket, Cache-first for static assets
 
-const CACHE_NAME = 'groove-v1'
+const CACHE_NAME = 'groove-v3'
 const STATIC_ASSETS = [
   '/',
   '/index.html',
