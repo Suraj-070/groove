@@ -345,18 +345,22 @@ body {
   min-width: 260px;
 }
 
-/* ── Queue collapsed + chat open = chat gets full remaining width ── */
+/* Queue collapsed + chat open — chat takes remaining space after left panel */
 .app-main.queue-collapsed.chat-open .chat-panel-inline--open {
-  width: calc(100vw - 320px);
-  min-width: calc(100vw - 320px);
-  max-width: 680px;
+  width: 380px;
+  min-width: 380px;
+  max-width: 480px;
 }
 
-/* ── Constrain max chat panel width on very wide screens ────── */
+/* Constrain max chat panel width on very wide screens */
 @media (min-width: 1400px) {
   .chat-panel-inline--open {
     width: 360px;
     min-width: 360px;
+  }
+  .app-main.queue-collapsed.chat-open .chat-panel-inline--open {
+    width: 420px;
+    min-width: 420px;
   }
 }
 
@@ -1084,12 +1088,27 @@ body {
 
 /* When queue collapsed, center the left panel */
 .app-main.queue-collapsed .left-panel {
-  width: 100%;
+  flex: 1;
+  width: auto;
   min-width: unset;
   border-right: none;
   align-items: center;
   justify-content: center;
   padding: 24px;
+}
+
+/* When queue collapsed AND chat open — left panel shares space with chat */
+.app-main.queue-collapsed.chat-open .left-panel {
+  flex: 1;
+  width: auto;
+  min-width: 320px;
+  max-width: 560px;
+}
+
+/* Player card max width when centered */
+.app-main.queue-collapsed .player {
+  max-width: 420px;
+  width: 100%;
 }
 
 /* ─── PLAYER ─────────────────────────────────── */
@@ -3617,7 +3636,8 @@ body {
 
 /* Centered player card when queue is collapsed */
 .app-main.queue-collapsed .left-panel {
-  width: 100%;
+  flex: 1;
+  width: auto;
   min-width: unset;
   border-right: none;
   align-items: center;
@@ -3626,12 +3646,22 @@ body {
   padding: 40px 24px;
 }
 
+/* When chat also open, constrain left panel so player doesn't stretch */
+.app-main.queue-collapsed.chat-open .left-panel {
+  flex: 1;
+  min-width: 320px;
+  max-width: 540px;
+  padding: 24px;
+}
+
 .app-main.queue-collapsed .player {
-  width: 320px;
+  width: 100%;
+  max-width: 420px;
 }
 
 .app-main.queue-collapsed .user-list {
-  width: 320px;
+  width: 100%;
+  max-width: 420px;
 }
 
 /* ─── VISUALIZER FIX ─────────────────────────── */
@@ -6451,4 +6481,323 @@ h1, h2, h3 {
   .video-panel-resize { display: none; }
   .watch-btn span { display: none; }
   .watch-btn { padding: 0 10px; }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   LIBRARY — SELECT MODE & SHARE
+   ═══════════════════════════════════════════════════════════ */
+
+/* Select button in crate header */
+.cd-action-btn.select {
+  background: rgba(124,106,255,0.08);
+  border-color: rgba(124,106,255,0.2);
+  color: var(--accent);
+}
+.cd-action-btn.select.active {
+  background: rgba(124,106,255,0.18);
+  border-color: rgba(124,106,255,0.4);
+}
+
+/* Song item selected state */
+.cd-song-item.cd-selected {
+  background: rgba(124,106,255,0.1) !important;
+  border-color: rgba(124,106,255,0.3) !important;
+}
+.cd-song-item:has(.cd-checkbox) {
+  cursor: pointer;
+}
+
+/* Checkbox circle */
+.cd-checkbox {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid rgba(255,255,255,0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background 0.15s, border-color 0.15s;
+}
+.cd-checkbox.checked {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+/* Select mode action bar */
+.cd-select-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 16px;
+  border-top: 1px solid rgba(255,255,255,0.06);
+  background: rgba(124,106,255,0.05);
+  flex-shrink: 0;
+}
+.cd-select-count {
+  font-size: 0.8rem;
+  color: var(--muted);
+  font-weight: 500;
+}
+.cd-select-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.cd-select-all-btn {
+  background: none;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 20px;
+  color: var(--muted);
+  font-size: 0.75rem;
+  padding: 5px 12px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: border-color 0.15s, color 0.15s;
+}
+.cd-select-all-btn:hover {
+  border-color: rgba(255,255,255,0.2);
+  color: var(--text);
+}
+.cd-share-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: linear-gradient(135deg, #7c6aff, #9b6aff);
+  border: none;
+  border-radius: 20px;
+  color: #fff;
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 6px 14px 6px 10px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: opacity 0.15s, transform 0.1s;
+  box-shadow: 0 4px 14px rgba(124,106,255,0.4);
+}
+.cd-share-btn:hover { opacity: 0.9; transform: scale(1.02); }
+.cd-share-btn:disabled { opacity: 0.5; cursor: default; transform: none; }
+
+/* Crate card share button */
+.crate-action-btn.share {
+  background: rgba(124,106,255,0.1);
+  border-color: rgba(124,106,255,0.25);
+  color: var(--accent);
+  width: 32px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   SHARED SONGS PAGE
+   ═══════════════════════════════════════════════════════════ */
+.shared-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.7);
+  z-index: 400;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  animation: fadeIn 0.2s ease;
+}
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.shared-panel {
+  background: #0e0c1a;
+  border: 1px solid rgba(124,106,255,0.2);
+  border-radius: 20px;
+  width: 100%;
+  max-width: 480px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 32px 80px rgba(0,0,0,0.7);
+  animation: slideUp 0.25s cubic-bezier(0.34,1.2,0.64,1);
+}
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(20px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.shared-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 16px 18px 14px;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  flex-shrink: 0;
+  gap: 12px;
+}
+.shared-header-left {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-width: 0;
+}
+.shared-header-icon {
+  color: var(--accent);
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.shared-header-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text);
+  margin: 0;
+}
+.shared-header-sub {
+  font-size: 0.72rem;
+  color: var(--muted);
+  margin: 3px 0 0;
+}
+.shared-close {
+  background: rgba(255,255,255,0.05);
+  border: none;
+  color: var(--muted);
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background 0.15s;
+}
+.shared-close:hover { background: rgba(255,255,255,0.1); color: var(--text); }
+
+.shared-body {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+.shared-body::-webkit-scrollbar { width: 3px; }
+.shared-body::-webkit-scrollbar-thumb { background: rgba(124,106,255,0.3); border-radius: 3px; }
+
+.shared-loading, .shared-error {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 40px 24px;
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+.shared-spinner {
+  width: 28px; height: 28px;
+  border: 2px solid rgba(124,106,255,0.2);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.shared-error-sub { font-size: 0.72rem; color: var(--muted2); }
+
+.shared-song-list {
+  list-style: none;
+  padding: 8px 0;
+  flex: 1;
+}
+.shared-song-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 16px;
+  transition: background 0.1s;
+}
+.shared-song-item:hover { background: rgba(255,255,255,0.03); }
+.shared-song-num {
+  font-size: 0.72rem;
+  color: var(--muted2);
+  width: 20px;
+  text-align: right;
+  flex-shrink: 0;
+}
+.shared-song-thumb {
+  width: 40px;
+  height: 30px;
+  border-radius: 6px;
+  overflow: hidden;
+  flex-shrink: 0;
+  background: rgba(255,255,255,0.05);
+}
+.shared-song-thumb img {
+  width: 100%; height: 100%;
+  object-fit: cover;
+}
+.shared-song-title {
+  font-size: 0.82rem;
+  color: var(--text);
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+}
+
+.shared-footer {
+  padding: 14px 16px;
+  border-top: 1px solid rgba(255,255,255,0.06);
+  flex-shrink: 0;
+}
+.shared-no-room {
+  font-size: 0.78rem;
+  color: var(--muted);
+  text-align: center;
+  margin: 0;
+}
+.shared-add-btn {
+  width: 100%;
+  background: linear-gradient(135deg, #7c6aff, #9b6aff);
+  border: none;
+  border-radius: 12px;
+  color: #fff;
+  font-size: 0.88rem;
+  font-weight: 700;
+  padding: 12px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: opacity 0.15s, transform 0.1s;
+  box-shadow: 0 4px 20px rgba(124,106,255,0.4);
+}
+.shared-add-btn:hover { opacity: 0.9; transform: scale(1.01); }
+.shared-add-btn:disabled { opacity: 0.5; cursor: default; }
+.shared-added {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: #6affb8;
+  font-size: 0.88rem;
+  font-weight: 600;
+  padding: 10px;
+}
+
+@media (max-width: 768px) {
+  .shared-panel {
+    max-height: 85dvh;
+    border-radius: 20px 20px 0 0;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    max-width: 100%;
+  }
+  .shared-overlay {
+    align-items: flex-end;
+    padding: 0;
+  }
 }
