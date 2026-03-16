@@ -726,22 +726,22 @@ function App() {
         <div className="logo">
           <svg width="32" height="32" viewBox="0 0 56 56" fill="none" xmlns="http://www.w3.org/2000/svg">
             <defs>
-              <linearGradient id="hg1" x1="0" y1="0" x2="56" y2="56" gradientUnits="userSpaceOnUse">
+              <linearGradient id="hdr-g1" x1="0" y1="0" x2="56" y2="56" gradientUnits="userSpaceOnUse">
                 <stop offset="0%" stopColor="#7c6aff"/><stop offset="100%" stopColor="#ff6a8a"/>
               </linearGradient>
-              <linearGradient id="hg2" x1="0" y1="0" x2="56" y2="56" gradientUnits="userSpaceOnUse">
+              <linearGradient id="hdr-g2" x1="0" y1="0" x2="56" y2="56" gradientUnits="userSpaceOnUse">
                 <stop offset="0%" stopColor="#fff" stopOpacity="0.95"/><stop offset="100%" stopColor="#e0daff"/>
               </linearGradient>
             </defs>
-            <circle cx="28" cy="28" r="28" fill="url(#hg1)" opacity="0.15"/>
-            <circle cx="28" cy="28" r="22" fill="url(#hg1)" opacity="0.2"/>
-            <path d="M14 22 Q10 28 14 34" stroke="url(#hg1)" strokeWidth="2.5" strokeLinecap="round" fill="none" opacity="0.7"/>
-            <path d="M10 18 Q4 28 10 38" stroke="url(#hg1)" strokeWidth="2" strokeLinecap="round" fill="none" opacity="0.4"/>
-            <path d="M42 22 Q46 28 42 34" stroke="url(#hg1)" strokeWidth="2.5" strokeLinecap="round" fill="none" opacity="0.7"/>
-            <path d="M46 18 Q52 28 46 38" stroke="url(#hg1)" strokeWidth="2" strokeLinecap="round" fill="none" opacity="0.4"/>
-            <path d="M24 36V22l12-3v14" stroke="url(#hg2)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
-            <circle cx="22" cy="36" r="3.5" fill="url(#hg2)"/>
-            <circle cx="34" cy="33" r="3.5" fill="url(#hg2)"/>
+            <circle cx="28" cy="28" r="28" fill="url(#hdr-g1)" opacity="0.15"/>
+            <circle cx="28" cy="28" r="22" fill="url(#hdr-g1)" opacity="0.2"/>
+            <path d="M14 22 Q10 28 14 34" stroke="url(#hdr-g1)" strokeWidth="2.5" strokeLinecap="round" fill="none" opacity="0.7"/>
+            <path d="M10 18 Q4 28 10 38" stroke="url(#hdr-g1)" strokeWidth="2" strokeLinecap="round" fill="none" opacity="0.4"/>
+            <path d="M42 22 Q46 28 42 34" stroke="url(#hdr-g1)" strokeWidth="2.5" strokeLinecap="round" fill="none" opacity="0.7"/>
+            <path d="M46 18 Q52 28 46 38" stroke="url(#hdr-g1)" strokeWidth="2" strokeLinecap="round" fill="none" opacity="0.4"/>
+            <path d="M24 36V22l12-3v14" stroke="url(#hdr-g2)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+            <circle cx="22" cy="36" r="3.5" fill="url(#hdr-g2)"/>
+            <circle cx="34" cy="33" r="3.5" fill="url(#hdr-g2)"/>
           </svg>
           <div className="logo-text">
             <span className="logo-big">GROOVE</span>
