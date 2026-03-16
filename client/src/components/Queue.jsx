@@ -69,55 +69,15 @@ const NowPlayingBox = memo(function NowPlayingBox({ queue, currentIndex, onPrev,
   )
 })
 
-// ── Single global preview tooltip ────────────────────────────
-function SongPreview({ song, pos }) {
-  if (!song || !pos) return null
-  return createPortal(
-    <div className="song-preview-tooltip" style={{ top: pos.top, left: pos.left, transform: 'translateX(-50%)', position: 'fixed' }}>
-      <img src={`https://img.youtube.com/vi/${song.videoId}/hqdefault.jpg`} alt="" className="song-preview-thumb" loading="lazy" />
-      <div className="song-preview-info">
-        <p className="song-preview-title">{song.title}</p>
-        {song.addedBy && <p className="song-preview-by">Added by {song.addedBy}</p>}
-        <a href={`https://www.youtube.com/watch?v=${song.videoId}`} target="_blank" rel="noopener noreferrer" className="song-preview-link" onClick={e => e.stopPropagation()}>
-          ▶ Open on YouTube
-        </a>
-      </div>
-    </div>,
-    document.body
-  )
-}
 
-// ── Reactions — memoized ──────────────────────────────────────
-const REACTION_EMOJIS = ['❤️', '🔥', '😂', '😮', '👏', '💀']
+
 const EMPTY_OBJ = {}
-
-const SongReactions = memo(function SongReactions({ reactions, videoId, onReact }) {
-  const [open, setOpen] = useState(false)
-  const total = useMemo(() => Object.values(reactions).reduce((a, b) => a + b, 0), [reactions])
-  return (
-    <div className="song-reactions" onClick={e => e.stopPropagation()}>
-      {total > 0 && (
-        <div className="song-reaction-counts">
-          {Object.entries(reactions).map(([emoji, count]) =>
-            count > 0 ? <span key={emoji} className="song-reaction-pill" onClick={() => onReact(videoId, emoji)}>{emoji} {count}</span> : null
-          )}
-        </div>
-      )}
-      <button className="song-react-btn" onClick={() => setOpen(p => !p)}>{open ? '✕' : '😊'}</button>
-      {open && (
-        <div className="song-react-picker">
-          {REACTION_EMOJIS.map(e => <button key={e} onClick={() => { onReact(videoId, e); setOpen(false) }}>{e}</button>)}
-        </div>
-      )}
-    </div>
-  )
-})
 
 // ── Song row — fully memoized, uses forwardRef for hover positioning ──
 const SongItem = memo(forwardRef(function SongItem(
   { song, index, currentIndex, selected, selectMode, dragOverIndex, dragIndex,
     onSelect, onDragStart, onDragOver, onDrop, onDragEnd,
-    onMouseEnter, onMouseLeave, onRemove, showReactions },
+    onRemove },
   ref
 ) {
   const isActive   = index === currentIndex
@@ -141,8 +101,7 @@ const SongItem = memo(forwardRef(function SongItem(
       onDragOver={e => onDragOver(e, index)}
       onDrop={e => onDrop(e, index)}
       onDragEnd={onDragEnd}
-      onMouseEnter={() => onMouseEnter(index)}
-      onMouseLeave={onMouseLeave}
+
       onClick={() => onSelect(index)}
       style={{ position: 'relative' }}
     >
@@ -171,10 +130,6 @@ const SongItem = memo(forwardRef(function SongItem(
         </p>
         {song.addedBy && <p className="song-id">by {song.addedBy}</p>}
       </div>
-
-      {!selectMode && showReactions && (
-
-      )}
 
       {!selectMode && (
         <button className="remove-btn" onClick={e => { e.stopPropagation(); onRemove(index) }} title="Remove">
@@ -397,58 +352,6 @@ export default function Queue({
     setDragIndex(null); setDragOverIndex(null); lastDragOver.current = -1
   }, [])
 
-  const handleMouseEnter = useCallback((index) => {
-    clearTimeout(hoverTimer.current)
-    hoverTimer.current = setTimeout(() => {
-      const el = itemRefs.current[index]
-      if (!el) return
-      const rect = el.getBoundingClientRect()
-      const above = rect.top > 106
-      setHoverSong(queue[index])
-      setHoverPos({
-        top:  above ? rect.top - 98 : rect.bottom + 8,
-        left: Math.min(rect.left + rect.width / 2, window.innerWidth - 310),
-      })
-    }, 600)
-  }, [queue])
-
-  const handleMouseLeave = useCallback(() => {
-    clearTimeout(hoverTimer.current)
-    setHoverSong(null); setHoverPos(null)
-  }, [])
-
-  const handleSelect = useCallback((index) => {
-    if (selectMode) {
-      setSelected(prev => {
-        const next = new Set(prev)
-        if (next.has(index)) next.delete(index); else next.add(index)
-        return next
-      })
-    } else {
-      onSelectSong(index)
-    }
-  }, [selectMode, onSelectSong])
-
-  const selectAll    = useCallback(() => setSelected(prev => prev.size === queue.length ? new Set() : new Set(queue.map((_, i) => i))), [queue])
-  const removeSelected = useCallback(() => {
-    [...selected].sort((a, b) => b - a).forEach(i => onRemoveSong(i))
-    setSelected(new Set()); setSelectMode(false)
-  }, [selected, onRemoveSong])
-  const exitSelectMode = useCallback(() => { setSelectMode(false); setSelected(new Set()) }, [])
-
-  const handleSaveToLibrary = async () => {
-    if (!lastImported) return
-    setSavingLibrary(true)
-    try {
-      const catRes = await fetch(`${BACKEND}/library/categories`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify({ name: `Import (${lastImported.count} songs)`, color: '#7c6aff' }) })
-      if (!catRes.ok) throw new Error()
-      const category = await catRes.json()
-      for (const song of lastImported.songs) {
-        await fetch(`${BACKEND}/library/categories/${category.id}/songs`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify({ videoId: song.videoId, title: song.title }) })
-      }
-      setSaveSuccess(true); setLastImported(null); setTimeout(() => setSaveSuccess(false), 3000)
-    } catch { setError('Could not save — are you logged in?') } finally { setSavingLibrary(false) }
-  }
 
   const handleSaveSelectedToLibrary = async () => {
     const songs = [...selected].map(i => queue[i])
@@ -633,10 +536,7 @@ export default function Queue({
             onDragOver={handleDragOver}
             onDrop={handleDrop}
             onDragEnd={handleDragEnd}
-            onMouseEnter={isMobile ? null : handleMouseEnter}
-            onMouseLeave={isMobile ? null : handleMouseLeave}
             onRemove={onRemoveSong}
-            showReactions={!isMobile}
           />
         ))}
       </ul>
