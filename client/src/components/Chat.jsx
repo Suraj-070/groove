@@ -328,6 +328,19 @@ export default function Chat({ socket, roomId, username, userAvatar, isOpen, onC
               msg={msg}
               isSelf={!!msg.self}
               showAvatar={showAvatar}
+              avatarSrc={msg.avatar || avatarMap[msg.username]}
+              onEdit={() => { setEditingId(msg.id); setEditText(msg.text) }}
+              isEditing={editingId === msg.id}
+              editText={editText}
+              onEditChange={setEditText}
+              onEditSave={() => {
+                if (editText.trim() && editText !== msg.text) {
+                  setMessages(prev => prev.map(m => m.id === msg.id ? { ...m, text: editText.trim(), edited: true } : m))
+                  socket.emit('chat-edit', { roomId, msgId: msg.id, text: editText.trim() })
+                }
+                setEditingId(null)
+              }}
+              onEditCancel={() => setEditingId(null)}
             />
           )
         })}
