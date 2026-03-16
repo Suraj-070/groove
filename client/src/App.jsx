@@ -193,6 +193,11 @@ function App() {
   const profileRef = useRef(null)
   const [windowWidth, setWindowWidth] = useState(window.innerWidth)
   const touchStartY = useRef(null)
+  // Handler refs — declared early to prevent TDZ in forward-referencing effects
+  const handleNextRef     = useRef(null)
+  const handleLoadSongRef = useRef(null)
+  const currentSongRef    = useRef(null)
+  const triggerRadioRef   = useRef(null)
 
   // ── Apply room theme ─────────────────────────────────────
   useEffect(() => {
@@ -258,6 +263,11 @@ function App() {
   }, [])
 
   // ── Sleep timer countdown ─────────────────────────────────
+  const handleSleepExpire = useCallback(() => {
+    socket.emit('pause', { roomId, time: 0 })
+    setSleepTimer(null)
+  }, [roomId])
+
   useEffect(() => {
     if (!sleepTimer) return
     const remaining = sleepTimer.endsAt - Date.now()
@@ -265,11 +275,6 @@ function App() {
     const t = setTimeout(handleSleepExpire, remaining)
     return () => clearTimeout(t)
   }, [sleepTimer])
-
-  const handleSleepExpire = useCallback(() => {
-    socket.emit('pause', { roomId, time: 0 })
-    setSleepTimer(null)
-  }, [roomId])
 
   const handleSetSleepTimer = (minutes) => {
     setSleepTimer({ endsAt: Date.now() + minutes * 60 * 1000, label: `${minutes}m` })
@@ -338,11 +343,11 @@ function App() {
       }
       if (e.key === 'ArrowRight') {
         e.preventDefault()
-        if (!isLocked && currentIndex < queueLen - 1) handleLoadSong(currentIndex + 1); return
+        if (!isLocked && currentIndex < queueLen - 1) handleLoadSongRef.current?.(currentIndex + 1); return
       }
       if (e.key === 'ArrowLeft') {
         e.preventDefault()
-        if (!isLocked && currentIndex > 0) handleLoadSong(currentIndex - 1); return
+        if (!isLocked && currentIndex > 0) handleLoadSongRef.current?.(currentIndex - 1); return
       }
       if (e.key === 'm' || e.key === 'M') { setVolume(v => v === 0 ? 80 : 0); return }
       if (e.key === 'l' || e.key === 'L') { setLoop(p => !p); return }
@@ -483,6 +488,8 @@ function App() {
     setCurrentIndex(index)
     socket.emit('load-song', { roomId, index })
   }
+  // Sync ref immediately (not in useEffect — plain assignment is fine for non-stale ref)
+  handleLoadSongRef.current = handleLoadSong
 
   const handlePrev = () => {
     const prev = currentIndex - 1
@@ -493,11 +500,9 @@ function App() {
     socket.emit('remove-song', { roomId, index })
   }
 
-  // Smart Radio Mode — use ref to avoid circular dependency with handleNext
-  const handleNextRef   = useRef(null)
-  const triggerRadioRef = useRef(null)
+  // Smart Radio Mode
   const triggerRadio = useCallback(async () => {
-    if (!radioMode || radioLoading || !currentSong) return
+    if (!radioMode || radioLoading || !currentSongRef.current) return
     setRadioLoading(true)
     try {
       const roomHistory = queue.map(s => s.videoId)
@@ -505,7 +510,7 @@ function App() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ lastSong: currentSong, roomHistory })
+        body: JSON.stringify({ lastSong: currentSongRef.current, roomHistory })
       })
       if (!res.ok) return
       const data = await res.json()
@@ -514,7 +519,7 @@ function App() {
       }
     } catch {}
     finally { setRadioLoading(false) }
-  }, [radioMode, radioLoading, currentSong, queue, roomId, socket])
+  }, [radioMode, radioLoading, queue, roomId, socket])
 
   // Keep triggerRadio ref up to date
   useEffect(() => { triggerRadioRef.current = triggerRadio }, [triggerRadio])
@@ -689,6 +694,7 @@ function App() {
   if (!roomId) return <RoomJoin onJoin={handleJoin} user={user} onGuestLogin={handleGuestLogin} />
 
   const currentSong = queue[currentIndex]
+  currentSongRef.current = currentSong  // keep ref in sync
 
   return (
     <div className="app">
