@@ -18,6 +18,7 @@ import HistoryPanel from './components/HistoryPanel'
 import SessionDNACard from './components/SessionDNACard'
 import TasteFingerprint from './components/TasteFingerprint'
 import MyGroovePanel from './components/MyGroovePanel'
+import FloatingChatBubble from './components/FloatingChatBubble'
 import SettingsPanel from './components/SettingsPanel'
 import GrooveRadar from './components/GrooveRadar'
 import TimeMachine from './components/TimeMachine'
@@ -176,6 +177,7 @@ function App() {
   const [chemistryOpen, setChemistryOpen]     = useState(false)
   const [streakData, setStreakData]           = useState(null)
   const [streakToast, setStreakToast]         = useState(null)
+  const [lastMessage, setLastMessage]         = useState(null)
   const [radioMode, setRadioMode]             = useState(false)
   const [radioLoading, setRadioLoading]       = useState(false)
   const [theme, setTheme]             = useState(() => localStorage.getItem('groove_theme') || 'violet')
@@ -999,15 +1001,6 @@ function App() {
           </button>
 
           <button
-            className={`mobile-nav-btn ${chatOpen ? 'active' : ''}`}
-            onClick={() => { setLibraryOpen(false); setChatOpen(true); setUnread(0); setMobileTab('player') }}
-          >
-            <span className="nav-icon">💬</span>
-            <span className="nav-label">Chat</span>
-            {unread > 0 && <span className="nav-badge" />}
-          </button>
-
-          <button
             className={`mobile-nav-btn ${libraryOpen ? 'active' : ''}`}
             onClick={() => { setChatOpen(false); setMobileTab('player'); setLibraryOpen(p => !p) }}
           >
@@ -1036,6 +1029,17 @@ function App() {
             <span className="nav-label">Profile</span>
           </button>
         </nav>
+      )}
+
+      {/* Floating chat bubble — mobile only */}
+      {isMobileView && user && (
+        <FloatingChatBubble
+          user={user}
+          unread={unread}
+          chatOpen={chatOpen}
+          lastMessage={lastMessage}
+          onToggle={() => { setChatOpen(p => !p); setUnread(0) }}
+        />
       )}
 
       {/* Chat overlay — floats over everything on both desktop and mobile */}
