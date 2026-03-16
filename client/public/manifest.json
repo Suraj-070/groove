@@ -5,13 +5,20 @@
   "start_url": "/",
   "id": "/",
   "display": "standalone",
-  "display_override": ["standalone", "minimal-ui"],
+  "display_override": [
+    "standalone",
+    "minimal-ui"
+  ],
   "orientation": "portrait",
   "background_color": "#080810",
   "theme_color": "#7c6aff",
   "scope": "/",
   "lang": "en",
-  "categories": ["music", "entertainment", "social"],
+  "categories": [
+    "music",
+    "entertainment",
+    "social"
+  ],
   "icons": [
     {
       "src": "/icons/icon-72x72.png",
@@ -80,7 +87,7 @@
       "sizes": "512x512",
       "type": "image/png",
       "form_factor": "narrow",
-      "label": "Groove Together player"
+      "label": "Groove Together \u2014 Listen together in real time"
     }
   ],
   "shortcuts": [
@@ -89,7 +96,12 @@
       "short_name": "Join",
       "description": "Jump into a music room",
       "url": "/?action=join",
-      "icons": [{ "src": "/icons/icon-96x96.png", "sizes": "96x96" }]
+      "icons": [
+        {
+          "src": "/icons/icon-96x96.png",
+          "sizes": "96x96"
+        }
+      ]
     }
   ],
   "prefer_related_applications": false

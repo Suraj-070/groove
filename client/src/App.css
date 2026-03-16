@@ -9744,3 +9744,31 @@ body.chat-is-open .fcb-bubble { opacity: 0; pointer-events: none; }
   .lc-card-body { display: block !important; }
   .lc-btn-icon { width: 36px !important; height: 36px !important; }
 }
+
+/* ── PWA Install button in Settings ────────────────────── */
+.settings-install-btn {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 0;
+  background: linear-gradient(135deg, rgba(124,106,255,0.12), rgba(255,106,138,0.08));
+  border: 1px solid rgba(124,106,255,0.25);
+  border-radius: 12px;
+  padding: 12px 14px;
+  color: var(--text);
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+  transition: all 0.2s;
+  margin-bottom: 2px;
+}
+.settings-install-btn:hover {
+  background: linear-gradient(135deg, rgba(124,106,255,0.2), rgba(255,106,138,0.12));
+  border-color: rgba(124,106,255,0.4);
+  transform: scale(1.01);
+}
+.settings-install-btn span:first-child { font-size: 1.4rem; flex-shrink: 0; }
+.settings-install-btn > div { flex: 1; }
+.settings-install-title { font-size: 0.88rem; font-weight: 700; color: var(--text); margin: 0 0 2px; }
+.settings-install-sub { font-size: 0.7rem; color: var(--muted2); margin: 0; }

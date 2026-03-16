@@ -172,6 +172,7 @@ function App() {
   const [myGrooveOpen, setMyGrooveOpen]       = useState(false)
   const [myGrooveTab, setMyGrooveTab]         = useState('radar')
   const [settingsOpen, setSettingsOpen]       = useState(false)
+  const [pwaInstallable, setPwaInstallable]   = useState(false)
   const [timeMachineOpen, setTimeMachineOpen] = useState(false)
   const [wrappedOpen, setWrappedOpen]         = useState(false)
   const [chemistryOpen, setChemistryOpen]     = useState(false)
@@ -206,6 +207,13 @@ function App() {
   const handleLoadSongRef = useRef(null)
   const currentSongRef    = useRef(null)
   const triggerRadioRef   = useRef(null)
+
+  // ── PWA install prompt listener ──────────────────────────
+  useEffect(() => {
+    const handler = () => setPwaInstallable(true)
+    window.addEventListener('pwa-installable', handler)
+    return () => window.removeEventListener('pwa-installable', handler)
+  }, [])
 
   // ── Apply room theme ─────────────────────────────────────
   useEffect(() => {
@@ -1094,6 +1102,7 @@ function App() {
         onSleepTimer={() => { setShowSleepTimer(true); setSettingsOpen(false) }}
         onCancelSleep={() => setSleepTimer(null)}
         onShortcuts={() => { setShowShortcuts(true); setSettingsOpen(false) }}
+        pwaInstallable={pwaInstallable}
       />
       <GrooveRadar isOpen={radarOpen} onClose={() => setRadarOpen(false)} onAddToQueue={song => socket.emit('add-song', { roomId, videoId: song.videoId, title: song.title, addedBy: user?.username })} />
       <TimeMachine isOpen={timeMachineOpen} onClose={() => setTimeMachineOpen(false)} onLoadSession={songs => { socket.emit('add-songs-batch', { roomId, songs, addedBy: user?.username }); setTimeMachineOpen(false) }} />

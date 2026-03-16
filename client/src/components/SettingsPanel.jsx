@@ -36,8 +36,16 @@ export default function SettingsPanel({
   pushEnabled, pushLoading, onTogglePush,
   sleepTimer, onSleepTimer, onCancelSleep,
   onShortcuts,
+  pwaInstallable,
 }) {
   if (!isOpen) return null
+
+  const handleInstall = async () => {
+    if (window.__triggerPWAInstall) {
+      const accepted = await window.__triggerPWAInstall()
+      if (accepted) onClose()
+    }
+  }
 
   return (
     <div className="panel-overlay" onClick={onClose}>
@@ -54,6 +62,24 @@ export default function SettingsPanel({
         </div>
 
         <div className="settings-body">
+
+          {/* PWA Install — show only when installable */}
+          {pwaInstallable && (
+            <>
+              <div className="settings-section">
+                <p className="settings-section-label">App</p>
+                <button className="settings-install-btn" onClick={handleInstall}>
+                  <span>📲</span>
+                  <div>
+                    <p className="settings-install-title">Install Groove</p>
+                    <p className="settings-install-sub">Add to home screen for the best experience</p>
+                  </div>
+                  <span className="settings-action-arrow">›</span>
+                </button>
+              </div>
+              <div className="settings-divider" />
+            </>
+          )}
 
           {/* Theme */}
           <div className="settings-section">
