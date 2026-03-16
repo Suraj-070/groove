@@ -230,6 +230,7 @@ const songDNASchema = new mongoose.Schema({
   mood:     { type: String },  // euphoric/confident/calm/sad/aggressive/chill
   danceability: { type: Number }, // 0-1
   genre:    { type: String },
+  category: { type: String },  // derived: Sad/Chill/Party/Focus/Hype/Romance/Feel Good/Hip-Hop/Vibes
   fetchedAt:{ type: Number, default: () => Date.now() },
 });
 songDNASchema.index({ fetchedAt: 1 }, { expireAfterSeconds: 60 * 60 * 24 * 30 }); // 30 day cache
@@ -295,6 +296,25 @@ async function enrichSong(videoId, title) {
       if (genre) dna.genre = genre;
     }
 
+    // Fetch YouTube video tags for better categorization
+    if (process.env.YOUTUBE_API_KEY) {
+      try {
+        const ytRes = await fetch(
+          `https://www.googleapis.com/youtube/v3/videos?part=snippet&id=${videoId}&key=${process.env.YOUTUBE_API_KEY}`
+        );
+        if (ytRes.ok) {
+          const ytData = await ytRes.json();
+          const snippet = ytData.items?.[0]?.snippet;
+          const ytTags = snippet?.tags || [];
+          dna.category = deriveCategory(dna, ytTags);
+        } else {
+          dna.category = deriveCategory(dna, []);
+        }
+      } catch { dna.category = deriveCategory(dna, []); }
+    } else {
+      dna.category = deriveCategory(dna, []);
+    }
+
     // Cache it
     if (MONGO_URI) {
       await SongDNA.findOneAndUpdate({ videoId }, { ...dna, fetchedAt: Date.now() }, { upsert: true });
@@ -330,6 +350,45 @@ function flowScore(songA, songB) {
   const moodDelta = moodCompat[songA.mood]?.[songB.mood] ?? 0;
   score += moodDelta;
   return Math.max(0, Math.min(100, Math.round(score)));
+}
+
+// Derive human-readable category from DNA + YouTube tags
+function deriveCategory(dna, ytTags = []) {
+  const { bpm, mood, danceability, energy, genre } = dna;
+  const tags = (ytTags || []).join(' ').toLowerCase();
+  const titleLower = (dna.title || '').toLowerCase();
+  const combined = tags + ' ' + titleLower;
+
+  // YouTube tag heuristics (strong signal — music videos tag themselves)
+  if (/sad|heartbreak|crying|emotional|breakup|grief|miss you/.test(combined)) return 'Sad';
+  if (/lo.?fi|study|focus|concentration|work|deep work/.test(combined)) return 'Focus';
+  if (/workout|gym|beast mode|motivation|hype|rage|aggressive/.test(combined)) return 'Hype';
+  if (/chill|relax|calm|ambient|peaceful|sleep|night/.test(combined)) return 'Chill';
+  if (/party|club|dance|EDM|rave|festival|banger/.test(combined)) return 'Party';
+  if (/love|romantic|romance|wedding|R&B|soul/.test(combined)) return 'Romance';
+  if (/hip.?hop|rap|trap|drill|freestyle|cypher/.test(combined)) return 'Hip-Hop';
+  if (/feel good|happy|summer|good vibes|positive|upbeat/.test(combined)) return 'Feel Good';
+
+  // AcousticBrainz data (when available)
+  if (mood === 'sad' || energy < 0.25) return 'Sad';
+  if (bpm && bpm < 80 && mood !== 'sad' && energy < 0.45) return 'Chill';
+  if (bpm && bpm < 90 && danceability < 0.4 && energy < 0.5) return 'Focus';
+  if (bpm && bpm > 145 && energy > 0.7) return 'Hype';
+  if (danceability > 0.72 && bpm > 118 && energy > 0.65) return 'Party';
+  if (mood === 'euphoric' && danceability > 0.55) return 'Feel Good';
+  if (mood === 'confident' && bpm > 85) return 'Hip-Hop';
+  if (energy > 0.4 && energy < 0.65 && mood !== 'aggressive') return 'Chill';
+
+  // Genre fallback
+  if (genre) {
+    if (/hip|rap/.test(genre)) return 'Hip-Hop';
+    if (/dan|elec/.test(genre)) return 'Party';
+    if (/roc/.test(genre)) return 'Hype';
+    if (/cla|jaz/.test(genre)) return 'Focus';
+    if (/r.b|sou/.test(genre)) return 'Romance';
+  }
+
+  return 'Vibes'; // catch-all
 }
 
 async function recordListen(userId, videoId, title, roomId) {
@@ -746,6 +805,30 @@ app.post('/song-dna', requireAuth, async (req, res) => {
     res.json({ dna: results });
   } catch (e) {
     res.status(500).json({ error: 'Enrichment failed' });
+  }
+});
+
+// Categorize songs in bulk — used by Library and Queue
+app.post('/categorize', requireAuth, async (req, res) => {
+  const { songs } = req.body;
+  if (!Array.isArray(songs)) return res.status(400).json({ error: 'songs array required' });
+  const capped = songs.slice(0, 50);
+  try {
+    const results = await Promise.all(
+      capped.map(async s => {
+        const dna = await enrichSong(s.videoId, s.title);
+        return {
+          videoId: s.videoId,
+          category: dna.category || 'Vibes',
+          mood: dna.mood || 'neutral',
+          bpm: dna.bpm || null,
+          energy: dna.energy || null,
+        };
+      })
+    );
+    res.json({ results });
+  } catch (e) {
+    res.status(500).json({ error: 'Categorization failed' });
   }
 });
 

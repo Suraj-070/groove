@@ -1,7 +1,20 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
+import CategoryFilter from './CategoryFilter'
+import { useCategories, getCategoryDef } from '../hooks/useCategories'
 import { useLibrary } from '../hooks/useLibrary'
 
 const BACKEND = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'
+
+async function createShareLink(songs, crateName, username) {
+  const res = await fetch(`${BACKEND}/share/songs`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ songs, crateName, username })
+  })
+  if (!res.ok) throw new Error('Failed to create share link')
+  return res.json()
+}
 
 const CRATE_COLORS = [
   { bg: 'linear-gradient(135deg,#7c6aff,#ff6a8a)', accent: '#7c6aff', name: 'Violet' },
@@ -51,7 +64,7 @@ async function fetchTitle(videoId) {
 }
 
 // ── Crate Card ────────────────────────────────────────────────
-function CrateCard({ crate, colorDef, onClick, onPlay, onShuffle, onDelete, isActive }) {
+function CrateCard({ crate, colorDef, onClick, onPlay, onShuffle, onDelete, onShare, isActive }) {
   const songs = crate.songs || []
   const thumbs = songs.slice(0, 3).map(s => `https://img.youtube.com/vi/${s.videoId}/default.jpg`)
 
@@ -83,6 +96,11 @@ function CrateCard({ crate, colorDef, onClick, onPlay, onShuffle, onDelete, isAc
 
       {/* Actions */}
       <div className="crate-actions">
+        <button className="crate-action-btn share" onClick={e => { e.stopPropagation(); onShare() }} disabled={!songs.length} title="Share all songs">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92s2.92-1.31 2.92-2.92-1.31-2.92-2.92-2.92z"/>
+          </svg>
+        </button>
         <button className="crate-action-btn play" onClick={e => { e.stopPropagation(); onPlay() }} disabled={!songs.length}>
           ▶ Play All
         </button>
@@ -162,14 +180,59 @@ function CrateDetail({ crate, colorDef, onBack, onAddSong, onAddSongsBatch, onDe
   const [importing, setImporting] = useState(false)
   const [importProgress, setImportProgress] = useState('')
   const [error, setError] = useState('')
-  const [toast, setToast] = useState('')
-  const [page, setPage] = useState(1)
+  const [toast, setToast]             = useState('')
+  const [page, setPage]               = useState(1)
+  const [selectMode, setSelectMode]   = useState(false)
+  const [selectedIds, setSelectedIds] = useState(new Set())
+  const [sharing, setSharing]         = useState(false)
+  const [activeCategory, setActiveCategory] = useState('All')
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(''), 2500) }
 
-  const filtered = (crate.songs || []).filter(s => s.title.toLowerCase().includes(search.toLowerCase()))
+  const { categories, loading: catLoading } = useCategories(crate.songs || [])
+
+  // Category counts for the filter bar
+  const categoryCounts = useMemo(() => {
+    const counts = {}
+    Object.values(categories).forEach(d => {
+      if (d.category) counts[d.category] = (counts[d.category] || 0) + 1
+    })
+    return counts
+  }, [categories])
+
+  // Filter by search AND active category
+  const filtered = useMemo(() => (crate.songs || []).filter(s => {
+    const matchSearch = s.title.toLowerCase().includes(search.toLowerCase())
+    const matchCat    = activeCategory === 'All'
+      ? true
+      : (categories[s.videoId]?.category || 'Vibes') === activeCategory
+    return matchSearch && matchCat
+  }), [crate.songs, search, activeCategory, categories])
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE)
   const visibleSongs = filtered.slice(0, page * PAGE_SIZE)
+
+  const toggleSelect = (videoId) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      next.has(videoId) ? next.delete(videoId) : next.add(videoId)
+      return next
+    })
+  }
+
+  const handleShare = async () => {
+    const songs = (crate.songs || []).filter(s => selectedIds.has(s.videoId))
+    if (!songs.length) return
+    setSharing(true)
+    try {
+      const { url } = await createShareLink(songs, crate.name)
+      await navigator.clipboard.writeText(url)
+      showToast(`🔗 Link copied! (${songs.length} songs, expires in 24h)`)
+      setSelectMode(false)
+      setSelectedIds(new Set())
+    } catch (e) {
+      showToast('Failed to create share link')
+    } finally { setSharing(false) }
+  }
 
   const handleAddSong = async () => {
     const videoId = extractVideoId(urlInput)
@@ -236,6 +299,10 @@ function CrateDetail({ crate, colorDef, onBack, onAddSong, onAddSongsBatch, onDe
         <div className="cd-header-actions">
           <button className="cd-action-btn shuffle" onClick={onShuffle} disabled={!(crate.songs || []).length}>🔀 Shuffle</button>
           <button className="cd-action-btn play" onClick={() => onPushToQueue(crate)} disabled={!(crate.songs || []).length}>▶ Play All</button>
+          <button
+            className={`cd-action-btn select ${selectMode ? 'active' : ''}`}
+            onClick={() => { setSelectMode(p => !p); setSelectedIds(new Set()) }}
+          >{selectMode ? 'Cancel' : '✓ Select'}</button>
         </div>
       </div>
 
@@ -262,12 +329,23 @@ function CrateDetail({ crate, colorDef, onBack, onAddSong, onAddSongsBatch, onDe
             {visibleSongs.map((song, i) => (
               <li
                 key={song.videoId}
-                className={`cd-song-item ${currentVideoId === song.videoId ? 'cd-now-playing' : ''}`}
+                className={`cd-song-item ${currentVideoId === song.videoId ? 'cd-now-playing' : ''} ${selectMode && selectedIds.has(song.videoId) ? 'cd-selected' : ''}`}
+                onClick={selectMode ? () => toggleSelect(song.videoId) : undefined}
               >
-                <span className="cd-song-num">{i + 1}</span>
+                {selectMode ? (
+                  <div className={`cd-checkbox ${selectedIds.has(song.videoId) ? 'checked' : ''}`}>
+                    {selectedIds.has(song.videoId) && (
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                      </svg>
+                    )}
+                  </div>
+                ) : (
+                  <span className="cd-song-num">{i + 1}</span>
+                )}
                 <div className="cd-song-thumb">
                   <img src={`https://img.youtube.com/vi/${song.videoId}/default.jpg`} alt="" loading="lazy" />
-                  {currentVideoId === song.videoId && (
+                  {currentVideoId === song.videoId && !selectMode && (
                     <div className="cd-playing-overlay">
                       <div className="bars"><span /><span /><span /></div>
                     </div>
@@ -275,13 +353,24 @@ function CrateDetail({ crate, colorDef, onBack, onAddSong, onAddSongsBatch, onDe
                 </div>
                 <div className="cd-song-info">
                   <p className="cd-song-title">{song.title}</p>
+                  {categories[song.videoId]?.category && categories[song.videoId].category !== 'Vibes' && (
+                    <span
+                      className="cd-cat-badge"
+                      style={{ '--badge-color': getCategoryDef(categories[song.videoId].category).color }}
+                    >
+                      {getCategoryDef(categories[song.videoId].category).emoji} {categories[song.videoId].category}
+                      {categories[song.videoId].bpm && <span className="cd-cat-bpm"> · {categories[song.videoId].bpm} BPM</span>}
+                    </span>
+                  )}
                 </div>
-                <div className="cd-song-actions">
-                  <button className="cd-queue-btn" onClick={() => onPlaySong(song)} title="Add to queue">
-                    + Queue
-                  </button>
-                  <button className="cd-remove-btn" onClick={() => onDeleteSong(crate.id, song.videoId)} title="Remove">×</button>
-                </div>
+                {!selectMode && (
+                  <div className="cd-song-actions">
+                    <button className="cd-queue-btn" onClick={() => onPlaySong(song)} title="Add to queue">
+                      + Queue
+                    </button>
+                    <button className="cd-remove-btn" onClick={() => onDeleteSong(crate.id, song.videoId)} title="Remove">×</button>
+                  </div>
+                )}
               </li>
             ))}
             {page < totalPages && (
@@ -292,6 +381,36 @@ function CrateDetail({ crate, colorDef, onBack, onAddSong, onAddSongsBatch, onDe
               </li>
             )}
           </ul>
+
+          {/* Select mode share bar */}
+          {selectMode && (
+            <div className="cd-select-bar">
+              <span className="cd-select-count">
+                {selectedIds.size > 0 ? `${selectedIds.size} selected` : 'Tap songs to select'}
+              </span>
+              <div className="cd-select-actions">
+                <button
+                  className="cd-select-all-btn"
+                  onClick={() => {
+                    if (selectedIds.size === filtered.length) setSelectedIds(new Set())
+                    else setSelectedIds(new Set(filtered.map(s => s.videoId)))
+                  }}
+                >
+                  {selectedIds.size === filtered.length ? 'Deselect all' : 'Select all'}
+                </button>
+                <button
+                  className="cd-share-btn"
+                  onClick={handleShare}
+                  disabled={selectedIds.size === 0 || sharing}
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92s2.92-1.31 2.92-2.92-1.31-2.92-2.92-2.92z"/>
+                  </svg>
+                  {sharing ? 'Creating link…' : `Share ${selectedIds.size || ''} songs`}
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Right — Add songs */}
@@ -367,8 +486,12 @@ export default function Library({ isOpen, onClose, socket, roomId, username, onA
   const { categories, loading, authError, createCategory, deleteCategory, addSong, deleteSong, refetch } = useLibrary()
   const [activeCrateId, setActiveCrateId] = useState(null)
   const [showNewCrate, setShowNewCrate] = useState(false)
-  const [toast, setToast] = useState('')
-  const [page, setPage] = useState(1)
+  const [toast, setToast]             = useState('')
+  const [page, setPage]               = useState(1)
+  const [selectMode, setSelectMode]   = useState(false)
+  const [selectedIds, setSelectedIds] = useState(new Set())
+  const [sharing, setSharing]         = useState(false)
+  const [activeCategory, setActiveCategory] = useState('All')
   const [colorMap, setColorMap] = useState({}) // crateId -> colorIdx
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(''), 2500) }

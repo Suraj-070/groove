@@ -219,8 +219,29 @@ export default function Queue({
   const [searchError, setSearchError]       = useState('')
   const searchTimer                         = useRef(null)
 
-  const [flowScores, setFlowScores] = useState({}) // { videoId: score }
-  const [dnaData, setDnaData]       = useState({}) // { videoId: dna }
+  const [flowScores, setFlowScores]   = useState({})
+  const [dnaData, setDnaData]         = useState({})
+  const [activeCategory, setActiveCategory] = useState('All')
+
+  const { categories, loading: catLoading } = useCategories(queue)
+
+  // Category counts
+  const categoryCounts = useMemo(() => {
+    const counts = {}
+    Object.values(categories).forEach(d => {
+      if (d.category) counts[d.category] = (counts[d.category] || 0) + 1
+    })
+    return counts
+  }, [categories])
+
+  // Filter queue by active category
+  const filteredQueue = useMemo(() => {
+    if (activeCategory === 'All') return queue
+    return queue.filter((s, i) => {
+      const cat = categories[s.videoId]?.category || 'Vibes'
+      return cat === activeCategory
+    })
+  }, [queue, activeCategory, categories])
 
   const hoverTimer   = useRef(null)
   const toastTimer   = useRef(null)

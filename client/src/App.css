@@ -7773,3 +7773,139 @@ body {
     border-bottom: none; max-height: 90dvh;
   }
 }
+
+/* ═══════════════════════════════════════════════════════════
+   CATEGORY FILTER BAR — wow UI
+   ═══════════════════════════════════════════════════════════ */
+.catfilter-wrap {
+  position: relative;
+  flex-shrink: 0;
+  padding: 8px 0 4px;
+}
+
+.catfilter-scroll {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding: 2px 12px 6px;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+  scroll-snap-type: x mandatory;
+}
+.catfilter-scroll::-webkit-scrollbar { display: none; }
+
+/* Fade edges to hint scrollability */
+.catfilter-fade {
+  position: absolute;
+  top: 0; bottom: 0;
+  width: 32px;
+  pointer-events: none;
+  z-index: 2;
+}
+.catfilter-fade--left {
+  left: 0;
+  background: linear-gradient(90deg, var(--surface, #0f0f1a), transparent);
+}
+.catfilter-fade--right {
+  right: 0;
+  background: linear-gradient(270deg, var(--surface, #0f0f1a), transparent);
+}
+
+/* Pills */
+.catfilter-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 13px;
+  border-radius: 20px;
+  border: 1px solid rgba(255,255,255,0.07);
+  background: rgba(255,255,255,0.04);
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  scroll-snap-align: start;
+  font-family: inherit;
+  transition: background 0.15s, border-color 0.15s, color 0.15s, transform 0.12s;
+  flex-shrink: 0;
+  position: relative;
+}
+.catfilter-pill:hover {
+  background: rgba(255,255,255,0.07);
+  color: var(--text);
+  transform: translateY(-1px);
+}
+.catfilter-pill--active {
+  background: color-mix(in srgb, var(--cat-color, #7c6aff) 18%, transparent);
+  border-color: color-mix(in srgb, var(--cat-color, #7c6aff) 50%, transparent);
+  color: var(--cat-color, #7c6aff);
+  font-weight: 700;
+  box-shadow: 0 2px 12px color-mix(in srgb, var(--cat-color, #7c6aff) 25%, transparent);
+}
+
+.catfilter-emoji { font-size: 0.85rem; line-height: 1; }
+.catfilter-label { line-height: 1; }
+.catfilter-count {
+  background: rgba(255,255,255,0.1);
+  color: inherit;
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 8px;
+  min-width: 16px;
+  text-align: center;
+}
+.catfilter-pill--active .catfilter-count {
+  background: color-mix(in srgb, var(--cat-color, #7c6aff) 25%, transparent);
+}
+.catfilter-dot {
+  width: 4px; height: 4px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.15);
+  animation: pulse 1.5s ease-in-out infinite;
+}
+@keyframes pulse { 0%,100%{opacity:.3} 50%{opacity:1} }
+
+/* ═══════════════════════════════════════════════════════════
+   CATEGORY BADGES ON SONG ITEMS
+   ═══════════════════════════════════════════════════════════ */
+/* Library badge */
+.cd-cat-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 0.62rem;
+  font-weight: 600;
+  color: var(--badge-color, #7c6aff);
+  background: color-mix(in srgb, var(--badge-color, #7c6aff) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--badge-color, #7c6aff) 25%, transparent);
+  border-radius: 6px;
+  padding: 1px 6px;
+  margin-top: 3px;
+  line-height: 1.4;
+}
+.cd-cat-bpm {
+  opacity: 0.6;
+  font-weight: 400;
+}
+
+/* Queue badge (compact — just emoji) */
+.queue-cat-badge {
+  font-size: 0.75rem;
+  line-height: 1;
+  opacity: 0.85;
+}
+
+/* Empty state when filtering by category */
+.queue-empty-cat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 32px 16px;
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+.queue-empty-cat span { font-size: 2rem; }
