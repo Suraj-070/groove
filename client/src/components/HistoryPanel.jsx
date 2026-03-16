@@ -107,7 +107,8 @@ export default function HistoryPanel({ isOpen, onClose, onAddToQueue, roomId }) 
 
   const handleDeleteMoment = async (item) => {
     setMoments(prev => prev.filter(m => !(m.videoId === item.videoId && m.stampedAt === item.stampedAt)))
-    await fetch(`${BACKEND}/moments/${item.videoId}`, { method: 'DELETE', credentials: 'include' })
+    const qs = item.stampedAt ? `?stampedAt=${item.stampedAt}` : ''
+    await fetch(`${BACKEND}/moments/${item.videoId}${qs}`, { method: 'DELETE', credentials: 'include' })
   }
 
   const handleClearHistory = async () => {

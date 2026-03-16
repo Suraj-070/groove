@@ -201,7 +201,7 @@ const listenHistorySchema = new mongoose.Schema({
   title:     { type: String, required: true },
   roomId:    { type: String, default: '' },
   listenedAt:{ type: Number, default: () => Date.now() },
-}, { _id: false });
+});
 // Keep last 500 per user — TTL after 90 days
 listenHistorySchema.index({ listenedAt: 1 }, { expireAfterSeconds: 60 * 60 * 24 * 90 });
 listenHistorySchema.index({ userId: 1, listenedAt: -1 });
@@ -212,11 +212,11 @@ const momentSchema = new mongoose.Schema({
   userId:    { type: String, required: true, index: true },
   videoId:   { type: String, required: true },
   title:     { type: String, required: true },
-  timestamp: { type: Number, required: true }, // seconds into the song
+  timestamp: { type: Number, required: true },
   roomId:    { type: String, default: '' },
-  note:      { type: String, default: '' },    // optional user note
+  note:      { type: String, default: '' },
   stampedAt: { type: Number, default: () => Date.now() },
-}, { _id: false });
+});
 momentSchema.index({ userId: 1, stampedAt: -1 });
 const Moment = mongoose.models.Moment || mongoose.model('Moment', momentSchema);
 
@@ -630,6 +630,7 @@ app.get('/history', requireAuth, async (req, res) => {
       .sort({ listenedAt: -1 })
       .skip((page - 1) * limit)
       .limit(limit)
+      .select('-_id -__v')
       .lean();
     const total = await ListenHistory.countDocuments({ userId: req.user.id });
     console.log(`[History] GET userId="${req.user.id}" found=${total}`);
@@ -651,6 +652,7 @@ app.get('/moments', requireAuth, async (req, res) => {
     const moments = await Moment.find({ userId: req.user.id })
       .sort({ stampedAt: -1 })
       .limit(200)
+      .select('-_id -__v')
       .lean();
     res.json({ moments });
   } catch (e) { res.status(500).json({ error: 'Failed to load moments' }); }
@@ -663,8 +665,9 @@ app.post('/moments', requireAuth, async (req, res) => {
   try {
     // Check duplicate — same song + within 10s of existing stamp
     const existing = await Moment.findOne({
-      userId: req.user.id, videoId,
-      timestamp: { $gte: timestamp - 10, $lte: timestamp + 10 }
+      userId: req.user.id,
+      videoId,
+      timestamp: { $gte: Number(timestamp) - 10, $lte: Number(timestamp) + 10 }
     });
     if (existing) return res.status(409).json({ error: 'Already stamped this moment' });
     await Moment.create({ userId: req.user.id, videoId, title, timestamp, roomId: roomId || '', note: note || '' });
@@ -675,7 +678,10 @@ app.post('/moments', requireAuth, async (req, res) => {
 
 app.delete('/moments/:videoId', requireAuth, async (req, res) => {
   try {
-    await Moment.deleteMany({ userId: req.user.id, videoId: req.params.videoId });
+    const { stampedAt } = req.query;
+    const query = { userId: req.user.id, videoId: req.params.videoId };
+    if (stampedAt) query.stampedAt = Number(stampedAt);
+    await Moment.deleteMany(query);
     res.json({ success: true });
   } catch (e) { res.status(500).json({ error: 'Failed to delete moment' }); }
 });
