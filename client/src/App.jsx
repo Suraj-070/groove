@@ -179,7 +179,7 @@ function App() {
   const [streakData, setStreakData]           = useState(null)
   const [streakToast, setStreakToast]         = useState(null)
   const [lastMessage, setLastMessage]         = useState(null)
-  const [radioMode, setRadioMode]             = useState(false)
+  const [radioMode, setRadioMode]             = useState(() => localStorage.getItem('groove_radio') === 'true')
   const [radioLoading, setRadioLoading]       = useState(false)
   const [theme, setTheme]             = useState(() => localStorage.getItem('groove_theme') || 'violet')
   const [pushEnabled, setPushEnabled]   = useState(false)
@@ -252,6 +252,11 @@ function App() {
     return () => { window.removeEventListener('resize', onResize); clearTimeout(timer) }
   }, [])
   const isMobileView = windowWidth <= 768
+
+  // Persist radio mode
+  useEffect(() => {
+    localStorage.setItem('groove_radio', radioMode)
+  }, [radioMode])
 
   // Hide floating chat bubble when chat panel is open on mobile
   useEffect(() => {
@@ -1058,7 +1063,7 @@ function App() {
       )}
 
       {/* Chat overlay — floats over everything on both desktop and mobile */}
-      <Chat socket={socket} roomId={roomId} username={user?.username} isOpen={chatOpen} onClose={() => setChatOpen(false)} currentSong={currentSong} chatHistory={chatHistory} />
+      <Chat socket={socket} roomId={roomId} username={user?.username} isOpen={chatOpen} onClose={() => setChatOpen(false)} currentSong={currentSong} chatHistory={chatHistory} users={users} />
       {showRecap && recap && (
         <SessionDNACard recap={recap} onClose={() => setShowRecap(false)} />
       )}

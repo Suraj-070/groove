@@ -1680,6 +1680,11 @@ io.on('connection', (socket) => {
     socket.to(roomId).emit('sync-check', { time });
   });
 
+  socket.on('chat-edit', ({ roomId, msgId, text }) => {
+    // Broadcast edit to all users in room
+    io.to(roomId).emit('chat-edit', { msgId, text })
+  })
+
   socket.on('chat-msg', ({ roomId, msg }) => {
     const stamped = { ...msg, ts: Date.now(), type: 'msg' };
     socket.to(roomId).emit('chat-msg', stamped);

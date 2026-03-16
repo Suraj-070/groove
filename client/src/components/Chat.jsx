@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, memo } from 'react'
+import { useState, useMemo, useEffect, useRef, useCallback, memo } from 'react'
 import EmojiPicker from './EmojiPicker'
 
 // ── Unique user colors derived from username ──────────────────────────────────
@@ -48,17 +48,17 @@ const NowPlayingDivider = memo(({ msg }) => (
   </div>
 ))
 
-const ChatBubble = memo(({ msg, isSelf, showAvatar }) => {
+const ChatBubble = memo(({ msg, isSelf, showAvatar, avatarSrc, onEdit, isEditing, editText, onEditChange, onEditSave, onEditCancel }) => {
   const color = userColor(msg.username)
   return (
     <div className={`chat-row ${isSelf ? 'chat-row--self' : 'chat-row--other'}`}>
-      {/* Avatar — only shown on first message in a group */}
+      {/* Avatar col — other users only */}
       {!isSelf && (
         <div className="chat-avatar-col">
           {showAvatar ? (
-            <div className="chat-avatar" style={{ background: color }}>
-              {userInitial(msg.username)}
-            </div>
+            avatarSrc
+              ? <img src={avatarSrc} alt="" className="chat-avatar chat-avatar--img" />
+              : <div className="chat-avatar" style={{ background: color }}>{userInitial(msg.username)}</div>
           ) : (
             <div className="chat-avatar-spacer" />
           )}
@@ -69,9 +69,34 @@ const ChatBubble = memo(({ msg, isSelf, showAvatar }) => {
         {!isSelf && showAvatar && (
           <span className="chat-name" style={{ color }}>{msg.username}</span>
         )}
-        <div className={`chat-bubble ${isSelf ? 'chat-bubble--self' : 'chat-bubble--other'}`}>
-          <span className="chat-bubble-text">{msg.text}</span>
-        </div>
+
+        {isEditing ? (
+          <div className="chat-edit-wrap">
+            <input
+              className="chat-edit-input"
+              value={editText}
+              onChange={e => onEditChange(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter') onEditSave()
+                if (e.key === 'Escape') onEditCancel()
+              }}
+              autoFocus
+            />
+            <div className="chat-edit-actions">
+              <button onClick={onEditSave}>Save</button>
+              <button onClick={onEditCancel}>Cancel</button>
+            </div>
+          </div>
+        ) : (
+          <div
+            className={`chat-bubble ${isSelf ? 'chat-bubble--self' : 'chat-bubble--other'}`}
+            onDoubleClick={isSelf ? onEdit : undefined}
+            title={isSelf ? 'Double-click to edit' : ''}
+          >
+            <span className="chat-bubble-text">{msg.text}</span>
+            {msg.edited && <span className="chat-edited">(edited)</span>}
+          </div>
+        )}
         <span className="chat-ts" title={msg.ts ? new Date(msg.ts).toUTCString() : ''}>{formatTs(msg.ts)}</span>
       </div>
     </div>
@@ -105,7 +130,7 @@ const ScrollBtn = memo(({ count, onClick }) => (
 ))
 
 // ── Main Chat component ───────────────────────────────────────────────────────
-export default function Chat({ socket, roomId, username, isOpen, onClose, currentSong, chatHistory = [] }) {
+export default function Chat({ socket, roomId, username, isOpen, onClose, currentSong, chatHistory = [], users = [] }) {
   const [messages, setMessages]   = useState([])
   const [input, setInput]         = useState('')
   const [showPicker, setShowPicker] = useState(false)
@@ -163,11 +188,15 @@ export default function Chat({ socket, roomId, username, isOpen, onClose, curren
     }
     socket.on('chat-msg',      handleMsg)
     socket.on('chat-msg-echo', handleEcho)
+    socket.on('chat-edit', ({ msgId, text }) => {
+      setMessages(prev => prev.map(m => m.id === msgId ? { ...m, text, edited: true } : m))
+    })
     socket.on('chat-system',   handleSystem)
     socket.on('user-typing',   handleTyping)
     return () => {
       socket.off('chat-msg',      handleMsg)
       socket.off('chat-msg-echo', handleEcho)
+      socket.off('chat-edit')
       socket.off('chat-system',   handleSystem)
       socket.off('user-typing',   handleTyping)
     }
