@@ -81,6 +81,13 @@ function BeatBorder({ isPlaying, bpm }) {
     resize()
     const ro = new ResizeObserver(resize); ro.observe(canvas)
 
+    // Pause RAF when tab hidden — saves battery
+    const onVisibility = () => {
+      if (document.hidden) { cancelAnimationFrame(animRef.current) }
+      else { animRef.current = requestAnimationFrame(frame) }
+    }
+    document.addEventListener('visibilitychange', onVisibility)
+
     const frame = () => {
       const W = canvas.width, H = canvas.height
       const playing = isPlayingRef.current
@@ -146,7 +153,11 @@ function BeatBorder({ isPlaying, bpm }) {
       animRef.current = requestAnimationFrame(frame)
     }
     animRef.current = requestAnimationFrame(frame)
-    return () => { cancelAnimationFrame(animRef.current); ro.disconnect() }
+    return () => {
+      cancelAnimationFrame(animRef.current)
+      ro.disconnect()
+      document.removeEventListener('visibilitychange', onVisibility)
+    }
   }, [])
 
   return (
@@ -187,6 +198,8 @@ export default function Player({ socket, roomId, videoId, title, onEnded, onSkip
   const [bpmLoading, setBpmLoading] = useState(false)
   const [stamped, setStamped]       = useState(false)
   const [stampAnim, setStampAnim]   = useState(false)
+  const [stampDiscover, setStampDiscover] = useState(false)
+  const hasDiscoveredStamp = useRef(false)
 
   const onEndedRef = useRef(onEnded)
   useEffect(() => { onEndedRef.current = onEnded }, [onEnded])
@@ -614,7 +627,7 @@ export default function Player({ socket, roomId, videoId, title, onEnded, onSkip
       {videoId && (
         <div className="player-action-row">
           <button
-            className={`player-action-btn stamp-btn-compact ${stamped ? 'stamped' : ''} ${stampAnim ? 'stamp-anim' : ''}`}
+            className={`player-action-btn stamp-btn-compact ${stamped ? 'stamped' : ''} ${stampAnim ? 'stamp-anim' : ''} ${stampDiscover ? 'stamp-btn-compact--discover' : ''}`}
             onClick={handleStamp}
             title={stamped ? 'Moment stamped!' : `Stamp at ${formatTime(currentTime)}`}
           >

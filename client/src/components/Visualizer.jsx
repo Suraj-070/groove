@@ -206,7 +206,18 @@ function VisualizerCanvas({ isPlaying, partyMode }) {
     }
 
     raf = requestAnimationFrame(loop)
-    return () => { cancelAnimationFrame(raf); window.removeEventListener('resize', setSize) }
+
+    const onVisibility = () => {
+      if (document.hidden) cancelAnimationFrame(raf)
+      else raf = requestAnimationFrame(loop)
+    }
+    document.addEventListener('visibilitychange', onVisibility)
+
+    return () => {
+      cancelAnimationFrame(raf)
+      window.removeEventListener('resize', setSize)
+      document.removeEventListener('visibilitychange', onVisibility)
+    }
   }, [])
 
   return (

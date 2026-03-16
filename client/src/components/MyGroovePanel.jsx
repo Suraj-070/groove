@@ -49,37 +49,17 @@ export default function MyGroovePanel({ isOpen, onClose, initialTab = 'radar', o
 
         {/* Content — each tab renders its own panel inline */}
         <div className="mg-content">
-          {tab === 'radar' && (
-            <GrooveRadar
-              isOpen={true}
-              onClose={() => {}}
-              onAddToQueue={onAddToQueue}
-              inline
-            />
-          )}
-          {tab === 'fingerprint' && (
-            <TasteFingerprint isOpen={true} onClose={() => {}} inline />
-          )}
-          {tab === 'history' && (
-            <HistoryPanel
-              isOpen={true}
-              onClose={() => {}}
-              onAddToQueue={onAddToQueue}
-              roomId={roomId}
-              inline
-            />
-          )}
-          {tab === 'wrapped' && (
-            <WeeklyWrapped isOpen={true} onClose={() => {}} inline />
-          )}
-          {tab === 'timemachine' && (
-            <TimeMachine
-              isOpen={true}
-              onClose={() => {}}
-              onLoadSession={onLoadSession}
-              inline
-            />
-          )}
+          {/* Lazy mount — only render active tab, unmount others to prevent API spam */}
+          {tab === 'radar' &&
+            <GrooveRadar isOpen={true} onClose={() => {}} onAddToQueue={onAddToQueue} inline />}
+          {tab === 'fingerprint' &&
+            <TasteFingerprint isOpen={true} onClose={() => {}} inline />}
+          {tab === 'history' &&
+            <HistoryPanel isOpen={true} onClose={() => {}} onAddToQueue={onAddToQueue} roomId={roomId} inline />}
+          {tab === 'wrapped' &&
+            <WeeklyWrapped isOpen={true} onClose={() => {}} inline />}
+          {tab === 'timemachine' &&
+            <TimeMachine isOpen={true} onClose={() => {}} onLoadSession={onLoadSession} inline />}
         </div>
       </div>
     </div>

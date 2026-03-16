@@ -140,6 +140,7 @@ export default function ReactionBurst({ socket, roomId, username }) {
     }
     if (spamCountRef.current > SPAM_LIMIT) return
     spawnBurst(emoji, username, true)
+    try { navigator.vibrate?.(8) } catch {}
     socket.emit('reaction', { roomId, emoji, username })
     setRecentEmojis(prev => [emoji, ...prev.filter(e => e !== emoji)].slice(0, 8))
   }, [socket, roomId, username, spawnBurst])

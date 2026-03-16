@@ -194,6 +194,7 @@ function App() {
   const [libraryOpen, setLibraryOpen] = useState(false)
   const [isPlaying, setIsPlaying] = useState(false)
   const [queueCollapsed, setQueueCollapsed] = useState(false)
+  const haptic = (ms = 10) => { try { navigator.vibrate?.(ms) } catch {} }
   const [partyMode, setPartyMode] = useState(false)
   const [mobileTab, setMobileTab] = useState('player')
   const [profileOpen, setProfileOpen] = useState(false)
@@ -350,7 +351,7 @@ function App() {
       if (e.code === 'Space') {
         e.preventDefault()
         if (isLocked) return
-        socket.emit(isPlaying ? 'pause' : 'play', { roomId, time: 0 })
+        haptic(); socket.emit(isPlaying ? 'pause' : 'play', { roomId, time: 0 })
         setIsPlaying(p => !p); return
       }
       if (e.key === 'ArrowRight') {
@@ -916,6 +917,7 @@ function App() {
             loop={loop}
             onToggleLoop={() => setLoop(p => !p)}
             onShuffle={() => socket.emit('shuffle-queue', { roomId })}
+            isVisible={!isMobileView || mobileTab === 'queue'}
           />
           <UserList users={users} currentUser={socket.id} djId={djId} isDJ={isDJ} onTransferDJ={handleTransferDJ} />
         </div>

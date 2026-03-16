@@ -147,7 +147,7 @@ export default function Queue({
   queue = [], currentIndex = 0,
   onAddSong, onSelectSong, onRemoveSong, onNext, onPrev,
   socket, roomId, username,
-  loop, onToggleLoop,
+  loop, onToggleLoop, isVisible = true,
 }) {
   // Detect mobile once — no listener needed, doesn't change during session
   const isMobile = window.innerWidth <= 768
@@ -289,7 +289,7 @@ export default function Queue({
 
   // Fetch flow scores when queue changes
   useEffect(() => {
-    if (queue.length < 2) { setFlowScores({}); return }
+    if (queue.length < 2 || !isVisible) { setFlowScores({}); return }
     const fetchFlows = async () => {
       try {
         const res = await fetch(`${BACKEND}/flow-scores`, {
