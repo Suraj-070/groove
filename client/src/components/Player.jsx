@@ -109,12 +109,9 @@ function BeatBorder({ isPlaying, bpm }) {
 
       ctx.clearRect(0, 0, W, H)
 
-      // Idle glow when not playing
+      // Not playing — clear canvas and wait, no idle glow
       if (!playing && beat < 0.01) {
-        const a = 0.3 + Math.sin(time * 0.8) * 0.15
-        ctx.strokeStyle = `rgba(124,106,255,${a})`
-        ctx.lineWidth = 2; ctx.shadowColor = '#7c6aff'; ctx.shadowBlur = 8
-        ctx.beginPath(); ctx.roundRect(1, 1, W-2, H-2, r); ctx.stroke()
+        ctx.clearRect(0, 0, W, H)
         animRef.current = requestAnimationFrame(frame); return
       }
 

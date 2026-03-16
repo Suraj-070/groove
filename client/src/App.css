@@ -3685,7 +3685,7 @@ body {
   /* Mobile header right — only room pill + profile */
   .header-tools { display: none !important; }
   .dj-toggle-btn { display: none !important; }
-  .recap-btn, .chat-toggle-btn, .party-btn { display: none !important; }
+  .recap-btn, .chat-toggle-btn, .party-btn, .party-tool-btn { display: none !important; }
 
   /* Mobile room badge — live pill style */
   .room-badge {

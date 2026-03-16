@@ -766,7 +766,7 @@ function App() {
 
           {/* Session tools — desktop only */}
           <div className="header-tools">
-            {!isMobileView && <button className={`tool-btn ${partyMode ? 'active' : ''}`} onClick={() => setPartyMode(p => !p)} title="Party Mode">🎊</button>}
+            <button className={`tool-btn party-tool-btn ${partyMode ? 'active' : ''}`} onClick={() => setPartyMode(p => !p)} title="Party Mode">🎊</button>
             {currentSong && (
               <button className={`tool-btn ${videoOpen ? 'active' : ''}`} onClick={() => setVideoOpen(p => !p)} title="Watch video">
                 <svg viewBox="0 0 24 24" fill="currentColor" width="15" height="15">
@@ -867,14 +867,14 @@ function App() {
                       <button className="pd-quick" onClick={() => { handleCopyInvite(); setProfileOpen(false) }} title="Invite">
                         <span>🔗</span><span>Invite</span>
                       </button>
+                      <button className="pd-quick" onClick={() => { setLibraryOpen(true); setProfileOpen(false) }} title="Library">
+                        <span>📚</span><span>Library</span>
+                      </button>
                       <button className="pd-quick" onClick={() => { handleGetRecap(); setProfileOpen(false) }} title="Recap">
                         <span>📊</span><span>Recap</span>
                       </button>
                       <button className="pd-quick" onClick={() => { setHistoryOpen(true); setProfileOpen(false) }} title="History">
                         <span>🕐</span><span>History</span>
-                      </button>
-                      <button className="pd-quick" onClick={() => { setChemistryOpen(true); setProfileOpen(false) }} title="Chemistry">
-                        <span>💜</span><span>Chemistry</span>
                       </button>
                     </div>
 
