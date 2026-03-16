@@ -351,11 +351,6 @@ function App() {
     return () => window.removeEventListener('keydown', handler)
   }, []) // empty deps — handler reads from ref, never re-registers
 
-  const handlePrev = () => {
-    const prev = currentIndex - 1
-    if (prev >= 0) handleLoadSong(prev)
-  }
-
   // ── Auth ─────────────────────────────────────────────────
   useEffect(() => {
     const initAuth = async () => {
@@ -489,11 +484,17 @@ function App() {
     socket.emit('load-song', { roomId, index })
   }
 
+  const handlePrev = () => {
+    const prev = currentIndex - 1
+    if (prev >= 0) handleLoadSong(prev)
+  }
+
   const handleRemoveSong = (index) => {
     socket.emit('remove-song', { roomId, index })
   }
 
   // Smart Radio Mode — use ref to avoid circular dependency with handleNext
+  const handleNextRef   = useRef(null)
   const triggerRadioRef = useRef(null)
   const triggerRadio = useCallback(async () => {
     if (!radioMode || radioLoading || !currentSong) return
@@ -515,7 +516,7 @@ function App() {
     finally { setRadioLoading(false) }
   }, [radioMode, radioLoading, currentSong, queue, roomId, socket])
 
-  // Keep ref always up to date
+  // Keep triggerRadio ref up to date
   useEffect(() => { triggerRadioRef.current = triggerRadio }, [triggerRadio])
 
   const handleNext = useCallback(() => {
@@ -531,6 +532,9 @@ function App() {
       triggerRadioRef.current?.()
     }
   }, [djMode, isDJ, loop, currentIndex, queue.length, radioMode])
+
+  // Sync handleNext ref AFTER it's declared — used by early handlers
+  useEffect(() => { handleNextRef.current = handleNext }, [handleNext])
 
   const handleToggleDJMode = () => {
     socket.emit('toggle-dj-mode', { roomId })
