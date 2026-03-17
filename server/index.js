@@ -1729,6 +1729,14 @@ io.on('connection', (socket) => {
     }
   })
 
+  socket.on('chat-pin', ({ roomId, msg }) => {
+    io.to(roomId).emit('chat-pin', { msg })
+  })
+
+  socket.on('chat-unpin', ({ roomId }) => {
+    io.to(roomId).emit('chat-unpin')
+  })
+
   socket.on('chat-read', ({ roomId, msgId }) => {
     // Notify the sender their message was read
     socket.to(roomId).emit('chat-read', { msgId })

@@ -654,16 +654,27 @@ function App() {
     socket.on('play', () => setIsPlaying(true))
     socket.on('pause', () => setIsPlaying(false))
     socket.on('queue-full', ({ limit }) => {
-      alert(`Queue is full (${limit} songs max). Remove some songs before adding more.`)
+      showToast?.(`⚠️ Queue is full (${limit} songs max)`)
     })
     socket.on('queue-limit-reached', ({ added, skipped, limit }) => {
-      alert(`Added ${added} songs. ${skipped} songs were skipped — queue limit of ${limit} reached.\nRemove some songs and paste the playlist link again to continue importing.`)
+      showToast?.(`✅ Added ${added} songs · ${skipped} skipped (queue limit)`)
     })
     return () => {
-      socket.off('room-state'); socket.off('queue-updated'); socket.off('load-song')
-      socket.off('user-joined'); socket.off('user-left')
-      socket.off('dj-mode-changed'); socket.off('recap-data')
-      socket.off('play'); socket.off('pause')
+      socket.off('room-state')
+      socket.off('queue-updated')
+      socket.off('load-song')
+      socket.off('user-joined')
+      socket.off('user-left')
+      socket.off('dj-mode-changed')
+      socket.off('recap-data')
+      socket.off('play')
+      socket.off('pause')
+      socket.off('streak-update')
+      socket.off('streak-milestone')
+      socket.off('dj-transferred')
+      socket.off('queue-full')
+      socket.off('queue-limit-reached')
+      socket.off('connect')
     }
   }, [])
 
@@ -929,7 +940,12 @@ function App() {
             onVolumeChange={setVolume}
             loop={loop}
             onToggleLoop={() => setLoop(p => !p)}
-            onShuffle={() => socket.emit('shuffle-queue', { roomId })}
+            onShuffle={() => {
+              const q = [...queue]
+              const before = q.slice(0, currentIndex + 1)
+              const after = q.slice(currentIndex + 1).sort(() => Math.random() - 0.5)
+              socket.emit('reorder-queue', { roomId, queue: [...before, ...after] })
+            }}
             isVisible={!isMobileView || mobileTab === 'queue'}
           />
           <UserList users={users} currentUser={socket.id} djId={djId} isDJ={isDJ} onTransferDJ={handleTransferDJ} />
@@ -994,8 +1010,8 @@ function App() {
           title={currentSong.title}
           videoId={currentSong.videoId}
           isPlaying={isPlaying}
-          onPlay={() => { socket.emit('play', { roomId, time: 0 }); setIsPlaying(true) }}
-          onPause={() => { socket.emit('pause', { roomId, time: 0 }); setIsPlaying(false) }}
+          onPlay={() => { const t = playerRef.current?.getCurrentTime?.() || 0; socket.emit('play', { roomId, time: t }); setIsPlaying(true) }}
+          onPause={() => { const t = playerRef.current?.getCurrentTime?.() || 0; socket.emit('pause', { roomId, time: t }); setIsPlaying(false) }}
           onSkip={handleNext}
           onOpen={() => setMobileTab('player')}
         />
@@ -1063,7 +1079,14 @@ function App() {
       )}
 
       {/* Chat overlay — floats over everything on both desktop and mobile */}
-      <Chat socket={socket} roomId={roomId} username={user?.username} userAvatar={user?.avatar} isOpen={chatOpen} onClose={() => setChatOpen(false)} currentSong={currentSong} chatHistory={chatHistory} users={users} />
+      <Chat
+        socket={socket} roomId={roomId}
+        username={user?.username} userAvatar={user?.avatar}
+        isOpen={chatOpen} onClose={() => setChatOpen(false)}
+        currentSong={currentSong} chatHistory={chatHistory}
+        users={users} isDJ={isDJ}
+        onAddSongToQueue={(msg) => socket.emit('add-song', { roomId, videoId: msg.videoId, title: msg.text, addedBy: msg.username })}
+      />
       {showRecap && recap && (
         <SessionDNACard recap={recap} onClose={() => setShowRecap(false)} />
       )}
