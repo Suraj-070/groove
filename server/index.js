@@ -101,23 +101,28 @@ const Room = mongoose.models.Room || mongoose.model('Room', roomSchema);
 
 // ─── CHAT MESSAGE SCHEMA ──────────────────────────────────────
 const messageSchema = new mongoose.Schema({
-  roomId:   { type: String, required: true, index: true },
-  id:       { type: String, required: true },
-  username: { type: String, required: true },
-  text:     { type: String, required: true },
-  ts:       { type: Number, required: true },
-  type:     { type: String, default: 'msg' },
-  avatar:   { type: String, default: null },
-  edited:   { type: Boolean, default: false },
-  replyTo:  { type: mongoose.Schema.Types.Mixed, default: null },
-  reactions:{ type: mongoose.Schema.Types.Mixed, default: {} },
-  status:   { type: String, default: 'sent' }
-}, { _id: false });
+  roomId:    { type: String, required: true, index: true },
+  id:        { type: String, required: true },
+  username:  { type: String, default: 'system' },
+  text:      { type: String, default: '' },
+  ts:        { type: Number, required: true },
+  type:      { type: String, default: 'msg' },
+  avatar:    { type: String, default: null },
+  edited:    { type: Boolean, default: false },
+  replyTo:   { type: mongoose.Schema.Types.Mixed, default: null },
+  reactions: { type: mongoose.Schema.Types.Mixed, default: {} },
+  status:    { type: String, default: 'sent' },
+  createdAt: { type: Date, default: Date.now }   // TTL uses this
+});
 
-// TTL index: messages auto-delete after 24 hours
-messageSchema.index({ ts: 1 }, { expireAfterSeconds: 60 * 60 * 24 });
+// TTL index on createdAt — auto-delete after 24 hours
+messageSchema.index({ createdAt: 1 }, { expireAfterSeconds: 60 * 60 * 24 });
+// Index for fast room queries
+messageSchema.index({ roomId: 1, ts: 1 });
 
-const Message = mongoose.models.Message || mongoose.model('Message', messageSchema);
+// Force fresh model — never use cached version with old schema
+if (mongoose.models.Message) delete mongoose.models.Message;
+const Message = mongoose.model('Message', messageSchema);
 
 // ─── PUSH SUBSCRIPTION SCHEMA ────────────────────────────────
 const pushSubSchema = new mongoose.Schema({
@@ -489,11 +494,11 @@ const memMessages = {}; // { roomId: [msg, ...] }
 async function getMessages(roomId) {
   if (!MONGO_URI) return memMessages[roomId] || [];
   try {
-    const since = Date.now() - (24 * 60 * 60 * 1000)
-    return await Message.find({ roomId, ts: { $gte: since } }, { _id: 0, roomId: 0, __v: 0 })
-      .sort({ ts: 1 })
-      .limit(100)
-      .lean();
+    const since = new Date(Date.now() - 24 * 60 * 60 * 1000)
+    return await Message.find(
+      { roomId, createdAt: { $gte: since } },
+      { roomId: 0, __v: 0 }
+    ).sort({ ts: 1 }).limit(200).lean();
   } catch (e) {
     console.error('getMessages error:', e.message);
     return memMessages[roomId] || [];
@@ -507,11 +512,13 @@ async function saveMessage(roomId, msg) {
   // Keep only last 100 in memory
   if (memMessages[roomId].length > 100) memMessages[roomId].shift();
 
-  if (!MONGO_URI) return;
+  // Only persist real chat messages — not system/np dividers
+  if (!MONGO_URI || msg.type !== 'msg') return;
   try {
-    await Message.create({ roomId, ...msg });
+    await Message.create({ roomId, ...msg, createdAt: new Date() });
+    console.log('[Chat] Saved message from', msg.username, 'in room', roomId);
   } catch (e) {
-    console.error('saveMessage error:', e.message);
+    console.error('[Chat] saveMessage error:', e.message);
   }
 }
 
