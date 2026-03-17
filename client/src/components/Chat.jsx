@@ -148,7 +148,7 @@ const NowPlayingDivider = memo(({ msg }) => (
 
 // ── Chat Bubble ───────────────────────────────────────────
 const ChatBubble = memo(({
-  msg, isSelf, showAvatar, avatarSrc,
+  msg, isSelf, showAvatar, showName, avatarSrc,
   onReact, onReply,
   onEdit, isEditing, editText, onEditChange, onEditSave, onEditCancel,
   replyMsg,
@@ -202,7 +202,7 @@ const ChatBubble = memo(({
         onTouchEnd={onTouchEnd}
         style={{ transition: 'transform 0.2s' }}
       >
-        {!isSelf && showAvatar && <span className="chat-name" style={{ color }}>{msg.username}</span>}
+        {!isSelf && showName && <span className="chat-name" style={{ color }}>{msg.username}</span>}
 
         {/* Reply quote */}
         {msg.replyTo && <ReplyQuote reply={msg.replyTo} />}
@@ -499,8 +499,11 @@ export default function Chat({ socket, roomId, username, userAvatar, isOpen, onC
             </span>
           )}
         </div>
-        <button className="chat-close" onClick={onClose}>
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+        <button className="chat-close" onClick={onClose} aria-label="Close chat">
+          {window.innerWidth <= 768
+            ? <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+            : <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+          }
         </button>
       </div>
 
@@ -517,13 +520,16 @@ export default function Chat({ socket, roomId, username, userAvatar, isOpen, onC
           if (msg.type === 'system') return <SystemMsg key={msg.id} msg={msg} />
           if (msg.type === 'np')     return <NowPlayingDivider key={msg.id} msg={msg} />
           const prev = messages[i - 1]
-          const showAvatar = !prev || prev.type !== 'msg' || prev.username !== msg.username
+          const next = messages[i + 1]
+          const isFirstInGroup = !prev || prev.type !== 'msg' || prev.username !== msg.username
+          const isLastInGroup  = !next || next.type !== 'msg' || next.username !== msg.username
           return (
             <ChatBubble
               key={msg.id}
               msg={msg}
               isSelf={!!msg.self}
-              showAvatar={showAvatar}
+              showAvatar={isLastInGroup}
+              showName={isFirstInGroup}
               avatarSrc={msg.avatar || avatarMap[msg.username]}
               onReact={handleReact}
               onReply={setReplyTo}
