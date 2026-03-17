@@ -9908,3 +9908,46 @@ body.chat-is-open .fcb-bubble { opacity: 0; pointer-events: none; }
   color: var(--muted); letter-spacing: 0.05em;
 }
 .chat-gif-btn.active .chat-gif-label { color: var(--accent); }
+
+/* ── Floating chat bubble — desktop overrides ───────────── */
+@media (min-width: 769px) {
+  .fcb-bubble {
+    /* Fixed bottom-right on desktop — no drag */
+    position: fixed !important;
+    right: 20px !important;
+    bottom: 24px !important;
+    left: auto !important;
+    top: auto !important;
+    width: 52px !important;
+    height: 52px !important;
+    border-radius: 50% !important;
+    background: linear-gradient(135deg, #7c6aff, #ff6a8a) !important;
+    box-shadow: 0 4px 20px rgba(124,106,255,0.5) !important;
+    cursor: pointer !important;
+    z-index: 180 !important; /* below chat panel (200) so it hides when chat opens */
+    transition: transform 0.2s, box-shadow 0.2s !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+  .fcb-bubble:hover {
+    transform: scale(1.1) !important;
+    box-shadow: 0 8px 28px rgba(124,106,255,0.65) !important;
+  }
+  .fcb-bubble.fcb-open {
+    /* Hide when chat panel is open on desktop */
+    opacity: 0 !important;
+    pointer-events: none !important;
+    transform: scale(0.8) !important;
+  }
+  /* Preview pill — shows to the left of the bubble on desktop */
+  .fcb-preview {
+    right: calc(100% + 10px) !important;
+    left: auto !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    bottom: auto !important;
+    white-space: nowrap !important;
+    max-width: 220px !important;
+  }
+}

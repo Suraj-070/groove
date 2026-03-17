@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 import data from '@emoji-mart/data'
-import { Picker } from '@emoji-mart/react'
+import Picker from '@emoji-mart/react'
 
 export default function EmojiPicker({ onSelect, onClose }) {
   const ref = useRef(null)
