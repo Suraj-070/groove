@@ -212,14 +212,24 @@ export default function ReactionBurst({ socket, roomId, username }) {
                   key={i}
                   className="reaction-quick-btn"
                   onMouseDown={(e) => { e.preventDefault(); startHold(emoji) }}
+                  onMouseUp={() => { clearTimeout(holdTimerRef.current); clearInterval(spamIntervalRef.current); isHoldingRef.current = false; if (!isHoldingRef.current) sendReaction(emoji) }}
+                  onMouseLeave={() => { clearTimeout(holdTimerRef.current); clearInterval(spamIntervalRef.current); isHoldingRef.current = false }}
                   onTouchStart={(e) => { e.preventDefault(); startHold(emoji) }}
+                  onTouchEnd={(e) => { e.preventDefault(); clearTimeout(holdTimerRef.current); clearInterval(spamIntervalRef.current); if (!isHoldingRef.current) sendReaction(emoji); isHoldingRef.current = false }}
+                  onTouchCancel={() => { clearTimeout(holdTimerRef.current); clearInterval(spamIntervalRef.current); isHoldingRef.current = false }}
                 >
                   {emoji}
                 </button>
               ))}
             </div>
-            {/* Full picker — category tabs + grid */}
-            <EmojiPicker onSelect={sendReaction} onClose={() => setShowPicker(false)} />
+            {/* + button to add more emojis from full picker */}
+            <button
+              className="reaction-more-btn"
+              onTouchEnd={(e) => { e.preventDefault() }}
+              onClick={() => setShowFullPicker(p => !p)}
+            >+</button>
+            {/* Full picker */}
+            {showFullPicker && <EmojiPicker onSelect={(e) => { sendReaction(e); setShowFullPicker(false) }} onClose={() => setShowFullPicker(false)} />}
           </div>
         )}
       </div>

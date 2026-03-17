@@ -137,8 +137,9 @@ const ReplyQuote = memo(({ reply }) => {
   )
 })
 
-const ReactionPills = memo(({ reactions = {}, onReact, isSelf }) => {
+const ReactionPills = memo(({ reactions = {}, onReact, isSelf, onAddReact }) => {
   const entries = Object.entries(reactions).filter(([, v]) => v.count > 0)
+  const [showAdd, setShowAdd] = useState(false)
   if (!entries.length) return null
   return (
     <div className={`chat-reactions ${isSelf ? 'chat-reactions--self' : ''}`}>
@@ -148,6 +149,18 @@ const ReactionPills = memo(({ reactions = {}, onReact, isSelf }) => {
           {emoji} <span>{count}</span>
         </button>
       ))}
+      {/* + button to add more reactions using the same EmojiPicker */}
+      <div style={{ position: 'relative', display: 'inline-flex' }}>
+        <button className="chat-reaction-add" onClick={() => setShowAdd(p => !p)} title="Add reaction">+</button>
+        {showAdd && (
+          <div className={`chat-reaction-add-picker ${isSelf ? 'chat-reaction-add-picker--self' : ''}`}>
+            <EmojiPicker
+              onSelect={(e) => { onReact(e); setShowAdd(false) }}
+              onClose={() => setShowAdd(false)}
+            />
+          </div>
+        )}
+      </div>
     </div>
   )
 })
@@ -197,22 +210,32 @@ const ChatBubble = memo(({
   const swipeStartX = useRef(null)
   const longPressTimer = useRef(null)
 
+  const touchMoved = useRef(false)
   const onTouchStart = (e) => {
+    touchMoved.current = false
     swipeStartX.current = e.touches[0].clientX
     longPressTimer.current = setTimeout(() => {
-      setShowContextMenu(true)
-      try { navigator.vibrate?.(10) } catch {}
-    }, 500)
+      if (!touchMoved.current) {
+        setShowContextMenu(true)
+        try { navigator.vibrate?.(12) } catch {}
+        swipeStartX.current = null
+      }
+    }, 600)
   }
   const onTouchEnd = (e) => {
     clearTimeout(longPressTimer.current)
     if (swipeStartX.current === null) return
-    const dx = e.changedTouches[0].clientX - swipeStartX.current
-    if (dx > 50 && !showContextMenu) { onReply(msg); try { navigator.vibrate?.(8) } catch {} }
+    if (!touchMoved.current) {
+      // tap — do nothing extra
+    } else {
+      const dx = e.changedTouches[0].clientX - swipeStartX.current
+      if (dx > 55) { onReply(msg); try { navigator.vibrate?.(8) } catch {} }
+    }
     swipeStartX.current = null
     if (swipeRef.current) swipeRef.current.style.transform = ''
   }
   const onTouchMove = (e) => {
+    touchMoved.current = true
     clearTimeout(longPressTimer.current)
     if (swipeStartX.current === null) return
     const dx = Math.max(0, e.touches[0].clientX - swipeStartX.current)
@@ -291,14 +314,16 @@ const ChatBubble = memo(({
 
         {/* Mobile context menu */}
         {showContextMenu && (
-          <div className={`chat-context-menu ${isSelf ? 'chat-context-menu--self' : ''}`}
-            onClick={() => setShowContextMenu(false)}>
-            <button onClick={() => onReply(msg)}>↩ Reply</button>
-            <button onClick={() => onCopy(msg.text)}>📋 Copy</button>
-            <button onClick={() => onForward(msg)}>➡️ Forward</button>
-            {isSelf && <button onClick={onEdit}>✏️ Edit</button>}
-            {canPin && <button onClick={() => onPin(msg)}>📌 Pin</button>}
-          </div>
+          <>
+            <div className="chat-context-overlay" onClick={() => setShowContextMenu(false)} />
+            <div className={`chat-context-menu ${isSelf ? 'chat-context-menu--self' : ''}`}>
+              <button onClick={() => { onReply(msg); setShowContextMenu(false) }}>↩ Reply</button>
+              <button onClick={() => { onCopy(msg.text); setShowContextMenu(false) }}>📋 Copy</button>
+              <button onClick={() => { onForward(msg); setShowContextMenu(false) }}>➡️ Forward</button>
+              {isSelf && <button onClick={() => { onEdit(); setShowContextMenu(false) }}>✏️ Edit</button>}
+              {canPin && <button onClick={() => { onPin(msg); setShowContextMenu(false) }}>📌 Pin</button>}
+            </div>
+          </>
         )}
 
         {/* Bubble */}
@@ -326,7 +351,7 @@ const ChatBubble = memo(({
         ))}
 
         {/* Reactions */}
-        <ReactionPills reactions={msg.reactions} onReact={e => onReact(msg.id, e)} isSelf={isSelf} />
+        <ReactionPills reactions={msg.reactions} onReact={e => onReact(msg.id, e)} isSelf={isSelf} onAddReact={e => onReact(msg.id, e)} />
 
         {/* Meta */}
         <div className="chat-meta">

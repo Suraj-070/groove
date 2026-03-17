@@ -9982,3 +9982,90 @@ body.chat-is-open .fcb-bubble { opacity: 0; pointer-events: none; }
     max-width: 220px !important;
   }
 }
+
+/* ── Reaction + add button ──────────────────────────────── */
+.chat-reaction-add {
+  width: 22px; height: 22px;
+  border-radius: 11px;
+  background: rgba(255,255,255,0.06);
+  border: 1px dashed rgba(255,255,255,0.2);
+  color: var(--muted); font-size: 0.85rem;
+  cursor: pointer; display: flex;
+  align-items: center; justify-content: center;
+  transition: all 0.15s; line-height: 1;
+  padding: 0;
+}
+.chat-reaction-add:hover {
+  background: rgba(124,106,255,0.15);
+  border-color: rgba(124,106,255,0.4);
+  color: var(--accent);
+}
+.chat-reaction-add-picker {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 0;
+  z-index: 50;
+  animation: slideUp 0.15s ease;
+}
+.chat-reaction-add-picker--self {
+  left: auto; right: 0;
+}
+
+/* ── Reaction more button in ReactionBurst ──────────────── */
+.reaction-more-btn {
+  width: 32px; height: 32px; border-radius: 50%;
+  background: rgba(255,255,255,0.08);
+  border: 1px dashed rgba(255,255,255,0.2);
+  color: var(--muted); font-size: 1.1rem;
+  cursor: pointer; display: flex;
+  align-items: center; justify-content: center;
+  transition: all 0.15s; margin-top: 4px;
+  align-self: center;
+}
+.reaction-more-btn:hover {
+  background: rgba(124,106,255,0.2);
+  color: var(--accent);
+  border-color: rgba(124,106,255,0.4);
+}
+
+/* ── GIF picker fixes ───────────────────────────────────── */
+.gif-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 4px;
+  padding: 4px;
+  overflow-y: auto;
+  max-height: 240px;
+}
+.gif-item {
+  border: none; padding: 0; cursor: pointer;
+  background: rgba(255,255,255,0.04);
+  border-radius: 8px; overflow: hidden;
+  aspect-ratio: 16/9;
+  transition: transform 0.15s, opacity 0.15s;
+}
+.gif-item:hover { transform: scale(1.03); opacity: 0.9; }
+.gif-item img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.gif-loading {
+  grid-column: 1/-1;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 8px; padding: 24px;
+  color: var(--muted); font-size: 0.78rem;
+}
+.gif-spinner {
+  width: 24px; height: 24px; border-radius: 50%;
+  border: 2px solid rgba(255,255,255,0.1);
+  border-top-color: var(--accent);
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.gif-error, .gif-empty {
+  grid-column: 1/-1;
+  text-align: center; padding: 20px;
+  color: var(--muted); font-size: 0.78rem;
+}
+.gif-powered {
+  text-align: center; font-size: 0.6rem;
+  color: var(--muted2); padding: 4px;
+}
