@@ -514,11 +514,28 @@ async function saveMessage(roomId, msg) {
 
   // Only persist real chat messages — not system/np dividers
   if (!MONGO_URI || msg.type !== 'msg') return;
-  try {
-    await Message.create({ roomId, ...msg, createdAt: new Date() });
-    console.log('[Chat] Saved message from', msg.username, 'in room', roomId);
-  } catch (e) {
-    console.error('[Chat] saveMessage error:', e.message);
+  
+  // Retry logic for database saves
+  const maxRetries = 3;
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      await Message.create({ roomId, ...msg, createdAt: new Date() });
+      console.log('[Chat] ✅ Saved message from', msg.username, 'in room', roomId);
+      return; // Success - exit function
+    } catch (e) {
+      console.error(`[Chat] ❌ saveMessage error (attempt ${attempt}/${maxRetries}):`, e.message);
+      if (attempt === maxRetries) {
+        console.error('[Chat] ⚠️  FAILED to persist message after', maxRetries, 'attempts:', {
+          msgId: msg.id,
+          username: msg.username,
+          roomId,
+          timestamp: msg.ts
+        });
+      } else {
+        // Wait before retry (exponential backoff: 100ms, 200ms, 400ms)
+        await new Promise(resolve => setTimeout(resolve, 100 * Math.pow(2, attempt - 1)));
+      }
+    }
   }
 }
 

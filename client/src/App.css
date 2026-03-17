@@ -9461,7 +9461,7 @@ body.chat-is-open .fcb-bubble { opacity: 0; pointer-events: none; }
   flex-shrink: 0;
 }
 .chat-reply-banner-content { flex: 1; min-width: 0; }
-.chat-reply-banner-name { display: block; font-size: 0.68rem; font-weight: 700; margin-bottom: 1px; }
+.chat-reply-banner-name { display: block; font-size: 0.68rem; font-weight: 700; margin-bottom: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 200px; }
 .chat-reply-banner-text { display: block; font-size: 0.72rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .chat-reply-banner-close {
   background: none; border: none; color: var(--muted2);
@@ -9801,6 +9801,17 @@ body.chat-is-open .fcb-bubble { opacity: 0; pointer-events: none; }
   animation: slideUp 0.15s ease;
 }
 .chat-emoji-wrap .ep-wrapper { width: 100%; }
+
+/* Overlay for click-away to close emoji/GIF pickers */
+.chat-picker-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 99;
+  background: transparent;
+}
 
 /* ═══════════════════════════════════════════════════════════
    GIF PICKER

@@ -34,6 +34,9 @@ function formatDateLabel(ts) {
   if (d.toDateString() === yesterday.toDateString()) return 'Yesterday'
   return d.toLocaleDateString([], { weekday: 'long', month: 'short', day: 'numeric' })
 }
+
+// Detect mobile once at module level
+const IS_MOBILE = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent) || window.innerWidth <= 768
 function parseText(text) {
   const urlRegex = /(https?:\/\/[^\s]+)/g
   const parts = []; let last = 0, m
@@ -219,8 +222,10 @@ const ChatBubble = memo(({
         setShowContextMenu(true)
         try { navigator.vibrate?.(12) } catch {}
         swipeStartX.current = null
+        // Reset swipe transform when context menu opens
+        if (swipeRef.current) swipeRef.current.style.transform = ''
       }
-    }, 600)
+    }, 850) // Increased from 600ms to 850ms to reduce conflict with swipe
   }
   const onTouchEnd = (e) => {
     clearTimeout(longPressTimer.current)
@@ -359,11 +364,6 @@ const ChatBubble = memo(({
           {isSelf && <StatusIcon status={msg.status || 'sent'} />}
         </div>
       </div>
-
-      {/* Overlay to close context menu */}
-      {showContextMenu && (
-        <div className="chat-context-overlay" onClick={() => setShowContextMenu(false)} />
-      )}
     </div>
   )
 })
@@ -413,7 +413,6 @@ export default function Chat({
   const prevSongRef   = useRef(null)
   const historySeeded = useRef(false)
   const unreadMarked  = useRef(false)
-  const IS_MOBILE     = window.innerWidth <= 768
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(''), 2000) }
 
@@ -541,13 +540,17 @@ export default function Chat({
     if (isOpen) setTimeout(() => inputRef.current?.focus(), 120)
   }, [isOpen])
 
-  // Virtual keyboard handler
+  // Virtual keyboard handler - always scroll to bottom on mobile when keyboard opens/closes
   useEffect(() => {
     if (!window.visualViewport) return
-    const fn = () => { if (atBottom && messagesRef.current) messagesRef.current.scrollTop = messagesRef.current.scrollHeight }
+    const fn = () => { 
+      if (messagesRef.current) {
+        messagesRef.current.scrollTop = messagesRef.current.scrollHeight 
+      }
+    }
     window.visualViewport.addEventListener('resize', fn)
     return () => window.visualViewport.removeEventListener('resize', fn)
-  }, [atBottom])
+  }, [])
 
   // Typing
   const handleInputChange = (e) => {
@@ -577,7 +580,11 @@ export default function Chat({
         socket.emit('chat-msg', { roomId, msg: songMsg })
         socket.emit('add-song', { roomId, videoId: vid, title: url, addedBy: username })
         setMessages(prev => [...prev, { ...songMsg, self: true }])
-        setInput(''); return
+        setInput('')
+        // Close pickers
+        setShowGifPicker(false)
+        setShowPicker(false)
+        return
       }
     }
 
@@ -593,6 +600,9 @@ export default function Chat({
     isTypingRef.current = false
     socket.emit('user-typing', { roomId, username, isTyping: false })
     setAtBottom(true); setNewCount(0)
+    // Close pickers
+    setShowGifPicker(false)
+    setShowPicker(false)
     setTimeout(() => messagesRef.current?.scrollTo({ top: messagesRef.current.scrollHeight, behavior: 'smooth' }), 30)
   }, [input, socket, roomId, username, userAvatar, replyTo])
 
@@ -652,6 +662,17 @@ export default function Chat({
     const q = searchQuery.toLowerCase()
     return messages.filter(m => m.type === 'msg' && m.text?.toLowerCase().includes(q))
   }, [messages, searchQuery])
+
+  // Auto-scroll to first search result
+  useEffect(() => {
+    if (searchQuery && displayMessages.length > 0 && messagesRef.current) {
+      const firstResult = displayMessages[0]
+      const el = messagesRef.current.querySelector(`[data-id="${firstResult.id}"]`)
+      if (el) {
+        setTimeout(() => el.scrollIntoView({ behavior: 'smooth', block: 'center' }), 100)
+      }
+    }
+  }, [searchQuery, displayMessages])
 
   // Insert date dividers
   const messagesWithDividers = useMemo(() => {
@@ -803,10 +824,13 @@ export default function Chat({
 
       {/* Emoji picker */}
       {showPicker && (
-        <div className="chat-emoji-wrap">
-          <EmojiPicker onSelect={e => { setInput(p => p + e); setShowPicker(false); inputRef.current?.focus() }}
-            onClose={() => setShowPicker(false)} />
-        </div>
+        <>
+          <div className="chat-picker-overlay" onClick={() => setShowPicker(false)} />
+          <div className="chat-emoji-wrap">
+            <EmojiPicker onSelect={e => { setInput(p => p + e); setShowPicker(false); inputRef.current?.focus() }}
+              onClose={() => setShowPicker(false)} />
+          </div>
+        </>
       )}
 
       {/* Reply banner */}
@@ -826,7 +850,15 @@ export default function Chat({
         <input ref={inputRef} type="text" className="chat-input"
           placeholder={replyTo ? `Reply to ${replyTo.username}…` : muted ? '🔕 Chat muted' : 'Say something… (/add URL)'}
           value={input} onChange={handleInputChange} maxLength={300}
-          onKeyDown={e => e.key === 'Enter' && !e.shiftKey && sendMessage()}
+          onKeyDown={e => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+              // Clear typing indicator immediately
+              clearTimeout(typingTimer.current)
+              isTypingRef.current = false
+              socket.emit('user-typing', { roomId, username, isTyping: false })
+              sendMessage()
+            }
+          }}
           disabled={muted} inputMode="text" autoComplete="off" autoCorrect="on" />
         <button className={`chat-send-btn ${input.trim() && !muted ? 'active' : ''}`}
           onClick={sendMessage} disabled={!input.trim() || muted}>
