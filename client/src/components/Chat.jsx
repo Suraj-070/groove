@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect, useRef, useCallback, memo } from 'react'
 import EmojiPicker from './EmojiPicker'
+import GifPicker from './GifPicker'
 
 // ── Helpers ───────────────────────────────────────────────
 const USER_COLORS = [
@@ -367,6 +368,7 @@ export default function Chat({
   const [editingId, setEditingId]   = useState(null)
   const [editText, setEditText]     = useState('')
   const [showPicker, setShowPicker] = useState(false)
+  const [showGifPicker, setShowGifPicker] = useState(false)
   const [typers, setTypers]         = useState([])
   const [atBottom, setAtBottom]     = useState(true)
   const [newCount, setNewCount]     = useState(0)
@@ -586,6 +588,20 @@ export default function Chat({
     navigator.clipboard.writeText(text).then(() => showToast('📋 Copied!'))
   }, [])
 
+  const handleGifSelect = useCallback((gif) => {
+    const msg = {
+      id: Date.now(), type: 'gif', username,
+      gif: gif.url, preview: gif.preview,
+      text: gif.title || 'GIF',
+      avatar: userAvatar || null, ts: Date.now(), status: 'sending',
+    }
+    socket.emit('chat-msg', { roomId, msg })
+    setMessages(prev => [...prev, { ...msg, self: true }])
+    setShowGifPicker(false)
+    setAtBottom(true)
+    setTimeout(() => messagesRef.current?.scrollTo({ top: messagesRef.current.scrollHeight, behavior: 'smooth' }), 30)
+  }, [socket, roomId, username, userAvatar])
+
   const handleForward = useCallback((msg) => {
     setForwardMsg(msg)
     navigator.clipboard.writeText(msg.text).then(() => showToast('✉️ Message copied to clipboard'))
@@ -692,6 +708,17 @@ export default function Chat({
           if (msg.type === 'np')     return <NowPlayingDivider key={msg.id} msg={msg} />
           if (msg.type === 'song')   return <SongCard key={msg.id} msg={msg} onAddToQueue={!msg.self ? onAddSongToQueue : null} />
           if (msg.type === 'stamp')  return <StampCard key={msg.id} msg={msg} />
+          if (msg.type === 'gif')    return (
+            <div key={msg.id} className={`chat-gif-row ${msg.self ? 'chat-gif-row--self' : ''}`} data-id={msg.id}>
+              {isFirstUnread && <UnreadDivider />}
+              <img src={msg.gif} alt={msg.text} className="chat-gif-img" loading="lazy"
+                onClick={() => window.open(msg.gif, '_blank')} />
+              <div className="chat-meta" style={{ padding: '0 14px 4px', justifyContent: msg.self ? 'flex-end' : 'flex-start' }}>
+                <span className="chat-ts">{formatTs(msg.ts)}</span>
+                {msg.self && <StatusIcon status={msg.status || 'sent'} />}
+              </div>
+            </div>
+          )
 
           const prevMsg = messagesWithDividers[i - 1]
           const nextMsg = messagesWithDividers[i + 1]
@@ -739,6 +766,16 @@ export default function Chat({
       {/* Toast */}
       {toast && <div className="chat-toast">{toast}</div>}
 
+      {/* GIF picker */}
+      {showGifPicker && (
+        <div className="chat-gif-wrap">
+          <GifPicker
+            onSelect={handleGifSelect}
+            onClose={() => setShowGifPicker(false)}
+          />
+        </div>
+      )}
+
       {/* Emoji picker */}
       {showPicker && (
         <div className="chat-emoji-wrap">
@@ -753,8 +790,13 @@ export default function Chat({
       {/* Input */}
       <div className="chat-input-row">
         <button className={`chat-emoji-btn ${showPicker ? 'active' : ''}`}
-          onClick={() => IS_MOBILE ? inputRef.current?.focus() : setShowPicker(p => !p)}>
+          onClick={() => { setShowGifPicker(false); IS_MOBILE ? inputRef.current?.focus() : setShowPicker(p => !p) }}>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm3.5-9c.83 0 1.5-.67 1.5-1.5S16.33 8 15.5 8 14 8.67 14 9.5s.67 1.5 1.5 1.5zm-7 0c.83 0 1.5-.67 1.5-1.5S9.33 8 8.5 8 7 8.67 7 9.5 7.67 11 8.5 11zm3.5 6.5c2.33 0 4.31-1.46 5.11-3.5H6.89c.8 2.04 2.78 3.5 5.11 3.5z"/></svg>
+        </button>
+        <button className={`chat-gif-btn ${showGifPicker ? 'active' : ''}`}
+          onClick={() => { setShowPicker(false); setShowGifPicker(p => !p) }}
+          title="Send a GIF">
+          <span className="chat-gif-label">GIF</span>
         </button>
         <input ref={inputRef} type="text" className="chat-input"
           placeholder={replyTo ? `Reply to ${replyTo.username}…` : muted ? '🔕 Chat muted' : 'Say something… (/add URL)'}

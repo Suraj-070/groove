@@ -9744,3 +9744,167 @@ body.chat-is-open .fcb-bubble { opacity: 0; pointer-events: none; }
   font-size: 0.72rem; color: var(--muted2);
   text-align: center; padding: 8px;
 }
+
+/* ═══════════════════════════════════════════════════════════
+   EMOJI-MART NATIVE PICKER
+   ═══════════════════════════════════════════════════════════ */
+.ep-wrapper {
+  position: relative;
+}
+.ep-wrapper em-emoji-picker,
+.ep-wrapper [data-ref="picker"] {
+  --border-radius: 16px !important;
+  --background-rgb: 18, 15, 30 !important;
+  --rgb-background: 18, 15, 30 !important;
+  --rgb-input: 255, 255, 255 !important;
+  --rgb-accent: 124, 106, 255 !important;
+  --rgb-color: 255, 255, 255 !important;
+  --color-border: rgba(255,255,255,0.08) !important;
+  --shadow: 0 16px 48px rgba(0,0,0,0.6) !important;
+  width: 100% !important;
+  max-width: 340px !important;
+}
+.chat-emoji-wrap {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 0;
+  z-index: 100;
+  animation: slideUp 0.15s ease;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   GIF PICKER
+   ═══════════════════════════════════════════════════════════ */
+.chat-gif-wrap {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 0;
+  right: 0;
+  z-index: 100;
+  animation: slideUp 0.15s ease;
+}
+.gif-picker {
+  background: #0e0c1a;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 16px 48px rgba(0,0,0,0.6);
+  display: flex; flex-direction: column;
+  height: 320px;
+}
+.gif-search-wrap {
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 12px;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  flex-shrink: 0;
+}
+.gif-search-icon { color: var(--muted2); flex-shrink: 0; }
+.gif-search-input {
+  flex: 1; background: none; border: none;
+  color: var(--text); font-size: 0.82rem;
+  font-family: inherit; outline: none;
+}
+.gif-search-input::placeholder { color: var(--muted2); }
+.gif-search-clear {
+  background: none; border: none;
+  color: var(--muted2); cursor: pointer;
+  font-size: 0.8rem; padding: 2px 4px;
+  flex-shrink: 0;
+}
+.gif-tags {
+  display: flex; gap: 5px;
+  padding: 6px 10px;
+  overflow-x: auto; flex-shrink: 0;
+  scrollbar-width: none;
+}
+.gif-tags::-webkit-scrollbar { display: none; }
+.gif-tag {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 20px; padding: 3px 10px;
+  font-size: 0.7rem; color: var(--muted);
+  cursor: pointer; white-space: nowrap;
+  font-family: inherit; transition: all 0.15s;
+}
+.gif-tag:hover, .gif-tag.active {
+  background: rgba(124,106,255,0.15);
+  border-color: rgba(124,106,255,0.3);
+  color: var(--accent);
+}
+.gif-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 3px; padding: 6px 8px;
+  overflow-y: auto; flex: 1;
+  align-content: start;
+}
+.gif-grid::-webkit-scrollbar { width: 3px; }
+.gif-grid::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
+.gif-item {
+  background: rgba(255,255,255,0.04);
+  border: none; border-radius: 8px;
+  overflow: hidden; cursor: pointer;
+  padding: 0; transition: transform 0.15s, opacity 0.15s;
+  display: block; width: 100%;
+}
+.gif-item:hover { transform: scale(1.03); opacity: 0.9; }
+.gif-item img {
+  width: 100%; height: auto;
+  display: block; min-height: 60px;
+  object-fit: cover;
+}
+.gif-loading {
+  display: flex; align-items: center;
+  justify-content: center; padding: 40px;
+  grid-column: 1 / -1;
+}
+.gif-spinner {
+  width: 24px; height: 24px; border-radius: 50%;
+  border: 2px solid rgba(124,106,255,0.3);
+  border-top-color: var(--accent);
+  animation: spin 0.7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.gif-error, .gif-empty {
+  grid-column: 1 / -1; text-align: center;
+  color: var(--muted2); font-size: 0.78rem;
+  padding: 20px;
+}
+.gif-powered {
+  text-align: center; font-size: 0.58rem;
+  color: var(--muted2); padding: 4px;
+  flex-shrink: 0; opacity: 0.5;
+}
+
+/* GIF in chat */
+.chat-gif-row {
+  padding: 2px 14px;
+}
+.chat-gif-row--self { display: flex; flex-direction: column; align-items: flex-end; }
+.chat-gif-img {
+  max-width: 220px; max-height: 180px;
+  border-radius: 12px; cursor: zoom-in;
+  display: block; object-fit: cover;
+  transition: opacity 0.15s;
+}
+.chat-gif-img:hover { opacity: 0.9; }
+
+/* GIF button in input row */
+.chat-gif-btn {
+  width: 34px; height: 34px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 10px; cursor: pointer;
+  transition: all 0.15s;
+}
+.chat-gif-btn:hover { background: rgba(255,255,255,0.12); }
+.chat-gif-btn.active {
+  background: rgba(124,106,255,0.15);
+  border-color: rgba(124,106,255,0.3);
+}
+.chat-gif-label {
+  font-size: 0.62rem; font-weight: 800;
+  color: var(--muted); letter-spacing: 0.05em;
+}
+.chat-gif-btn.active .chat-gif-label { color: var(--accent); }
