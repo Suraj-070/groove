@@ -105,12 +105,17 @@ const messageSchema = new mongoose.Schema({
   id:       { type: String, required: true },
   username: { type: String, required: true },
   text:     { type: String, required: true },
-  ts:       { type: Number, required: true },   // UTC ms — clients format to local tz
-  type:     { type: String, default: 'msg' }
+  ts:       { type: Number, required: true },
+  type:     { type: String, default: 'msg' },
+  avatar:   { type: String, default: null },
+  edited:   { type: Boolean, default: false },
+  replyTo:  { type: mongoose.Schema.Types.Mixed, default: null },
+  reactions:{ type: mongoose.Schema.Types.Mixed, default: {} },
+  status:   { type: String, default: 'sent' }
 }, { _id: false });
 
-// TTL index: messages auto-delete after 7 days
-messageSchema.index({ ts: 1 }, { expireAfterSeconds: 60 * 60 * 24 * 7 });
+// TTL index: messages auto-delete after 24 hours
+messageSchema.index({ ts: 1 }, { expireAfterSeconds: 60 * 60 * 24 });
 
 const Message = mongoose.models.Message || mongoose.model('Message', messageSchema);
 
@@ -484,7 +489,8 @@ const memMessages = {}; // { roomId: [msg, ...] }
 async function getMessages(roomId) {
   if (!MONGO_URI) return memMessages[roomId] || [];
   try {
-    return await Message.find({ roomId }, { _id: 0, roomId: 0, __v: 0 })
+    const since = Date.now() - (24 * 60 * 60 * 1000)
+    return await Message.find({ roomId, ts: { $gte: since } }, { _id: 0, roomId: 0, __v: 0 })
       .sort({ ts: 1 })
       .limit(100)
       .lean();
@@ -1682,10 +1688,22 @@ io.on('connection', (socket) => {
 
   socket.on('chat-edit', ({ roomId, msgId, text }) => {
     io.to(roomId).emit('chat-edit', { msgId, text })
+    if (MONGO_URI) {
+      Message.updateOne({ id: msgId }, { $set: { text, edited: true } }).catch(() => {})
+    }
   })
 
   socket.on('chat-reaction', ({ roomId, msgId, emoji, username, action }) => {
     io.to(roomId).emit('chat-reaction', { msgId, emoji, username, action })
+    // Persist reaction to MongoDB
+    if (MONGO_URI) {
+      const field = `reactions.${emoji}`
+      if (action === 'add') {
+        Message.updateOne({ id: msgId }, { $addToSet: { [`reactions.${emoji}.users`]: username }, $inc: { [`reactions.${emoji}.count`]: 1 } }).catch(() => {})
+      } else {
+        Message.updateOne({ id: msgId }, { $pull: { [`reactions.${emoji}.users`]: username }, $inc: { [`reactions.${emoji}.count`]: -1 } }).catch(() => {})
+      }
+    }
   })
 
   socket.on('chat-read', ({ roomId, msgId }) => {
