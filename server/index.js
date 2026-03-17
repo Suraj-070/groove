@@ -1681,8 +1681,16 @@ io.on('connection', (socket) => {
   });
 
   socket.on('chat-edit', ({ roomId, msgId, text }) => {
-    // Broadcast edit to all users in room
     io.to(roomId).emit('chat-edit', { msgId, text })
+  })
+
+  socket.on('chat-reaction', ({ roomId, msgId, emoji, username, action }) => {
+    io.to(roomId).emit('chat-reaction', { msgId, emoji, username, action })
+  })
+
+  socket.on('chat-read', ({ roomId, msgId }) => {
+    // Notify the sender their message was read
+    socket.to(roomId).emit('chat-read', { msgId })
   })
 
   socket.on('chat-msg', ({ roomId, msg }) => {

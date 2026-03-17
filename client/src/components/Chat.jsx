@@ -1,11 +1,10 @@
 import { useState, useMemo, useEffect, useRef, useCallback, memo } from 'react'
 import EmojiPicker from './EmojiPicker'
 
-// ── Unique user colors derived from username ──────────────────────────────────
 const USER_COLORS = [
-  '#a78bfa', '#f472b6', '#34d399', '#fb923c',
-  '#60a5fa', '#e879f9', '#4ade80', '#facc15',
-  '#f87171', '#38bdf8', '#a3e635', '#ff6a8a',
+  '#a78bfa','#f472b6','#34d399','#fb923c',
+  '#60a5fa','#e879f9','#4ade80','#facc15',
+  '#f87171','#38bdf8','#a3e635','#ff6a8a',
 ]
 function userColor(name = '') {
   let h = 0
@@ -16,29 +15,124 @@ function userInitial(name = '') {
   const clean = name.replace(/^[^a-zA-Z]+/, '')
   return (clean[0] || name[0] || '?').toUpperCase()
 }
-
-// Format a UTC timestamp (ms) into the viewer's local time
-// Shows time only for today, "Yesterday HH:MM" for yesterday, date for older
 function formatTs(ts) {
   if (!ts) return ''
-  const d = new Date(ts)
-  const now = new Date()
+  const d = new Date(ts), now = new Date()
   const isToday = d.toDateString() === now.toDateString()
   const yesterday = new Date(now); yesterday.setDate(now.getDate() - 1)
-  const isYesterday = d.toDateString() === yesterday.toDateString()
   const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
   if (isToday) return time
-  if (isYesterday) return `Yesterday ${time}`
+  if (d.toDateString() === yesterday.toDateString()) return `Yesterday ${time}`
   return d.toLocaleDateString([], { month: 'short', day: 'numeric' }) + ' ' + time
 }
 
-// ── Message types ─────────────────────────────────────────────────────────────
-// type: 'msg' | 'system' | 'np' (now-playing divider)
+// Detect URLs in text
+function parseText(text) {
+  const urlRegex = /(https?:\/\/[^\s]+)/g
+  const parts = []
+  let last = 0, m
+  while ((m = urlRegex.exec(text)) !== null) {
+    if (m.index > last) parts.push({ type: 'text', value: text.slice(last, m.index) })
+    parts.push({ type: 'url', value: m[0] })
+    last = m.index + m[0].length
+  }
+  if (last < text.length) parts.push({ type: 'text', value: text.slice(last) })
+  return parts.length ? parts : [{ type: 'text', value: text }]
+}
+
+// Extract YouTube video ID from URL
+function ytId(url) {
+  const m = url.match(/(?:v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/)
+  return m ? m[1] : null
+}
+
+// ── Link Preview ──────────────────────────────────────────
+const LinkPreview = memo(({ url }) => {
+  const vid = ytId(url)
+  if (vid) {
+    return (
+      <a href={url} target="_blank" rel="noopener noreferrer" className="chat-link-preview" onClick={e => e.stopPropagation()}>
+        <img src={`https://img.youtube.com/vi/${vid}/mqdefault.jpg`} alt="" className="chat-link-thumb" loading="lazy" />
+        <div className="chat-link-info">
+          <span className="chat-link-domain">▶ YouTube</span>
+          <span className="chat-link-url">{url.slice(0, 40)}{url.length > 40 ? '…' : ''}</span>
+        </div>
+      </a>
+    )
+  }
+  return (
+    <a href={url} target="_blank" rel="noopener noreferrer" className="chat-link-plain" onClick={e => e.stopPropagation()}>
+      {url.slice(0, 50)}{url.length > 50 ? '…' : ''}
+    </a>
+  )
+})
+
+// ── Message status indicator ──────────────────────────────
+const StatusIcon = memo(({ status }) => {
+  if (status === 'sending') return <span className="chat-status chat-status--sending">○</span>
+  if (status === 'sent')    return <span className="chat-status chat-status--sent">✓</span>
+  if (status === 'read')    return <span className="chat-status chat-status--read">✓✓</span>
+  return null
+})
+
+// ── Reply quote ───────────────────────────────────────────
+const ReplyQuote = memo(({ reply, avatarSrc }) => {
+  if (!reply) return null
+  const color = userColor(reply.username)
+  return (
+    <div className="chat-reply-quote" style={{ borderLeftColor: color }}>
+      <span className="chat-reply-name" style={{ color }}>{reply.username}</span>
+      <span className="chat-reply-text">{reply.text?.slice(0, 60)}{reply.text?.length > 60 ? '…' : ''}</span>
+    </div>
+  )
+})
+
+// ── Reaction pills ────────────────────────────────────────
+const ReactionPills = memo(({ reactions = {}, onReact, isSelf }) => {
+  const entries = Object.entries(reactions).filter(([, v]) => v.count > 0)
+  if (!entries.length) return null
+  return (
+    <div className={`chat-reactions ${isSelf ? 'chat-reactions--self' : ''}`}>
+      {entries.map(([emoji, { count, users }]) => (
+        <button
+          key={emoji}
+          className={`chat-reaction-pill ${users?.includes?.('me') ? 'active' : ''}`}
+          onClick={() => onReact(emoji)}
+          title={users?.join?.(', ')}
+        >
+          {emoji} <span>{count}</span>
+        </button>
+      ))}
+    </div>
+  )
+})
+
+// ── Typing indicator with avatars ─────────────────────────
+const TypingIndicator = memo(({ typers, avatarMap }) => {
+  if (!typers.length) return null
+  return (
+    <div className="chat-typing">
+      <div className="chat-typing-avatars">
+        {typers.slice(0, 3).map(who => {
+          const src = avatarMap[who]
+          const color = userColor(who)
+          return src
+            ? <img key={who} src={src} alt={who} className="chat-typing-avatar" />
+            : <div key={who} className="chat-typing-avatar chat-typing-avatar--initials" style={{ background: color }}>{userInitial(who)}</div>
+        })}
+      </div>
+      <div className="chat-typing-bubble">
+        <span className="chat-typing-dot" /><span className="chat-typing-dot" /><span className="chat-typing-dot" />
+      </div>
+      <span className="chat-typing-label">
+        {typers.length === 1 ? `${typers[0]} is typing` : `${typers.length} people are typing`}
+      </span>
+    </div>
+  )
+})
 
 const SystemMsg = memo(({ msg }) => (
-  <div className="chat-system">
-    <span className="chat-system-text">{msg.text}</span>
-  </div>
+  <div className="chat-system"><span className="chat-system-text">{msg.text}</span></div>
 ))
 
 const NowPlayingDivider = memo(({ msg }) => (
@@ -52,115 +146,177 @@ const NowPlayingDivider = memo(({ msg }) => (
   </div>
 ))
 
-const ChatBubble = memo(({ msg, isSelf, showAvatar, avatarSrc, onEdit, isEditing, editText, onEditChange, onEditSave, onEditCancel }) => {
+// ── Chat Bubble ───────────────────────────────────────────
+const ChatBubble = memo(({
+  msg, isSelf, showAvatar, avatarSrc,
+  onReact, onReply,
+  onEdit, isEditing, editText, onEditChange, onEditSave, onEditCancel,
+  replyMsg,
+}) => {
   const color = userColor(msg.username)
+  const [showActions, setShowActions] = useState(false)
+  const [showReactPicker, setShowReactPicker] = useState(false)
+  const swipeRef = useRef(null)
+  const swipeStartX = useRef(null)
+
+  // ── Swipe to reply ──────────────────────────────────────
+  const onTouchStart = (e) => { swipeStartX.current = e.touches[0].clientX }
+  const onTouchEnd = (e) => {
+    if (swipeStartX.current === null) return
+    const dx = e.changedTouches[0].clientX - swipeStartX.current
+    if (dx > 50) { onReply(msg); try { navigator.vibrate?.(8) } catch {} }
+    swipeStartX.current = null
+    if (swipeRef.current) swipeRef.current.style.transform = ''
+  }
+  const onTouchMove = (e) => {
+    if (swipeStartX.current === null) return
+    const dx = Math.max(0, e.touches[0].clientX - swipeStartX.current)
+    if (swipeRef.current && dx < 80) swipeRef.current.style.transform = `translateX(${dx * 0.4}px)`
+  }
+
+  const textParts = parseText(msg.text || '')
+  const hasUrl = textParts.some(p => p.type === 'url')
+
   return (
-    <div className={`chat-row ${isSelf ? 'chat-row--self' : 'chat-row--other'}`}>
-      {/* Avatar col — other users only */}
+    <div
+      className={`chat-row ${isSelf ? 'chat-row--self' : 'chat-row--other'}`}
+      onMouseEnter={() => setShowActions(true)}
+      onMouseLeave={() => { setShowActions(false); setShowReactPicker(false) }}
+    >
       {!isSelf && (
         <div className="chat-avatar-col">
-          {showAvatar ? (
-            avatarSrc
+          {showAvatar
+            ? avatarSrc
               ? <img src={avatarSrc} alt="" className="chat-avatar chat-avatar--img" />
               : <div className="chat-avatar" style={{ background: color }}>{userInitial(msg.username)}</div>
-          ) : (
-            <div className="chat-avatar-spacer" />
-          )}
+            : <div className="chat-avatar-spacer" />
+          }
         </div>
       )}
 
-      <div className="chat-bubble-col">
-        {!isSelf && showAvatar && (
-          <span className="chat-name" style={{ color }}>{msg.username}</span>
+      <div
+        className="chat-bubble-col"
+        ref={swipeRef}
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onTouchEnd}
+        style={{ transition: 'transform 0.2s' }}
+      >
+        {!isSelf && showAvatar && <span className="chat-name" style={{ color }}>{msg.username}</span>}
+
+        {/* Reply quote */}
+        {msg.replyTo && <ReplyQuote reply={msg.replyTo} />}
+
+        {/* Hover action bar */}
+        {showActions && !isEditing && (
+          <div className={`chat-action-bar ${isSelf ? 'chat-action-bar--self' : ''}`}>
+            <button className="chat-action-icon" onClick={() => setShowReactPicker(p => !p)} title="React">😊</button>
+            <button className="chat-action-icon" onClick={() => onReply(msg)} title="Reply">
+              <svg viewBox="0 0 24 24" fill="currentColor" width="13" height="13"><path d="M10 9V5l-7 7 7 7v-4.1c5 0 8.5 1.6 11 5.1-1-5-4-10-11-11z"/></svg>
+            </button>
+            {isSelf && (
+              <button className="chat-action-icon" onClick={onEdit} title="Edit">
+                <svg viewBox="0 0 24 24" fill="currentColor" width="13" height="13"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+              </button>
+            )}
+          </div>
         )}
 
-        {/* Edit button — shows on hover for own messages */}
-        {isSelf && !isEditing && (
-          <button className="chat-edit-btn" onClick={onEdit} title="Edit message">
-            <svg viewBox="0 0 24 24" fill="currentColor" width="11" height="11">
-              <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
-            </svg>
-          </button>
+        {/* Inline reaction picker */}
+        {showReactPicker && (
+          <div className={`chat-quick-react ${isSelf ? 'chat-quick-react--self' : ''}`}>
+            {['❤️','🔥','😂','😮','👏','💀','🎵','✨'].map(e => (
+              <button key={e} onClick={() => { onReact(msg.id, e); setShowReactPicker(false) }}>{e}</button>
+            ))}
+          </div>
         )}
 
+        {/* Bubble */}
         {isEditing ? (
           <div className="chat-edit-wrap">
-            <input
-              className="chat-edit-input"
-              value={editText}
+            <input className="chat-edit-input" value={editText}
               onChange={e => onEditChange(e.target.value)}
-              onKeyDown={e => {
-                if (e.key === 'Enter') onEditSave()
-                if (e.key === 'Escape') onEditCancel()
-              }}
-              autoFocus
-            />
+              onKeyDown={e => { if (e.key === 'Enter') onEditSave(); if (e.key === 'Escape') onEditCancel() }}
+              autoFocus />
             <div className="chat-edit-actions">
               <button onClick={onEditSave}>Save</button>
               <button onClick={onEditCancel}>Cancel</button>
             </div>
           </div>
         ) : (
-          <div
-            className={`chat-bubble ${isSelf ? 'chat-bubble--self' : 'chat-bubble--other'}`}
-            onDoubleClick={isSelf ? onEdit : undefined}
-            title={isSelf ? 'Double-click to edit' : ''}
-          >
-            <span className="chat-bubble-text">{msg.text}</span>
+          <div className={`chat-bubble ${isSelf ? 'chat-bubble--self' : 'chat-bubble--other'}`}>
+            <span className="chat-bubble-text">
+              {textParts.map((p, i) =>
+                p.type === 'url'
+                  ? <a key={i} href={p.value} target="_blank" rel="noopener noreferrer" className="chat-link" onClick={e => e.stopPropagation()}>{p.value}</a>
+                  : <span key={i}>{p.value}</span>
+              )}
+            </span>
             {msg.edited && <span className="chat-edited">(edited)</span>}
           </div>
         )}
-        <span className="chat-ts" title={msg.ts ? new Date(msg.ts).toUTCString() : ''}>{formatTs(msg.ts)}</span>
+
+        {/* Link preview */}
+        {hasUrl && !isEditing && textParts.filter(p => p.type === 'url').map((p, i) => (
+          <LinkPreview key={i} url={p.value} />
+        ))}
+
+        {/* Reaction pills */}
+        <ReactionPills reactions={msg.reactions} onReact={e => onReact(msg.id, e)} isSelf={isSelf} />
+
+        {/* Timestamp + status */}
+        <div className="chat-meta">
+          <span className="chat-ts">{formatTs(msg.ts)}</span>
+          {isSelf && <StatusIcon status={msg.status || 'sent'} />}
+        </div>
       </div>
     </div>
   )
 })
 
-// ── Typing indicator ──────────────────────────────────────────────────────────
-const TypingIndicator = memo(({ typers }) => {
-  if (!typers.length) return null
-  const label = typers.length === 1
-    ? `${typers[0]} is typing`
-    : typers.length === 2
-      ? `${typers[0]} and ${typers[1]} are typing`
-      : 'Several people are typing'
+// ── Reply banner ──────────────────────────────────────────
+const ReplyBanner = memo(({ replyTo, onClear }) => {
+  if (!replyTo) return null
+  const color = userColor(replyTo.username)
   return (
-    <div className="chat-typing">
-      <div className="chat-typing-dots">
-        <span /><span /><span />
+    <div className="chat-reply-banner" style={{ borderLeftColor: color }}>
+      <div className="chat-reply-banner-content">
+        <span className="chat-reply-banner-name" style={{ color }}>↩ {replyTo.username}</span>
+        <span className="chat-reply-banner-text">{replyTo.text?.slice(0, 60)}</span>
       </div>
-      <span className="chat-typing-label">{label}</span>
+      <button className="chat-reply-banner-close" onClick={onClear}>✕</button>
     </div>
   )
 })
 
-// ── Scroll-to-bottom button ───────────────────────────────────────────────────
-const ScrollBtn = memo(({ count, onClick }) => (
-  <button className="chat-scroll-btn" onClick={onClick}>
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M7 10l5 5 5-5z"/></svg>
-    {count > 0 && <span className="chat-scroll-badge">{count}</span>}
-  </button>
-))
-
-// ── Main Chat component ───────────────────────────────────────────────────────
+// ── Main Chat ─────────────────────────────────────────────
 export default function Chat({ socket, roomId, username, userAvatar, isOpen, onClose, currentSong, chatHistory = [], users = [] }) {
-  const [messages, setMessages]   = useState([])
-  const [input, setInput]         = useState('')
-  const [editingId, setEditingId] = useState(null)
-  const [editText, setEditText]   = useState('')
+  const [messages, setMessages]     = useState([])
+  const [input, setInput]           = useState('')
+  const [editingId, setEditingId]   = useState(null)
+  const [editText, setEditText]     = useState('')
   const [showPicker, setShowPicker] = useState(false)
-  const [typers, setTypers]       = useState([])
-  const [atBottom, setAtBottom]   = useState(true)
-  const [newCount, setNewCount]   = useState(0)
-  const historySeeded = useRef(false)
+  const [typers, setTypers]         = useState([])
+  const [atBottom, setAtBottom]     = useState(true)
+  const [newCount, setNewCount]     = useState(0)
+  const [replyTo, setReplyTo]       = useState(null)
 
   const messagesRef  = useRef(null)
   const inputRef     = useRef(null)
   const typingTimer  = useRef(null)
   const isTypingRef  = useRef(false)
   const prevSongRef  = useRef(null)
+  const historySeeded = useRef(false)
 
-  // ── Seed history ONCE when it first arrives — never overwrite live messages ──
+  // Avatar map from users + message history
+  const avatarMap = useMemo(() => {
+    const map = {}
+    users.forEach(u => { if (u.username && u.avatar) map[u.username] = u.avatar })
+    messages.forEach(m => { if (m.username && m.avatar && !map[m.username]) map[m.username] = m.avatar })
+    return map
+  }, [users, messages])
+
+  // Seed history once
   useEffect(() => {
     if (chatHistory.length > 0 && !historySeeded.current) {
       historySeeded.current = true
@@ -168,77 +324,109 @@ export default function Chat({ socket, roomId, username, userAvatar, isOpen, onC
     }
   }, [chatHistory])
 
-  // ── Now-playing divider when song changes ─────────────────────────────────
+  // Now-playing divider
   useEffect(() => {
     if (!currentSong?.title) return
     if (prevSongRef.current === currentSong.title) return
     prevSongRef.current = currentSong.title
-    setMessages(prev => [
-      ...prev,
-      { id: `np-${Date.now()}`, type: 'np', text: currentSong.title }
-    ])
+    setMessages(prev => [...prev, { id: `np-${Date.now()}`, type: 'np', text: currentSong.title }])
   }, [currentSong?.title])
 
-  // ── Socket listeners ──────────────────────────────────────────────────────
+  // Socket listeners
   useEffect(() => {
     const handleMsg = (msg) => {
-      setMessages(prev => [...prev.slice(-199), { ...msg, type: 'msg' }])
-      // If not at bottom, count as unread
+      setMessages(prev => [...prev.slice(-299), { ...msg, type: 'msg', status: 'sent' }])
       setAtBottom(prev => { if (!prev) setNewCount(c => c + 1); return prev })
+      // Mark as read if at bottom
+      if (messagesRef.current) {
+        const el = messagesRef.current
+        const near = el.scrollHeight - el.scrollTop - el.clientHeight < 80
+        if (near) socket.emit('chat-read', { roomId, msgId: msg.id })
+      }
+    }
+    const handleEcho = (msg) => {
+      setMessages(prev => prev.map(m => m.id === msg.id ? { ...msg, self: true, status: 'sent' } : m))
+    }
+    const handleEdit = ({ msgId, text }) => {
+      setMessages(prev => prev.map(m => m.id === msgId ? { ...m, text, edited: true } : m))
+    }
+    const handleReaction = ({ msgId, emoji, username: who, action }) => {
+      setMessages(prev => prev.map(m => {
+        if (m.id !== msgId) return m
+        const reactions = { ...(m.reactions || {}) }
+        if (!reactions[emoji]) reactions[emoji] = { count: 0, users: [] }
+        if (action === 'add') {
+          if (!reactions[emoji].users.includes(who)) {
+            reactions[emoji] = { count: reactions[emoji].count + 1, users: [...reactions[emoji].users, who] }
+          }
+        } else {
+          reactions[emoji] = { count: Math.max(0, reactions[emoji].count - 1), users: reactions[emoji].users.filter(u => u !== who) }
+        }
+        return { ...m, reactions }
+      }))
+    }
+    const handleRead = ({ msgId }) => {
+      setMessages(prev => prev.map(m => m.self && m.id === msgId ? { ...m, status: 'read' } : m))
     }
     const handleSystem = (msg) => {
       setMessages(prev => [...prev, { id: Date.now(), type: 'system', text: msg.text }])
     }
     const handleTyping = ({ username: who, isTyping }) => {
-      setTypers(prev =>
-        isTyping ? [...prev.filter(u => u !== who), who] : prev.filter(u => u !== who)
-      )
+      setTypers(prev => isTyping ? [...prev.filter(u => u !== who), who] : prev.filter(u => u !== who))
     }
-    // Server echo — replace our optimistic message with server-stamped version
-    // preserves self:true so bubble colour stays correct
-    const handleEcho = (msg) => {
-      setMessages(prev => prev.map(m =>
-        m.id === msg.id ? { ...msg, self: true } : m
-      ))
-    }
+
     socket.on('chat-msg',      handleMsg)
     socket.on('chat-msg-echo', handleEcho)
-    socket.on('chat-edit', ({ msgId, text }) => {
-      setMessages(prev => prev.map(m => m.id === msgId ? { ...m, text, edited: true } : m))
-    })
+    socket.on('chat-edit',     handleEdit)
+    socket.on('chat-reaction', handleReaction)
+    socket.on('chat-read',     handleRead)
     socket.on('chat-system',   handleSystem)
     socket.on('user-typing',   handleTyping)
     return () => {
       socket.off('chat-msg',      handleMsg)
       socket.off('chat-msg-echo', handleEcho)
-      socket.off('chat-edit')
+      socket.off('chat-edit',     handleEdit)
+      socket.off('chat-reaction', handleReaction)
+      socket.off('chat-read',     handleRead)
       socket.off('chat-system',   handleSystem)
       socket.off('user-typing',   handleTyping)
     }
-  }, [socket])
+  }, [socket, roomId])
 
-  // ── Auto-scroll ───────────────────────────────────────────────────────────
+  // Smart auto-scroll — only if already at bottom
   useEffect(() => {
     const el = messagesRef.current
     if (!el || !atBottom) return
-    el.scrollTop = el.scrollHeight
+    el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' })
   }, [messages, typers, atBottom])
 
-  // ── Track scroll position ─────────────────────────────────────────────────
+  // Scroll tracking with momentum detection
   const handleScroll = useCallback(() => {
     const el = messagesRef.current
     if (!el) return
-    const near = el.scrollHeight - el.scrollTop - el.clientHeight < 80
+    const near = el.scrollHeight - el.scrollTop - el.clientHeight < 100
     setAtBottom(near)
     if (near) setNewCount(0)
   }, [])
 
-  // ── Focus input on open ───────────────────────────────────────────────────
+  // Focus on open
   useEffect(() => {
     if (isOpen) setTimeout(() => inputRef.current?.focus(), 120)
   }, [isOpen])
 
-  // ── Typing emit ───────────────────────────────────────────────────────────
+  // Handle virtual keyboard on mobile
+  useEffect(() => {
+    if (!window.visualViewport) return
+    const onResize = () => {
+      if (atBottom && messagesRef.current) {
+        messagesRef.current.scrollTop = messagesRef.current.scrollHeight
+      }
+    }
+    window.visualViewport.addEventListener('resize', onResize)
+    return () => window.visualViewport.removeEventListener('resize', onResize)
+  }, [atBottom])
+
+  // Typing emit
   const handleInputChange = (e) => {
     setInput(e.target.value)
     if (!isTypingRef.current) {
@@ -252,39 +440,47 @@ export default function Chat({ socket, roomId, username, userAvatar, isOpen, onC
     }, 1500)
   }
 
-  // ── Send ──────────────────────────────────────────────────────────────────
+  // React to message
+  const handleReact = useCallback((msgId, emoji) => {
+    const msg = messages.find(m => m.id === msgId)
+    if (!msg) return
+    const already = msg.reactions?.[emoji]?.users?.includes(username)
+    socket.emit('chat-reaction', { roomId, msgId, emoji, username, action: already ? 'remove' : 'add' })
+    try { navigator.vibrate?.(8) } catch {}
+  }, [messages, socket, roomId, username])
+
+  // Send
   const sendMessage = useCallback(() => {
     if (!input.trim()) return
     const msg = {
       id: Date.now(), type: 'msg', username,
       text: input.trim(),
       avatar: userAvatar || null,
-      ts: Date.now()
+      ts: Date.now(),
+      status: 'sending',
+      ...(replyTo ? { replyTo: { id: replyTo.id, username: replyTo.username, text: replyTo.text } } : {})
     }
     socket.emit('chat-msg', { roomId, msg })
     setMessages(prev => [...prev, { ...msg, self: true }])
     setInput('')
-    // Stop typing
+    setReplyTo(null)
     clearTimeout(typingTimer.current)
     isTypingRef.current = false
     socket.emit('user-typing', { roomId, username, isTyping: false })
-    // Scroll to bottom
     setAtBottom(true)
     setNewCount(0)
     setTimeout(() => {
       const el = messagesRef.current
-      if (el) el.scrollTop = el.scrollHeight
+      if (el) el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' })
     }, 30)
-  }, [input, socket, roomId, username])
+  }, [input, socket, roomId, username, userAvatar, replyTo])
 
   const scrollToBottom = () => {
     const el = messagesRef.current
-    if (el) el.scrollTop = el.scrollHeight
-    setAtBottom(true)
-    setNewCount(0)
+    if (el) el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' })
+    setAtBottom(true); setNewCount(0)
   }
 
-  // Mobile: isOpen gates render. Desktop: always rendered, panel-inline CSS shows/hides
   if (!isOpen) return null
 
   return (
@@ -303,7 +499,7 @@ export default function Chat({ socket, roomId, username, userAvatar, isOpen, onC
             </span>
           )}
         </div>
-        <button className="chat-close" onClick={onClose} aria-label="Close chat">
+        <button className="chat-close" onClick={onClose}>
           <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
         </button>
       </div>
@@ -312,16 +508,14 @@ export default function Chat({ socket, roomId, username, userAvatar, isOpen, onC
       <div className="chat-messages" ref={messagesRef} onScroll={handleScroll}>
         {messages.length === 0 && (
           <div className="chat-empty">
-            <div className="chat-empty-icon">🎵</div>
+            <div className="chat-empty-icon">💬</div>
             <p className="chat-empty-title">No messages yet</p>
             <p className="chat-empty-sub">Be the first to say something</p>
           </div>
         )}
-
         {messages.map((msg, i) => {
           if (msg.type === 'system') return <SystemMsg key={msg.id} msg={msg} />
           if (msg.type === 'np')     return <NowPlayingDivider key={msg.id} msg={msg} />
-          // Group consecutive messages from same user
           const prev = messages[i - 1]
           const showAvatar = !prev || prev.type !== 'msg' || prev.username !== msg.username
           return (
@@ -331,6 +525,8 @@ export default function Chat({ socket, roomId, username, userAvatar, isOpen, onC
               isSelf={!!msg.self}
               showAvatar={showAvatar}
               avatarSrc={msg.avatar || avatarMap[msg.username]}
+              onReact={handleReact}
+              onReply={setReplyTo}
               onEdit={() => { setEditingId(msg.id); setEditText(msg.text) }}
               isEditing={editingId === msg.id}
               editText={editText}
@@ -346,54 +542,42 @@ export default function Chat({ socket, roomId, username, userAvatar, isOpen, onC
             />
           )
         })}
-
-        <TypingIndicator typers={typers.filter(u => u !== username)} />
+        <TypingIndicator typers={typers.filter(u => u !== username)} avatarMap={avatarMap} />
       </div>
 
-      {/* Scroll-to-bottom button */}
+      {/* Scroll to bottom */}
       {!atBottom && (
-        <ScrollBtn count={newCount} onClick={scrollToBottom} />
+        <button className="chat-scroll-btn" onClick={scrollToBottom}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M7 10l5 5 5-5z"/></svg>
+          {newCount > 0 && <span className="chat-scroll-badge">{newCount}</span>}
+        </button>
       )}
 
       {/* Emoji picker */}
       {showPicker && (
         <div className="chat-emoji-wrap">
           <EmojiPicker
-            onSelect={(emoji) => {
-              setInput(prev => prev + emoji)
-              setShowPicker(false)
-              inputRef.current?.focus()
-            }}
+            onSelect={emoji => { setInput(p => p + emoji); setShowPicker(false); inputRef.current?.focus() }}
             onClose={() => setShowPicker(false)}
           />
         </div>
       )}
 
+      {/* Reply banner */}
+      <ReplyBanner replyTo={replyTo} onClear={() => setReplyTo(null)} />
+
       {/* Input row */}
       <div className="chat-input-row">
-        <button
-          className={`chat-emoji-btn ${showPicker ? 'active' : ''}`}
-          onClick={() => setShowPicker(p => !p)}
-          aria-label="Emoji"
-        >
+        <button className={`chat-emoji-btn ${showPicker ? 'active' : ''}`} onClick={() => setShowPicker(p => !p)}>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm3.5-9c.83 0 1.5-.67 1.5-1.5S16.33 8 15.5 8 14 8.67 14 9.5s.67 1.5 1.5 1.5zm-7 0c.83 0 1.5-.67 1.5-1.5S9.33 8 8.5 8 7 8.67 7 9.5 7.67 11 8.5 11zm3.5 6.5c2.33 0 4.31-1.46 5.11-3.5H6.89c.8 2.04 2.78 3.5 5.11 3.5z"/></svg>
         </button>
         <input
-          ref={inputRef}
-          type="text"
-          className="chat-input"
-          placeholder="Say something…"
-          value={input}
-          onChange={handleInputChange}
-          onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && sendMessage()}
-          maxLength={300}
+          ref={inputRef} type="text" className="chat-input"
+          placeholder={replyTo ? `Reply to ${replyTo.username}…` : 'Say something…'}
+          value={input} onChange={handleInputChange} maxLength={300}
+          onKeyDown={e => e.key === 'Enter' && !e.shiftKey && sendMessage()}
         />
-        <button
-          className={`chat-send-btn ${input.trim() ? 'active' : ''}`}
-          onClick={sendMessage}
-          aria-label="Send"
-          disabled={!input.trim()}
-        >
+        <button className={`chat-send-btn ${input.trim() ? 'active' : ''}`} onClick={sendMessage} disabled={!input.trim()}>
           <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
         </button>
       </div>
