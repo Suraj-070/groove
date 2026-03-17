@@ -61,9 +61,9 @@ const MONGO_URI = process.env.MONGODB_URI || process.env.MONGO_URI;
 if (MONGO_URI) {
   mongoose.connect(MONGO_URI)
     .then(() => console.log('✅ MongoDB connected'))
-    .catch(e => console.error('❌ MongoDB error:', e.message));
+    .catch(e => console.error('❌ MongoDB error:', e.message))
 } else {
-  console.warn('⚠️  No MONGODB_URI set — library will not persist across restarts');
+  console.warn('⚠️  No MONGODB_URI set — library will not persist across restarts')
 }
 
 // ─── LIBRARY SCHEMA ───────────────────────────────────────────
@@ -851,6 +851,22 @@ const userProfileSchema = new mongoose.Schema({
   createdAt:    { type: Number, default: () => Date.now() },
 });
 const UserProfile = mongoose.models.UserProfile || mongoose.model('UserProfile', userProfileSchema);
+
+// Sync all indexes after models are defined — handles TTL changes etc
+if (MONGO_URI) {
+  mongoose.connection.once('open', async () => {
+    try {
+      await Promise.all([
+        Message.syncIndexes(),
+        SongDNA.syncIndexes(),
+        ListenHistory.syncIndexes(),
+      ])
+      console.log('✅ MongoDB indexes synced')
+    } catch (e) {
+      console.warn('⚠️  Index sync warning:', e.message)
+    }
+  })
+}
 
 // ─── ROOM SESSION SCHEMA (for chemistry + time machine) ───────
 const roomSessionSchema = new mongoose.Schema({
