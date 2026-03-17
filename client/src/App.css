@@ -9865,24 +9865,27 @@ body.chat-is-open .fcb-bubble { opacity: 0; pointer-events: none; }
 .gif-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 3px; padding: 6px 8px;
-  overflow-y: auto; flex: 1;
+  gap: 4px; padding: 6px 8px;
+  overflow-y: auto;
+  max-height: 260px;
   align-content: start;
 }
 .gif-grid::-webkit-scrollbar { width: 3px; }
 .gif-grid::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
 .gif-item {
-  background: rgba(255,255,255,0.04);
+  background: rgba(255,255,255,0.06);
   border: none; border-radius: 8px;
   overflow: hidden; cursor: pointer;
   padding: 0; transition: transform 0.15s, opacity 0.15s;
   display: block; width: 100%;
+  height: 90px;
 }
-.gif-item:hover { transform: scale(1.03); opacity: 0.9; }
+.gif-item:hover { transform: scale(1.03); opacity: 0.85; }
 .gif-item img {
-  width: 100%; height: auto;
-  display: block; min-height: 60px;
+  width: 100%; height: 100%;
+  display: block;
   object-fit: cover;
+  object-position: center;
 }
 .gif-loading {
   display: flex; align-items: center;
@@ -10029,30 +10032,7 @@ body.chat-is-open .fcb-bubble { opacity: 0; pointer-events: none; }
 }
 
 /* ── GIF picker fixes ───────────────────────────────────── */
-.gif-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 4px;
-  padding: 4px;
-  overflow-y: auto;
-  max-height: 240px;
-}
-.gif-item {
-  border: none; padding: 0; cursor: pointer;
-  background: rgba(255,255,255,0.04);
-  border-radius: 8px; overflow: hidden;
-  aspect-ratio: 16/9;
-  transition: transform 0.15s, opacity 0.15s;
-}
-.gif-item:hover { transform: scale(1.03); opacity: 0.9; }
-.gif-item img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.gif-loading {
-  grid-column: 1/-1;
-  display: flex; flex-direction: column;
-  align-items: center; justify-content: center;
-  gap: 8px; padding: 24px;
-  color: var(--muted); font-size: 0.78rem;
-}
+
 .gif-spinner {
   width: 24px; height: 24px; border-radius: 50%;
   border: 2px solid rgba(255,255,255,0.1);
