@@ -9706,6 +9706,32 @@ body.chat-is-open .fcb-bubble { opacity: 0; pointer-events: none; }
 }
 .chat-context-menu button:hover { background: rgba(255,255,255,0.07); }
 
+/* Instagram-style reactions row in context menu */
+.chat-context-reactions {
+  display: flex;
+  gap: 4px;
+  padding: 8px 6px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  margin-bottom: 4px;
+  justify-content: space-around;
+}
+.chat-context-reaction {
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.3rem;
+  padding: 6px !important;
+  min-width: 32px;
+  height: 32px;
+  border-radius: 50% !important;
+  background: rgba(255,255,255,0.05) !important;
+  transition: all 0.15s;
+}
+.chat-context-reaction:hover {
+  background: rgba(255,255,255,0.12) !important;
+  transform: scale(1.15);
+}
+
 /* ── Mention highlight ──────────────────────────────────── */
 .chat-mention {
   color: var(--accent); font-weight: 700;

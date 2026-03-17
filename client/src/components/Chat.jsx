@@ -259,7 +259,7 @@ const ChatBubble = memo(({
 
   return (
     <div className={`chat-row ${isSelf ? 'chat-row--self' : 'chat-row--other'}`}
-      onMouseEnter={() => setShowActions(true)}
+      onMouseEnter={() => !IS_MOBILE && setShowActions(true)}
       onMouseLeave={() => { setShowActions(false); setShowReactPicker(false) }}
     >
       {!isSelf && (
@@ -282,8 +282,8 @@ const ChatBubble = memo(({
         {/* Reply quote */}
         {msg.replyTo && <ReplyQuote reply={msg.replyTo} />}
 
-        {/* Hover action bar — desktop */}
-        {showActions && !isEditing && (
+        {/* Hover action bar — desktop only */}
+        {showActions && !isEditing && !IS_MOBILE && (
           <div className={`chat-action-bar ${isSelf ? 'chat-action-bar--self' : ''}`}>
             <button className="chat-action-icon" onClick={() => setShowReactPicker(p => !p)}>😊</button>
             <button className="chat-action-icon" onClick={() => onReply(msg)} title="Reply">
@@ -322,6 +322,13 @@ const ChatBubble = memo(({
           <>
             <div className="chat-context-overlay" onClick={() => setShowContextMenu(false)} />
             <div className={`chat-context-menu ${isSelf ? 'chat-context-menu--self' : ''}`}>
+              {/* Quick reactions row - Instagram style */}
+              <div className="chat-context-reactions">
+                {['❤️','🔥','😂','😮','👏','💀','🎵','✨'].map(e => (
+                  <button key={e} className="chat-context-reaction" onClick={() => { onReact(msg.id, e); setShowContextMenu(false) }}>{e}</button>
+                ))}
+              </div>
+              {/* Action buttons */}
               <button onClick={() => { onReply(msg); setShowContextMenu(false) }}>↩ Reply</button>
               <button onClick={() => { onCopy(msg.text); setShowContextMenu(false) }}>📋 Copy</button>
               <button onClick={() => { onForward(msg); setShowContextMenu(false) }}>➡️ Forward</button>
