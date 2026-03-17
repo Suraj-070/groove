@@ -471,7 +471,20 @@ body {
   overflow: hidden;
   text-overflow: ellipsis;
   letter-spacing: 0.02em;
+  position: relative;
+  z-index: 1;
 }
+.chat-np-label svg {
+  width: 10px !important;
+  height: 10px !important;
+  flex-shrink: 0;
+}
+
+/* Prevent any SVG/emoji from floating outside chat bounds */
+.chat-panel svg { max-width: 100%; overflow: hidden; }
+.chat-panel .chat-np-divider { overflow: hidden; }
+/* Stop chatEmptyFloat from showing when there are messages */
+.chat-messages:not(:empty) .chat-empty { display: none; }
 
 /* ── System messages ─────────────────────────────────────── */
 .chat-system {
@@ -9778,10 +9791,13 @@ body.chat-is-open .fcb-bubble { opacity: 0; pointer-events: none; }
 }
 .chat-emoji-wrap {
   position: absolute;
-  bottom: 58px;
+  bottom: 60px;
   left: 8px;
   right: 8px;
   z-index: 100;
+  max-height: calc(100% - 120px);
+  overflow: hidden;
+  border-radius: 16px;
   animation: slideUp 0.15s ease;
 }
 .chat-emoji-wrap .ep-wrapper { width: 100%; }
@@ -9791,7 +9807,7 @@ body.chat-is-open .fcb-bubble { opacity: 0; pointer-events: none; }
    ═══════════════════════════════════════════════════════════ */
 .chat-gif-wrap {
   position: absolute;
-  bottom: 58px;
+  bottom: 60px;
   left: 8px;
   right: 8px;
   z-index: 100;
@@ -9804,7 +9820,8 @@ body.chat-is-open .fcb-bubble { opacity: 0; pointer-events: none; }
   overflow: hidden;
   box-shadow: 0 16px 48px rgba(0,0,0,0.6);
   display: flex; flex-direction: column;
-  height: 320px;
+  height: 280px;
+  max-height: 280px;
 }
 .gif-search-wrap {
   display: flex; align-items: center; gap: 8px;
