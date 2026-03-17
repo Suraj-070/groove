@@ -8564,16 +8564,26 @@ body.chat-is-open .fcb-bubble { opacity: 0; pointer-events: none; }
     max-width: calc(100vw - 32px) !important;
   }
 
-  /* Chat full screen — hide bottom nav */
+  /* Chat full screen — correct z-index layering */
   body.chat-is-open .mobile-bottom-nav {
     display: flex !important;
-    z-index: 1000 !important;
+    z-index: 1001 !important; /* nav always on top */
+    position: relative !important;
   }
-  body.chat-is-open .app-main,
-  body.chat-is-open .reaction-trigger,
-  body.chat-is-open .burst-overlay {
-    z-index: 1001 !important; /* above chat panel so reactions float over chat */
+  body.chat-is-open .app-main {
+    z-index: 0 !important;   /* push player/content behind chat */
     pointer-events: none !important;
+  }
+  body.chat-is-open .reaction-trigger {
+    z-index: 0 !important;
+    pointer-events: none !important;
+  }
+  body.chat-is-open .burst-overlay {
+    z-index: 1002 !important; /* reactions float above everything including chat */
+    pointer-events: none !important;
+  }
+  body.chat-is-open .chat-panel {
+    z-index: 1000 !important; /* chat above app-main (0) but below nav (1001) */
   }
 
   /* Reaction emoji buttons — fix touch on mobile */

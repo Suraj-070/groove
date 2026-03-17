@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 
 // Giphy public beta key — works without account for reasonable usage
 // Users can replace with their own free key from developers.giphy.com
-const GIPHY_KEY = 'dc6zaTOxFJmzC'
+const GIPHY_KEY = 'bS0cRf1KVChzdHqPyCXFfpZmgSvooUWB'
 
 async function searchGifs(query, limit = 24) {
   const base = query
