@@ -22,7 +22,7 @@ export default function EmojiPicker({ onSelect, onClose }) {
   }, [onClose])
 
   return (
-    <div ref={ref} className="ep-wrapper">
+    <div ref={ref} className="ep-wrapper" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       <Picker
         data={data}
         onEmojiSelect={(e) => onSelect(e.native)}
@@ -30,14 +30,14 @@ export default function EmojiPicker({ onSelect, onClose }) {
         set="native"
         showPreview={false}
         showSkinTones={true}
-        emojiSize={22}
-        emojiButtonSize={32}
-        maxFrequentRows={2}
+        emojiSize={IS_MOBILE ? 20 : 22}
+        emojiButtonSize={IS_MOBILE ? 30 : 32}
+        maxFrequentRows={IS_MOBILE ? 1 : 2}
         locale="en"
         previewPosition="none"
         skinTonePosition="search"
         navPosition="bottom"
-        perLine={9}
+        perLine={IS_MOBILE ? 8 : 9}
         autoFocus={false}
         searchPosition={IS_MOBILE ? "none" : "sticky"}
       />

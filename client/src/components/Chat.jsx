@@ -159,19 +159,25 @@ const ContextMenu = memo(({ isSelf, onReact, onReply, onCopy, onEdit, onDelete, 
           position: 'fixed', bottom: 0, left: 0, right: 0,
           zIndex: 1052, background: '#0e0c1a',
           borderRadius: '20px 20px 0 0',
-          paddingBottom: 'env(safe-area-inset-bottom, 12px)',
+          paddingBottom: 'env(safe-area-inset-bottom, 8px)',
+          maxHeight: '70dvh',
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden',
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px 8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px 8px', flexShrink: 0 }}>
             <span style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.4)', fontWeight: 700, letterSpacing: '0.05em' }}>REACT</span>
             <button onClick={() => setShowFullEmoji(false)}
               style={{ background: 'rgba(255,255,255,0.08)', border: 'none', borderRadius: '50%', width: 28, height: 28, color: '#fff', cursor: 'pointer', fontSize: '0.9rem' }}>
               ✕
             </button>
           </div>
-          <EmojiPicker
-            onSelect={(e) => { onReact(e); onClose() }}
-            onClose={() => setShowFullEmoji(false)}
-          />
+          <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
+            <EmojiPicker
+              onSelect={(e) => { onReact(e); onClose() }}
+              onClose={() => setShowFullEmoji(false)}
+            />
+          </div>
         </div>
       </>
     )
