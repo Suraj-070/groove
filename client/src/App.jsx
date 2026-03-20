@@ -156,6 +156,7 @@ function MiniPlayer({ title, videoId, isPlaying, onPlay, onPause, onSkip, onOpen
 function App() {
   const [user, setUser] = useState(null)
   const [authLoading, setAuthLoading] = useState(true)
+  const [authError, setAuthError]       = useState(null)
   const [serverWaking, setServerWaking] = useState(false)
   const [roomId, setRoomId] = useState(null)
   const [queue, setQueue] = useState([])
@@ -1150,6 +1151,44 @@ function App() {
       <TimeMachine isOpen={timeMachineOpen} onClose={() => setTimeMachineOpen(false)} onLoadSession={songs => { socket.emit('add-songs-batch', { roomId, songs, addedBy: user?.username }); setTimeMachineOpen(false) }} />
       <WeeklyWrapped isOpen={wrappedOpen} onClose={() => setWrappedOpen(false)} />
       <ChemistryScore isOpen={chemistryOpen} onClose={() => setChemistryOpen(false)} roomId={roomId} />
+
+      {/* ── Auth Error Modal ────────────────────────────── */}
+      {authError && (
+        <div className="auth-error-overlay" onClick={() => setAuthError(null)}>
+          <div className="auth-error-modal" onClick={e => e.stopPropagation()}>
+            <div className="auth-error-icon">
+              {authError === 'rate_limit' ? '⏳' : authError === 'denied' ? '🚫' : '⚠️'}
+            </div>
+            <h3 className="auth-error-title">
+              {authError === 'rate_limit' ? 'Discord is busy right now'
+               : authError === 'denied'   ? 'Login cancelled'
+               : authError === 'config'   ? 'Discord not configured'
+               : 'Login failed'}
+            </h3>
+            <p className="auth-error-body">
+              {authError === 'rate_limit'
+                ? "Discord's servers are temporarily rate-limiting logins. Wait 15–30 minutes and try again."
+                : authError === 'denied'
+                ? "You cancelled the Discord login."
+                : authError === 'config'
+                ? "Discord credentials are misconfigured. Contact the server admin."
+                : "Something went wrong with Discord. Please try again."}
+            </p>
+            {authError === 'rate_limit' && (
+              <div className="auth-error-tip">💡 You can join as a guest while waiting</div>
+            )}
+            <div className="auth-error-actions">
+              <button className="auth-error-btn auth-error-btn--secondary" onClick={() => setAuthError(null)}>Dismiss</button>
+              {authError !== 'rate_limit' && authError !== 'config' && (
+                <button className="auth-error-btn auth-error-btn--primary"
+                  onClick={() => { setAuthError(null); window.location.href = `${BACKEND}/auth/discord` }}>
+                  Try again
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* General toast */}
       {toast && (
