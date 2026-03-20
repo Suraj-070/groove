@@ -761,6 +761,12 @@ export default function Chat({
           if (msg.type === 'np')     return <NowPlayingDivider key={msg.id} msg={msg} />
           if (msg.type === 'song')   return <SongCard key={msg.id} msg={msg} onAddToQueue={!msg.self ? onAddSongToQueue : null} />
           if (msg.type === 'stamp')  return <StampCard key={msg.id} msg={msg} />
+          const prevMsg = messagesWithDividers[i - 1]
+          const nextMsg = messagesWithDividers[i + 1]
+          const isFirstInGroup = !prevMsg || prevMsg.type !== 'msg' || prevMsg.username !== msg.username
+          const isLastInGroup  = !nextMsg || nextMsg.type !== 'msg' || nextMsg.username !== msg.username
+          const isFirstUnread  = msg.id === firstUnreadId
+
           if (msg.type === 'gif')    return (
             <div key={msg.id} className={`chat-gif-row ${msg.self ? 'chat-gif-row--self' : ''}`} data-id={msg.id}>
               {isFirstUnread && <UnreadDivider />}
@@ -772,12 +778,6 @@ export default function Chat({
               </div>
             </div>
           )
-
-          const prevMsg = messagesWithDividers[i - 1]
-          const nextMsg = messagesWithDividers[i + 1]
-          const isFirstInGroup = !prevMsg || prevMsg.type !== 'msg' || prevMsg.username !== msg.username
-          const isLastInGroup  = !nextMsg || nextMsg.type !== 'msg' || nextMsg.username !== msg.username
-          const isFirstUnread  = msg.id === firstUnreadId
 
           return (
             <div key={msg.id} data-id={msg.id}>

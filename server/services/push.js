@@ -48,7 +48,8 @@ async function sendPush(userId, payload) {
 }
 
 // Send push to all users in a room except one (the actor)
-async function sendPushToRoom(roomId, exceptUserId, payload) {
+// rooms must be passed in — it lives in services/room.js
+async function sendPushToRoom(roomId, exceptUserId, payload, rooms) {
   const room = rooms[roomId];
   if (!room) return;
   const userIds = Object.values(room.users)
