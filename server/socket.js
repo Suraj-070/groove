@@ -79,7 +79,7 @@ module.exports = function registerSockets(io) {
         renotify: false,
         silent: true,
         data: { roomId, url: `/?room=${roomId}`, type: 'user_joined' }
-      }, rooms);
+      });
     }
   });
 
@@ -125,7 +125,7 @@ module.exports = function registerSockets(io) {
       renotify: true,
       silent: false,
       data: { roomId, url: `/?room=${roomId}`, type: 'song_added' }
-    }, rooms);
+    });
   });
 
   // Batch add songs from a playlist import — single DB write, single broadcast
@@ -279,7 +279,7 @@ module.exports = function registerSockets(io) {
       renotify: true,
       silent: false,
       data: { roomId, url: `/?room=${roomId}`, type: 'chat' }
-    }, rooms);
+    });
   });
   socket.on('reaction', ({ roomId, emoji, username }) => socket.to(roomId).emit('reaction', { emoji, username }));
   socket.on('user-typing', ({ roomId, username, isTyping }) => socket.to(roomId).emit('user-typing', { username, isTyping }));
