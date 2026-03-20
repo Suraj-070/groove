@@ -26,24 +26,78 @@ const GrooveLogo = () => (
   </svg>
 )
 
+// Error messages per type
+const ERROR_CONFIG = {
+  rate_limit: {
+    icon: '⏳',
+    title: 'Discord is temporarily unavailable',
+    body: "Discord's servers are rate-limiting login attempts from our server. This fixes itself automatically — please wait 15–30 minutes before trying again.",
+    tip: '💡 You can still join as a guest while waiting',
+    canRetry: false,
+  },
+  denied: {
+    icon: '🚫',
+    title: 'Login cancelled',
+    body: 'You cancelled the Discord authorization. Click below to try again.',
+    tip: null,
+    canRetry: true,
+  },
+  config: {
+    icon: '⚙️',
+    title: 'Discord not configured',
+    body: 'The Discord app credentials are misconfigured on the server. Please contact the admin.',
+    tip: null,
+    canRetry: false,
+  },
+  generic: {
+    icon: '⚠️',
+    title: 'Login failed',
+    body: 'Something went wrong connecting to Discord. Please try again in a moment.',
+    tip: null,
+    canRetry: true,
+  },
+}
+
+function AuthErrorBanner({ type, onDismiss, onRetry }) {
+  const cfg = ERROR_CONFIG[type] || ERROR_CONFIG.generic
+  return (
+    <div className="rj-auth-error">
+      <div className="rj-auth-error-icon">{cfg.icon}</div>
+      <div className="rj-auth-error-body">
+        <p className="rj-auth-error-title">{cfg.title}</p>
+        <p className="rj-auth-error-sub">{cfg.body}</p>
+        {cfg.tip && <p className="rj-auth-error-tip">{cfg.tip}</p>}
+        <div className="rj-auth-error-actions">
+          <button className="rj-auth-error-dismiss" onClick={onDismiss}>Dismiss</button>
+          {cfg.canRetry && (
+            <button className="rj-auth-error-retry" onClick={onRetry}>
+              Try again with Discord
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function RoomJoin({ onJoin, user, onGuestLogin }) {
-  const [roomId, setRoomId] = useState(() => {
-    return sessionStorage.getItem('groove_invite_room') || ''
-  })
+  const [roomId, setRoomId] = useState(() =>
+    sessionStorage.getItem('groove_invite_room') || ''
+  )
   const [guestName, setGuestName]   = useState('')
   const [showGuest, setShowGuest]   = useState(false)
   const [guestError, setGuestError] = useState('')
+
+  // Detect auth error from redirect URL on mount
   const [loginError, setLoginError] = useState(() => {
-    // Check if redirected back with an error
     const p = new URLSearchParams(window.location.search)
-    if (p.get('error') === 'auth_failed') {
-      window.history.replaceState({}, '', '/')
-      const reason = p.get('reason') || ''
-      if (reason.includes('1015') || reason.includes('rate')) return 'rate_limit'
-      if (reason.includes('access_denied')) return 'denied'
-      return 'generic'
-    }
-    return null
+    if (p.get('error') !== 'auth_failed') return null
+    window.history.replaceState({}, '', '/')
+    const reason = p.get('reason') || ''
+    if (reason === 'rate_limit' || reason.includes('1015')) return 'rate_limit'
+    if (reason === 'denied' || reason.includes('access_denied')) return 'denied'
+    if (reason === 'config' || reason.includes('invalid_client')) return 'config'
+    return 'generic'
   })
 
   const handleDiscordLogin = () => {
@@ -57,8 +111,8 @@ export default function RoomJoin({ onJoin, user, onGuestLogin }) {
 
   const handleGuestSubmit = () => {
     const name = guestName.trim()
-    if (!name) { setGuestError('Please enter a username'); return }
-    if (name.length < 2) { setGuestError('Must be at least 2 characters'); return }
+    if (!name)         { setGuestError('Please enter a username'); return }
+    if (name.length < 2)  { setGuestError('Must be at least 2 characters'); return }
     if (name.length > 20) { setGuestError('Max 20 characters'); return }
     onGuestLogin({ username: name })
   }
@@ -85,9 +139,17 @@ export default function RoomJoin({ onJoin, user, onGuestLogin }) {
           </h1>
           <p className="join-sub">Listen to music in sync with your friends</p>
 
+          {/* Auth error banner — shows when redirected back after failed login */}
+          {loginError && (
+            <AuthErrorBanner
+              type={loginError}
+              onDismiss={() => setLoginError(null)}
+              onRetry={handleDiscordLogin}
+            />
+          )}
+
           {!showGuest ? (
             <>
-              {/* Discord */}
               <button className="discord-login-btn" onClick={handleDiscordLogin}>
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057c.003.022.015.04.03.05a19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03z"/>
@@ -95,7 +157,6 @@ export default function RoomJoin({ onJoin, user, onGuestLogin }) {
                 Continue with Discord
               </button>
 
-              {/* Google */}
               <button className="google-login-btn" onClick={handleGoogleLogin}>
                 <svg width="20" height="20" viewBox="0 0 24 24">
                   <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -108,7 +169,6 @@ export default function RoomJoin({ onJoin, user, onGuestLogin }) {
 
               <div className="divider"><span>or</span></div>
 
-              {/* Guest */}
               <button className="guest-login-btn" onClick={() => setShowGuest(true)}>
                 👤 Continue as Guest
               </button>
