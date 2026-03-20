@@ -178,6 +178,7 @@ function App() {
   const [chemistryOpen, setChemistryOpen]     = useState(false)
   const [streakData, setStreakData]           = useState(null)
   const [streakToast, setStreakToast]         = useState(null)
+  const [toast, setToast]                     = useState(null)
   const [lastMessage, setLastMessage]         = useState(null)
   const [radioMode, setRadioMode]             = useState(() => localStorage.getItem('groove_radio') === 'true')
   const [radioLoading, setRadioLoading]       = useState(false)
@@ -196,6 +197,7 @@ function App() {
   const [isPlaying, setIsPlaying] = useState(false)
   const [queueCollapsed, setQueueCollapsed] = useState(false)
   const haptic = (ms = 10) => { try { navigator.vibrate?.(ms) } catch {} }
+  const showToast = (msg, duration = 3000) => { setToast(msg); setTimeout(() => setToast(null), duration) }
   const [partyMode, setPartyMode] = useState(false)
   const [mobileTab, setMobileTab] = useState('player')
   const [profileOpen, setProfileOpen] = useState(false)
@@ -433,6 +435,18 @@ function App() {
               const res2 = await fetch(`${BACKEND}/auth/me`, { credentials: 'include' })
               if (res2.ok) setUser(await res2.json())
             } catch {}
+          } else if (params.get('error') === 'auth_failed') {
+            window.history.replaceState({}, '', '/')
+            const reason = params.get('reason') || ''
+            if (reason === 'rate_limit' || reason.includes('1015')) {
+              setAuthError('rate_limit')
+            } else if (reason === 'denied' || reason === 'access_denied') {
+              setAuthError('denied')
+            } else if (reason === 'config') {
+              setAuthError('config')
+            } else {
+              setAuthError('generic')
+            }
           }
         }
       } catch (e) {
@@ -1067,8 +1081,8 @@ function App() {
         </nav>
       )}
 
-      {/* Floating chat bubble — mobile only */}
-      {isMobileView && user && (
+      {/* Floating chat bubble — mobile + desktop */}
+      {user && (
         <FloatingChatBubble
           user={user}
           unread={unread}
@@ -1136,6 +1150,11 @@ function App() {
       <TimeMachine isOpen={timeMachineOpen} onClose={() => setTimeMachineOpen(false)} onLoadSession={songs => { socket.emit('add-songs-batch', { roomId, songs, addedBy: user?.username }); setTimeMachineOpen(false) }} />
       <WeeklyWrapped isOpen={wrappedOpen} onClose={() => setWrappedOpen(false)} />
       <ChemistryScore isOpen={chemistryOpen} onClose={() => setChemistryOpen(false)} roomId={roomId} />
+
+      {/* General toast */}
+      {toast && (
+        <div className="general-toast">{toast}</div>
+      )}
 
       {/* Streak toast */}
       {streakToast && (

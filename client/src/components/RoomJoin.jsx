@@ -28,14 +28,26 @@ const GrooveLogo = () => (
 
 export default function RoomJoin({ onJoin, user, onGuestLogin }) {
   const [roomId, setRoomId] = useState(() => {
-    // Pre-fill from invite link (?room=...) stored in sessionStorage
     return sessionStorage.getItem('groove_invite_room') || ''
   })
-  const [guestName, setGuestName] = useState('')
-  const [showGuest, setShowGuest] = useState(false)
+  const [guestName, setGuestName]   = useState('')
+  const [showGuest, setShowGuest]   = useState(false)
   const [guestError, setGuestError] = useState('')
+  const [loginError, setLoginError] = useState(() => {
+    // Check if redirected back with an error
+    const p = new URLSearchParams(window.location.search)
+    if (p.get('error') === 'auth_failed') {
+      window.history.replaceState({}, '', '/')
+      const reason = p.get('reason') || ''
+      if (reason.includes('1015') || reason.includes('rate')) return 'rate_limit'
+      if (reason.includes('access_denied')) return 'denied'
+      return 'generic'
+    }
+    return null
+  })
 
   const handleDiscordLogin = () => {
+    setLoginError(null)
     window.location.href = `${BACKEND}/auth/discord`
   }
 
