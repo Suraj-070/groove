@@ -43,6 +43,8 @@ const messageSchema = new mongoose.Schema({
   type:      { type: String, default: 'msg' },
   avatar:    { type: String, default: null },
   edited:    { type: Boolean, default: false },
+  gif:       { type: String, default: null },
+  preview:   { type: String, default: null },
   replyTo:   { type: mongoose.Schema.Types.Mixed, default: null },
   reactions: { type: mongoose.Schema.Types.Mixed, default: {} },
   status:    { type: String, default: 'sent' },
