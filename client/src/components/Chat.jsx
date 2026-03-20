@@ -184,28 +184,52 @@ const MessageBubble = memo(({
   const [showQuick, setShowQuick] = useState(false)
   const [showCtx, setShowCtx] = useState(false)
   const longPressTimer = useRef(null)
-  const touchMoved = useRef(false)
+  const touchStartPos = useRef(null)
   const swipeRef = useRef(null)
   const swipeStartX = useRef(null)
+  const hoverLeaveTimer = useRef(null)
 
   const textParts = parseText(msg.text || '')
   const hasYt = textParts.some(p => p.type === 'url' && ytId(p.value))
 
+  // Desktop hover — use a leave delay so moving into QuickReact doesn't close it
+  const handleMouseEnter = () => {
+    if (IS_MOBILE) return
+    clearTimeout(hoverLeaveTimer.current)
+    setShowQuick(true)
+  }
+  const handleMouseLeave = () => {
+    if (IS_MOBILE) return
+    hoverLeaveTimer.current = setTimeout(() => setShowQuick(false), 200)
+  }
+  const handleQuickMouseEnter = () => clearTimeout(hoverLeaveTimer.current)
+  const handleQuickMouseLeave = () => {
+    hoverLeaveTimer.current = setTimeout(() => setShowQuick(false), 150)
+  }
+
+  // Mobile long press — only cancel if moved MORE than 8px
   const onTouchStart = (e) => {
-    touchMoved.current = false
+    touchStartPos.current = { x: e.touches[0].clientX, y: e.touches[0].clientY }
     swipeStartX.current = e.touches[0].clientX
     longPressTimer.current = setTimeout(() => {
-      if (!touchMoved.current) { setShowCtx(true); try { navigator.vibrate?.(12) } catch {} }
+      setShowCtx(true)
+      try { navigator.vibrate?.(15) } catch {}
     }, 500)
   }
   const onTouchMove = (e) => {
-    touchMoved.current = true
-    clearTimeout(longPressTimer.current)
-    if (swipeStartX.current === null) return
-    const dx = isSelf
-      ? Math.max(0, swipeStartX.current - e.touches[0].clientX)
-      : Math.max(0, e.touches[0].clientX - swipeStartX.current)
-    if (swipeRef.current && dx < 70) swipeRef.current.style.transform = `translateX(${isSelf ? -dx * 0.35 : dx * 0.35}px)`
+    if (!touchStartPos.current) return
+    const dx = Math.abs(e.touches[0].clientX - touchStartPos.current.x)
+    const dy = Math.abs(e.touches[0].clientY - touchStartPos.current.y)
+    // Only cancel long press if moved significantly
+    if (dx > 8 || dy > 8) clearTimeout(longPressTimer.current)
+    // Swipe animation
+    if (swipeStartX.current !== null) {
+      const swipeDx = isSelf
+        ? Math.max(0, swipeStartX.current - e.touches[0].clientX)
+        : Math.max(0, e.touches[0].clientX - swipeStartX.current)
+      if (swipeRef.current && swipeDx < 70)
+        swipeRef.current.style.transform = `translateX(${isSelf ? -swipeDx * 0.35 : swipeDx * 0.35}px)`
+    }
   }
   const onTouchEnd = (e) => {
     clearTimeout(longPressTimer.current)
@@ -213,8 +237,9 @@ const MessageBubble = memo(({
     const dx = isSelf
       ? swipeStartX.current - e.changedTouches[0].clientX
       : e.changedTouches[0].clientX - swipeStartX.current
-    if (dx > 55 && touchMoved.current) { onReply(msg); try { navigator.vibrate?.(8) } catch {} }
+    if (dx > 55) { onReply(msg); try { navigator.vibrate?.(8) } catch {} }
     swipeStartX.current = null
+    touchStartPos.current = null
     if (swipeRef.current) swipeRef.current.style.transform = ''
   }
 
@@ -244,7 +269,7 @@ const MessageBubble = memo(({
         {/* Reply quote */}
         {msg.replyTo && <ReplyQuote reply={msg.replyTo} isSelf={isSelf} />}
 
-        {/* Bubble */}
+        {/* Bubble wrapper — hover zone includes QuickReact */}
         {isEditing ? (
           <div className="ig-edit-wrap">
             <input className="ig-edit-input" value={editText}
@@ -258,24 +283,27 @@ const MessageBubble = memo(({
             </div>
           </div>
         ) : (
-          <div
-            className={`ig-bubble ${isSelf ? 'ig-bubble--self' : 'ig-bubble--other'}`}
-            onMouseEnter={() => !IS_MOBILE && setShowQuick(true)}
-            onMouseLeave={() => setShowQuick(false)}
+          <div className="ig-bubble-hover-zone"
+            onMouseEnter={handleMouseEnter}
+            onMouseLeave={handleMouseLeave}
           >
-            {/* Hover react */}
+            {/* Quick react pill — OUTSIDE bubble so hover doesn't close it */}
             {showQuick && !IS_MOBILE && (
-              <QuickReact isSelf={isSelf} onReact={e => onReact(msg.id, e)} onClose={() => setShowQuick(false)} />
+              <div onMouseEnter={handleQuickMouseEnter} onMouseLeave={handleQuickMouseLeave}>
+                <QuickReact isSelf={isSelf} onReact={e => { onReact(msg.id, e); setShowQuick(false) }} onClose={() => setShowQuick(false)} />
+              </div>
             )}
 
-            <p className="ig-bubble-text">
-              {textParts.map((p, i) =>
-                p.type === 'url'
-                  ? <a key={i} href={p.value} target="_blank" rel="noopener noreferrer" className="ig-link">{p.value}</a>
-                  : <span key={i} dangerouslySetInnerHTML={{ __html: p.value.replace(/@(\w+)/g, '<span class="ig-mention">@$1</span>') }} />
-              )}
-              {msg.edited && <span className="ig-edited"> (edited)</span>}
-            </p>
+            <div className={`ig-bubble ${isSelf ? 'ig-bubble--self' : 'ig-bubble--other'}`}>
+              <p className="ig-bubble-text">
+                {textParts.map((p, i) =>
+                  p.type === 'url'
+                    ? <a key={i} href={p.value} target="_blank" rel="noopener noreferrer" className="ig-link">{p.value}</a>
+                    : <span key={i} dangerouslySetInnerHTML={{ __html: p.value.replace(/@(\w+)/g, '<span class="ig-mention">@$1</span>') }} />
+                )}
+                {msg.edited && <span className="ig-edited"> (edited)</span>}
+              </p>
+            </div>
           </div>
         )}
 

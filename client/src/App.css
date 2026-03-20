@@ -11725,3 +11725,422 @@ body.chat-is-open .fcb-bubble { opacity: 0; pointer-events: none; }
   .ig-bubble-text { font-size: 0.9rem; }
   .ig-gif-img { max-width: 190px; max-height: 160px; }
 }
+
+/* ═══════════════════════════════════════════════════════════
+   INSTAGRAM-STYLE CHAT BUBBLES
+   ═══════════════════════════════════════════════════════════ */
+
+/* ── Messages wrapper ───────────────────────────────────── */
+.ig-messages {
+  padding: 12px 0 8px !important;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* ── Row layout ─────────────────────────────────────────── */
+.ig-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  padding: 1px 12px;
+  position: relative;
+}
+.ig-row--self {
+  flex-direction: row-reverse; /* own messages on right */
+}
+.ig-row--other {
+  flex-direction: row; /* others on left */
+}
+
+/* ── Avatar ─────────────────────────────────────────────── */
+.ig-av-col {
+  flex-shrink: 0;
+  width: 28px;
+  align-self: flex-end;
+  margin-bottom: 2px;
+}
+.ig-av {
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.65rem; font-weight: 800; color: #fff;
+  flex-shrink: 0;
+}
+.ig-av--img { object-fit: cover; }
+.ig-av-ghost { width: 28px; height: 28px; flex-shrink: 0; }
+
+/* ── Bubble column ──────────────────────────────────────── */
+.ig-bubble-col {
+  display: flex;
+  flex-direction: column;
+  max-width: 72%;
+  min-width: 0;
+  gap: 2px;
+}
+.ig-row--self .ig-bubble-col {
+  align-items: flex-end;
+}
+.ig-row--other .ig-bubble-col {
+  align-items: flex-start;
+}
+
+/* ── Name (others only) ─────────────────────────────────── */
+.ig-name {
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 0 4px;
+  margin-bottom: 1px;
+}
+
+/* ── Bubble ─────────────────────────────────────────────── */
+.ig-bubble {
+  padding: 9px 13px;
+  border-radius: 22px;
+  word-break: break-word;
+  position: relative;
+  width: fit-content;
+  max-width: 100%;
+}
+
+/* Own messages — purple gradient, right side */
+.ig-bubble--self {
+  background: linear-gradient(135deg, #7c6aff, #a78bfa);
+  color: #fff;
+  border-bottom-right-radius: 6px;
+  box-shadow: 0 2px 12px rgba(124,106,255,0.35);
+}
+
+/* Others — dark bubble, left side */
+.ig-bubble--other {
+  background: var(--surface3, #1e1e35);
+  border: 1px solid rgba(255,255,255,0.07);
+  color: var(--text, #eeeeff);
+  border-bottom-left-radius: 6px;
+}
+
+.ig-bubble-text {
+  font-size: 0.88rem;
+  line-height: 1.45;
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.ig-link { color: inherit; text-decoration: underline; opacity: 0.85; }
+.ig-mention {
+  font-weight: 700;
+  background: rgba(255,255,255,0.15);
+  border-radius: 4px;
+  padding: 0 3px;
+}
+.ig-bubble--other .ig-mention { background: rgba(124,106,255,0.2); color: var(--accent, #7c6aff); }
+.ig-edited { font-size: 0.65rem; opacity: 0.6; margin-left: 4px; }
+
+/* ── Bubble hover zone (wraps bubble + quick react) ─────── */
+.ig-bubble-hover-zone {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+.ig-row--self .ig-bubble-hover-zone { align-items: flex-end; }
+.ig-row--other .ig-bubble-hover-zone { align-items: flex-start; }
+
+/* ── Quick react — above bubble, stays hoverable ────────── */
+.ig-quick-react {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 0;
+  display: flex;
+  gap: 2px;
+  background: var(--surface2, #16162a);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 24px;
+  padding: 5px 8px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.6);
+  z-index: 50;
+  white-space: nowrap;
+  animation: igReactIn 0.15s ease;
+}
+@keyframes igReactIn {
+  from { opacity: 0; transform: translateY(4px) scale(0.95); }
+  to   { opacity: 1; transform: none; }
+}
+.ig-quick-react--self { left: auto; right: 0; }
+.ig-quick-react button {
+  background: none; border: none;
+  font-size: 1.15rem; cursor: pointer;
+  padding: 2px 4px; border-radius: 6px;
+  transition: transform 0.1s, background 0.1s; line-height: 1;
+}
+.ig-quick-react button:hover { transform: scale(1.3); background: rgba(255,255,255,0.08); }
+
+/* ── Reply quote in bubble ──────────────────────────────── */
+.ig-reply-quote {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-radius: 12px;
+  background: rgba(0,0,0,0.15);
+  margin-bottom: 4px;
+  max-width: 100%;
+  overflow: hidden;
+  cursor: pointer;
+}
+.ig-reply-quote--self { background: rgba(0,0,0,0.2); }
+.ig-reply-bar { width: 2px; height: 28px; border-radius: 2px; flex-shrink: 0; }
+.ig-reply-name { font-size: 0.7rem; font-weight: 700; display: block; }
+.ig-reply-preview {
+  font-size: 0.72rem; opacity: 0.7;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block;
+}
+
+/* ── Reactions ──────────────────────────────────────────── */
+.ig-reactions { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 2px; }
+.ig-reactions--self { justify-content: flex-end; }
+.ig-reaction {
+  display: flex; align-items: center; gap: 3px;
+  padding: 2px 7px; border-radius: 20px;
+  background: rgba(255,255,255,0.07);
+  border: 1px solid rgba(255,255,255,0.1);
+  font-size: 0.8rem; cursor: pointer; color: var(--text);
+  transition: background 0.15s;
+}
+.ig-reaction:hover { background: rgba(255,255,255,0.12); }
+.ig-reaction--mine {
+  background: rgba(124,106,255,0.2);
+  border-color: rgba(124,106,255,0.4);
+}
+.ig-reaction span { font-size: 0.72rem; font-weight: 700; }
+
+/* ── Meta (timestamp + status) ──────────────────────────── */
+.ig-meta {
+  display: flex; align-items: center; gap: 3px;
+  padding: 0 4px; margin-top: 1px;
+}
+.ig-meta--self { justify-content: flex-end; }
+.ig-ts { font-size: 0.6rem; color: var(--muted, #6b6890); }
+.ig-status { font-size: 0.6rem; }
+.ig-status--sending { color: var(--muted, #6b6890); }
+.ig-status--sent    { color: var(--muted, #6b6890); }
+.ig-status--read    { color: var(--accent3, #6affb8); font-weight: 700; }
+
+/* ── GIF ────────────────────────────────────────────────── */
+.ig-gif-wrap {
+  position: relative; display: inline-block;
+  border-radius: 16px; overflow: hidden;
+  cursor: zoom-in; max-width: 220px;
+}
+.ig-gif-wrap--self { border-radius: 16px 16px 6px 16px; }
+.ig-gif-img {
+  display: block; max-width: 220px; max-height: 180px;
+  object-fit: cover; transition: filter 0.15s;
+}
+.ig-gif-wrap:hover .ig-gif-img { filter: brightness(0.8); }
+.ig-gif-badge {
+  position: absolute; bottom: 6px; left: 6px;
+  background: rgba(0,0,0,0.65); color: #fff;
+  font-size: 0.5rem; font-weight: 900; letter-spacing: 0.1em;
+  padding: 2px 5px; border-radius: 3px; pointer-events: none;
+}
+
+/* ── GIF Lightbox ───────────────────────────────────────── */
+.ig-lightbox {
+  position: fixed; inset: 0; z-index: 9999;
+  background: rgba(0,0,0,0.9);
+  display: flex; align-items: center; justify-content: center;
+  backdrop-filter: blur(8px);
+}
+.ig-lightbox-close {
+  position: fixed; top: 16px; right: 16px;
+  width: 36px; height: 36px; border-radius: 50%;
+  background: rgba(255,255,255,0.12); border: none;
+  color: #fff; font-size: 1rem; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+}
+.ig-lightbox-img {
+  max-width: 90vw; max-height: 80vh;
+  border-radius: 12px; object-fit: contain;
+}
+
+/* ── YouTube preview ────────────────────────────────────── */
+.ig-yt-preview {
+  margin-top: 4px; border-radius: 12px; overflow: hidden; max-width: 220px;
+}
+.ig-yt-preview--self { border-radius: 12px 12px 6px 12px; }
+.ig-yt-preview img { width: 100%; display: block; }
+
+/* ── Edit ───────────────────────────────────────────────── */
+.ig-edit-wrap { width: 100%; }
+.ig-edit-input {
+  width: 100%; padding: 9px 13px;
+  background: var(--surface3, #1e1e35);
+  border: 1px solid var(--accent, #7c6aff);
+  border-radius: 22px; color: var(--text); font-size: 0.88rem;
+  outline: none; box-sizing: border-box;
+  box-shadow: 0 0 0 2px rgba(124,106,255,0.2);
+}
+.ig-edit-hint {
+  font-size: 0.68rem; color: var(--muted); margin-top: 4px;
+  display: flex; align-items: center; gap: 5px; justify-content: flex-end; padding: 0 4px;
+}
+.ig-edit-hint button {
+  background: none; border: none; cursor: pointer;
+  color: var(--accent); font-size: 0.68rem; text-decoration: underline; padding: 0;
+}
+
+/* ── Context Menu ───────────────────────────────────────── */
+.ig-ctx-overlay { position: fixed; inset: 0; z-index: 1050; background: rgba(0,0,0,0.4); }
+.ig-ctx-menu {
+  position: fixed; bottom: 0; left: 0; right: 0; z-index: 1051;
+  background: var(--surface2, #16162a);
+  border-radius: 20px 20px 0 0;
+  border-top: 1px solid rgba(255,255,255,0.08);
+  overflow: hidden;
+  padding-bottom: env(safe-area-inset-bottom, 12px);
+  animation: igCtxUp 0.2s cubic-bezier(0.34,1.2,0.64,1);
+}
+@keyframes igCtxUp {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+.ig-ctx-reactions {
+  display: flex; justify-content: space-around;
+  padding: 14px 16px 10px;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+.ig-ctx-reactions button {
+  font-size: 1.5rem; background: none; border: none;
+  cursor: pointer; padding: 4px 6px; border-radius: 8px;
+  transition: transform 0.12s, background 0.12s;
+}
+.ig-ctx-reactions button:hover { transform: scale(1.3); }
+.ig-ctx-btn {
+  width: 100%; display: flex; align-items: center; gap: 12px;
+  padding: 14px 20px; background: none; border: none;
+  color: var(--text); font-size: 0.9rem; cursor: pointer;
+  font-family: inherit; text-align: left;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+  transition: background 0.1s;
+}
+.ig-ctx-btn:last-child { border-bottom: none; }
+.ig-ctx-btn:hover { background: rgba(255,255,255,0.04); }
+.ig-ctx-btn svg { color: var(--muted); }
+
+/* ── Date divider ───────────────────────────────────────── */
+.ig-date-divider {
+  display: flex; align-items: center; justify-content: center;
+  padding: 14px 16px 6px;
+}
+.ig-date-divider span {
+  font-size: 0.68rem; color: var(--muted);
+  font-weight: 600; letter-spacing: 0.03em;
+  background: var(--surface2, #16162a);
+  padding: 3px 10px; border-radius: 10px;
+}
+
+/* ── System / NP ────────────────────────────────────────── */
+.ig-system {
+  text-align: center; padding: 3px 16px;
+  font-size: 0.72rem; color: var(--muted); font-style: italic;
+}
+.ig-np {
+  display: flex; align-items: center; justify-content: center; gap: 5px;
+  padding: 6px 16px; font-size: 0.72rem; color: var(--accent3, #6affb8);
+}
+
+/* ── Unread divider ─────────────────────────────────────── */
+.ig-unread-divider {
+  display: flex; align-items: center; justify-content: center; padding: 8px 16px;
+}
+.ig-unread-divider span {
+  font-size: 0.65rem; font-weight: 700; color: var(--accent2, #ff6a8a);
+  background: rgba(255,106,138,0.1); border: 1px solid rgba(255,106,138,0.2);
+  padding: 2px 10px; border-radius: 10px;
+}
+
+/* ── Empty state ────────────────────────────────────────── */
+.ig-empty {
+  flex: 1; display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 6px; padding: 40px 24px; text-align: center;
+}
+.ig-empty p { font-size: 1rem; font-weight: 700; color: var(--text); margin: 0; }
+.ig-empty span { font-size: 0.82rem; color: var(--muted); }
+
+/* ── Typing ─────────────────────────────────────────────── */
+.ig-typing {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 18px; min-height: 28px;
+}
+.ig-typing-dots { display: flex; gap: 3px; align-items: center; }
+.ig-typing-dots span {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--muted);
+  animation: igTyping 1.2s ease-in-out infinite;
+}
+.ig-typing-dots span:nth-child(2) { animation-delay: 0.2s; }
+.ig-typing-dots span:nth-child(3) { animation-delay: 0.4s; }
+@keyframes igTyping {
+  0%, 80%, 100% { transform: scale(0.7); opacity: 0.4; }
+  40%           { transform: scale(1); opacity: 1; }
+}
+.ig-typing-text { font-size: 0.72rem; color: var(--muted); }
+
+/* ── Reply banner ───────────────────────────────────────── */
+.ig-reply-banner {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 14px; background: var(--surface2);
+  border-top: 1px solid rgba(255,255,255,0.05); flex-shrink: 0;
+}
+.ig-reply-banner-bar { width: 3px; height: 28px; border-radius: 2px; flex-shrink: 0; }
+.ig-reply-banner-body { flex: 1; min-width: 0; }
+.ig-reply-banner-name { display: block; font-size: 0.72rem; font-weight: 700; margin-bottom: 1px; }
+.ig-reply-banner-text {
+  display: block; font-size: 0.72rem; color: var(--muted);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.ig-reply-banner-x {
+  background: none; border: none; cursor: pointer;
+  color: var(--muted); font-size: 0.88rem; padding: 4px 6px; border-radius: 4px;
+}
+.ig-reply-banner-x:hover { color: var(--text); }
+
+/* ── Pinned ─────────────────────────────────────────────── */
+.ig-pinned {
+  display: flex; align-items: center; gap: 6px;
+  padding: 5px 14px; background: rgba(124,106,255,0.1);
+  border-bottom: 1px solid rgba(124,106,255,0.15);
+  font-size: 0.72rem; flex-shrink: 0;
+}
+.ig-pinned svg { color: var(--accent2); flex-shrink: 0; }
+.ig-pinned-text { flex: 1; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ig-pinned-close { background: none; border: none; cursor: pointer; color: var(--muted2); font-size: 0.75rem; }
+
+/* ── Song card ──────────────────────────────────────────── */
+.ig-song-card {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px; margin: 4px 0;
+  background: var(--surface2); border-radius: 16px;
+  border-left: 3px solid var(--accent); max-width: 280px;
+}
+.ig-song-card--self { border-left: none; border-right: 3px solid rgba(255,255,255,0.5); }
+.ig-song-thumb { width: 44px; height: 32px; border-radius: 6px; object-fit: cover; flex-shrink: 0; }
+.ig-song-info { flex: 1; min-width: 0; }
+.ig-song-title { font-size: 0.78rem; font-weight: 700; margin: 0 0 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text); }
+.ig-song-by { font-size: 0.65rem; color: var(--muted); margin: 0; }
+.ig-song-add {
+  width: 28px; height: 28px; border-radius: 50%;
+  background: var(--accent); border: none; color: #fff;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+
+/* ── Mobile tweaks ──────────────────────────────────────── */
+@media (max-width: 768px) {
+  .ig-row { padding: 1px 10px; }
+  .ig-bubble-col { max-width: 78%; }
+  .ig-bubble { padding: 8px 12px; }
+  .ig-bubble-text { font-size: 0.9rem; }
+  .ig-gif-img { max-width: 190px; max-height: 160px; }
+}
