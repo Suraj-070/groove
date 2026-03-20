@@ -10,6 +10,7 @@ const SPAM_INTERVAL = 200
 export default function ReactionBurst({ socket, roomId, username }) {
   const [bursts, setBursts] = useState([])
   const [showPicker, setShowPicker] = useState(false)
+  const [showFullPicker, setShowFullPicker] = useState(false)
   const [recentEmojis, setRecentEmojis] = useState([])
 
   const spamCountRef    = useRef(0)

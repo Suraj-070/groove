@@ -456,7 +456,7 @@ export default function Chat({
           unreadMarked.current = true
           setFirstUnreadId(msg.id)
         }
-        return [...prev.slice(-299), { ...msg, type: 'msg', status: 'sent' }]
+        return [...prev.slice(-299), { ...msg, status: 'sent' }]
       })
       setAtBottom(prev => { if (!prev) setNewCount(c => c + 1); return prev })
     }
