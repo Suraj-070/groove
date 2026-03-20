@@ -1,4 +1,4 @@
-const { Message } = require('./models')
+const { Message, Room, RoomSession } = require('./models')
 const { enrichSong, flowScore } = require('./services/music')
 const { sendPushToRoom } = require('./services/push')
 const { rooms, getRoom, saveRoom, updateStreak, recordListen, computeChemistry } = require('./services/room')
@@ -390,9 +390,3 @@ module.exports = function registerSockets(io) {
   });
   });
 }
-
-const PORT = process.env.PORT || 3001;
-server.listen(PORT, () => {
-  console.log(`🎵 Groove Together server on port ${PORT}`);
-});
-
