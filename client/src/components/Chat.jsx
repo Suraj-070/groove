@@ -218,11 +218,13 @@ const MessageBubble = memo(({
   const color = userColor(msg.username)
   const [showQuick, setShowQuick] = useState(false)
   const [showCtx, setShowCtx] = useState(false)
+  const [pickerPos, setPickerPos] = useState({ bottom: 80, left: 80 })
   const longPressTimer = useRef(null)
   const touchStartPos = useRef(null)
   const swipeRef = useRef(null)
   const swipeStartX = useRef(null)
   const hoverLeaveTimer = useRef(null)
+  const bubbleRef = useRef(null)
 
   const textParts = parseText(msg.text || '')
   const hasYt = textParts.some(p => p.type === 'url' && ytId(p.value))
@@ -341,23 +343,24 @@ const MessageBubble = memo(({
                   </button>
                 ))}
                 {/* More emojis — smiley button like Discord */}
-                <div style={{ position: 'relative' }}>
-                  <button className="ig-action-btn"
-                    title="More reactions"
-                    style={{ opacity: 0.6 }}
-                    onClick={() => setShowQuick(v => v === 'picker' ? true : 'picker')}>
-                    <svg viewBox="0 0 24 24" fill="currentColor" width="15" height="15"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm3.5-9c.83 0 1.5-.67 1.5-1.5S16.33 8 15.5 8 14 8.67 14 9.5s.67 1.5 1.5 1.5zm-7 0c.83 0 1.5-.67 1.5-1.5S9.33 8 8.5 8 7 8.67 7 9.5 7.67 11 8.5 11zm3.5 6.5c2.33 0 4.31-1.46 5.11-3.5H6.89c.8 2.04 2.78 3.5 5.11 3.5z"/></svg>
-                  </button>
-                  {showQuick === 'picker' && (
-                    <div style={{ position: 'absolute', bottom: 'calc(100% + 6px)', left: isSelf ? 'auto' : 0, right: isSelf ? 0 : 'auto', zIndex: 200 }}>
-                      <div style={{ position: 'fixed', inset: 0, zIndex: -1 }} onClick={() => setShowQuick(false)} />
-                      <EmojiPicker
-                        onSelect={(e) => { onReact(msg.id, e); setShowQuick(false) }}
-                        onClose={() => setShowQuick(false)}
-                      />
-                    </div>
-                  )}
-                </div>
+                <button className="ig-action-btn"
+                  title="More reactions"
+                  style={{ opacity: 0.6 }}
+                  onClick={(e) => {
+                    if (showQuick === 'picker') { setShowQuick(false); return }
+                    // Calculate where to show the picker
+                    const rect = bubbleRef.current?.getBoundingClientRect() || e.currentTarget.getBoundingClientRect()
+                    const PICKER_H = 400
+                    const top = rect.top - PICKER_H - 8
+                    const left = isSelf ? Math.max(8, rect.right - 320) : Math.min(rect.left, window.innerWidth - 328)
+                    setPickerPos({
+                      top: top < 8 ? rect.bottom + 8 : top,
+                      left: Math.max(8, Math.min(left, window.innerWidth - 328)),
+                    })
+                    setShowQuick('picker')
+                  }}>
+                  <svg viewBox="0 0 24 24" fill="currentColor" width="15" height="15"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm3.5-9c.83 0 1.5-.67 1.5-1.5S16.33 8 15.5 8 14 8.67 14 9.5s.67 1.5 1.5 1.5zm-7 0c.83 0 1.5-.67 1.5-1.5S9.33 8 8.5 8 7 8.67 7 9.5 7.67 11 8.5 11zm3.5 6.5c2.33 0 4.31-1.46 5.11-3.5H6.89c.8 2.04 2.78 3.5 5.11 3.5z"/></svg>
+                </button>
                 {/* Divider */}
                 <div style={{ width: 1, height: 16, background: 'rgba(255,255,255,0.1)', margin: '0 2px', flexShrink: 0 }} />
                 {/* Reply */}
@@ -390,7 +393,7 @@ const MessageBubble = memo(({
               </div>
             )}
 
-            <div className={`ig-bubble ${isSelf ? 'ig-bubble--self' : 'ig-bubble--other'}`}>
+            <div ref={bubbleRef} className={`ig-bubble ${isSelf ? 'ig-bubble--self' : 'ig-bubble--other'}`}>
               <p className="ig-bubble-text">
                 {textParts.map((p, i) =>
                   p.type === 'url'
@@ -401,6 +404,19 @@ const MessageBubble = memo(({
               </p>
             </div>
           </div>
+        )}
+
+        {/* Full emoji picker for reactions — fixed position so it's never clipped */}
+        {showQuick === 'picker' && (
+          <>
+            <div style={{ position: 'fixed', inset: 0, zIndex: 299 }} onClick={() => setShowQuick(false)} />
+            <div style={{ position: 'fixed', top: pickerPos.top, left: pickerPos.left, zIndex: 300 }}>
+              <EmojiPicker
+                onSelect={(e) => { onReact(msg.id, e); setShowQuick(false) }}
+                onClose={() => setShowQuick(false)}
+              />
+            </div>
+          </>
         )}
 
         {/* YouTube preview */}
@@ -451,9 +467,11 @@ const GifBubble = memo(({ msg, isSelf, avatarSrc, showAvatar, showName, onReact,
   const [lightbox, setLightbox] = useState(false)
   const [showCtx, setShowCtx] = useState(false)
   const [showHover, setShowHover] = useState(false)
+  const [pickerPos, setPickerPos] = useState({ top: 80, left: 80 })
   const longPressTimer = useRef(null)
   const touchStartPos = useRef(null)
   const hoverLeaveTimer = useRef(null)
+  const gifRef = useRef(null)
 
   const handleMouseEnter = () => { if (IS_MOBILE) return; clearTimeout(hoverLeaveTimer.current); setShowHover(true) }
   const handleMouseLeave = () => { if (IS_MOBILE) return; hoverLeaveTimer.current = setTimeout(() => setShowHover(false), 200) }
@@ -541,18 +559,18 @@ const GifBubble = memo(({ msg, isSelf, avatarSrc, showAvatar, showName, onReact,
                 <div style={{ position: 'relative' }}>
                   <button className="ig-action-btn" title="More reactions"
                     style={{ opacity: 0.6 }}
-                    onClick={() => setShowHover(v => v === 'picker' ? true : 'picker')}>
+                    onClick={(e) => {
+                      if (showHover === 'picker') { setShowHover(true); return }
+                      const rect = gifRef.current?.getBoundingClientRect() || e.currentTarget.getBoundingClientRect()
+                      const PICKER_H = 400
+                      const top = rect.top - PICKER_H - 8
+                      const left = isSelf ? Math.max(8, rect.right - 320) : Math.min(rect.left, window.innerWidth - 328)
+                      setPickerPos({ top: top < 8 ? rect.bottom + 8 : top, left: Math.max(8, Math.min(left, window.innerWidth - 328)) })
+                      setShowHover('picker')
+                    }}>
                     <svg viewBox="0 0 24 24" fill="currentColor" width="15" height="15"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm3.5-9c.83 0 1.5-.67 1.5-1.5S16.33 8 15.5 8 14 8.67 14 9.5s.67 1.5 1.5 1.5zm-7 0c.83 0 1.5-.67 1.5-1.5S9.33 8 8.5 8 7 8.67 7 9.5 7.67 11 8.5 11zm3.5 6.5c2.33 0 4.31-1.46 5.11-3.5H6.89c.8 2.04 2.78 3.5 5.11 3.5z"/></svg>
                   </button>
-                  {showHover === 'picker' && (
-                    <div style={{ position: 'absolute', bottom: 'calc(100% + 6px)', left: isSelf ? 'auto' : 0, right: isSelf ? 0 : 'auto', zIndex: 200 }}>
-                      <div style={{ position: 'fixed', inset: 0, zIndex: -1 }} onClick={() => setShowHover(false)} />
-                      <EmojiPicker
-                        onSelect={(e) => { onReact(msg.id, e); setShowHover(false) }}
-                        onClose={() => setShowHover(false)}
-                      />
-                    </div>
-                  )}
+
                 </div>
                 <div style={{ width: 1, height: 16, background: 'rgba(255,255,255,0.1)', margin: '0 2px', flexShrink: 0 }} />
                 <button className="ig-action-btn" title="Reply" onClick={() => onReply(msg)}>
@@ -571,12 +589,20 @@ const GifBubble = memo(({ msg, isSelf, avatarSrc, showAvatar, showName, onReact,
                 )}
               </div>
             )}
-            <div className={`ig-gif-wrap ${isSelf ? 'ig-gif-wrap--self' : ''}`} onClick={() => setLightbox(true)}>
+            <div ref={gifRef} className={`ig-gif-wrap ${isSelf ? 'ig-gif-wrap--self' : ''}`} onClick={() => setLightbox(true)}>
               <img src={msg.gif} alt={msg.text || 'GIF'} className="ig-gif-img" loading="lazy" />
               <span className="ig-gif-badge">GIF</span>
             </div>
           </div>
 
+          {showHover === 'picker' && (
+            <>
+              <div style={{ position: 'fixed', inset: 0, zIndex: 299 }} onClick={() => setShowHover(true)} />
+              <div style={{ position: 'fixed', top: pickerPos.top, left: pickerPos.left, zIndex: 300 }}>
+                <EmojiPicker onSelect={(e) => { onReact(msg.id, e); setShowHover(false) }} onClose={() => setShowHover(false)} />
+              </div>
+            </>
+          )}
           <Reactions reactions={msg.reactions} onReact={e => onReact(msg.id, e)} username={username} isSelf={isSelf} recentEmojis={recentEmojis} />
           <div className={`ig-meta ${isSelf ? 'ig-meta--self' : ''}`}>
             <span className="ig-ts">{formatTs(msg.ts)}</span>
