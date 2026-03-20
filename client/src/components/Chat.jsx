@@ -148,44 +148,85 @@ const QuickReact = memo(({ isSelf, onReact, onClose }) => (
 ))
 
 // ── Mobile Context Menu ───────────────────────────────────
-const ContextMenu = memo(({ isSelf, onReact, onReply, onCopy, onEdit, onDelete, onPin, onClose, isGif, canPin }) => (
-  <>
-    <div className="ig-ctx-overlay" onClick={onClose} />
-    <div className="ig-ctx-menu">
-      <div className="ig-ctx-reactions">
-        {QUICK_EMOJIS.map(e => (
-          <button key={e} onClick={() => { onReact(e); onClose() }}>{e}</button>
-        ))}
+const ContextMenu = memo(({ isSelf, onReact, onReply, onCopy, onEdit, onDelete, onPin, onClose, isGif, canPin }) => {
+  const [showFullEmoji, setShowFullEmoji] = useState(false)
+
+  if (showFullEmoji) {
+    return (
+      <>
+        <div className="ig-ctx-overlay" onClick={() => setShowFullEmoji(false)} />
+        <div style={{
+          position: 'fixed', bottom: 0, left: 0, right: 0,
+          zIndex: 1052, background: '#0e0c1a',
+          borderRadius: '20px 20px 0 0',
+          paddingBottom: 'env(safe-area-inset-bottom, 12px)',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px 8px' }}>
+            <span style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.4)', fontWeight: 700, letterSpacing: '0.05em' }}>REACT</span>
+            <button onClick={() => setShowFullEmoji(false)}
+              style={{ background: 'rgba(255,255,255,0.08)', border: 'none', borderRadius: '50%', width: 28, height: 28, color: '#fff', cursor: 'pointer', fontSize: '0.9rem' }}>
+              ✕
+            </button>
+          </div>
+          <EmojiPicker
+            onSelect={(e) => { onReact(e); onClose() }}
+            onClose={() => setShowFullEmoji(false)}
+          />
+        </div>
+      </>
+    )
+  }
+
+  return (
+    <>
+      <div className="ig-ctx-overlay" onClick={onClose} />
+      <div className="ig-ctx-menu">
+        {/* Quick emoji row + smiley for full picker */}
+        <div className="ig-ctx-reactions" style={{ alignItems: 'center' }}>
+          {QUICK_EMOJIS.slice(0, 7).map(e => (
+            <button key={e} onClick={() => { onReact(e); onClose() }}>{e}</button>
+          ))}
+          {/* Smiley button — opens full emoji library */}
+          <button
+            onClick={() => setShowFullEmoji(true)}
+            style={{ opacity: 0.5, fontSize: '1.2rem', padding: '4px 6px', background: 'rgba(255,255,255,0.08)', borderRadius: 8, border: 'none', cursor: 'pointer', lineHeight: 1 }}
+            title="More emojis"
+          >
+            <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18" style={{ display: 'block' }}>
+              <path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm3.5-9c.83 0 1.5-.67 1.5-1.5S16.33 8 15.5 8 14 8.67 14 9.5s.67 1.5 1.5 1.5zm-7 0c.83 0 1.5-.67 1.5-1.5S9.33 8 8.5 8 7 8.67 7 9.5 7.67 11 8.5 11zm3.5 6.5c2.33 0 4.31-1.46 5.11-3.5H6.89c.8 2.04 2.78 3.5 5.11 3.5z"/>
+            </svg>
+          </button>
+        </div>
+        <button className="ig-ctx-btn" onClick={() => { onReply(); onClose() }}>
+          <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M10 9V5l-7 7 7 7v-4.1c5 0 8.5 1.6 11 5.1-1-5-4-10-11-11z"/></svg>
+          Reply
+        </button>
+        {onEdit && (
+          <button className="ig-ctx-btn" onClick={() => { onEdit(); onClose() }}>
+            <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+            Edit
+          </button>
+        )}
+        <button className="ig-ctx-btn" onClick={() => { onCopy(); onClose() }}>
+          <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
+          {isGif ? 'Copy URL' : 'Copy'}
+        </button>
+        {canPin && (
+          <button className="ig-ctx-btn" onClick={() => { onPin(); onClose() }}>
+            <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2l-2-2z"/></svg>
+            Pin message
+          </button>
+        )}
+        {(isSelf || canPin) && (
+          <button className="ig-ctx-btn" style={{ color: '#ff6a8a' }} onClick={() => { onDelete(); onClose() }}>
+            <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+            Delete
+          </button>
+        )}
       </div>
-      <button className="ig-ctx-btn" onClick={() => { onReply(); onClose() }}>
-        <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M10 9V5l-7 7 7 7v-4.1c5 0 8.5 1.6 11 5.1-1-5-4-10-11-11z"/></svg>
-        Reply
-      </button>
-      {onEdit && (
-        <button className="ig-ctx-btn" onClick={() => { onEdit(); onClose() }}>
-          <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
-          Edit
-        </button>
-      )}
-      <button className="ig-ctx-btn" onClick={() => { onCopy(); onClose() }}>
-        <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
-        {isGif ? 'Copy URL' : 'Copy'}
-      </button>
-      {canPin && (
-        <button className="ig-ctx-btn" onClick={() => { onPin(); onClose() }}>
-          <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2l-2-2z"/></svg>
-          Pin message
-        </button>
-      )}
-      {(isSelf || canPin) && (
-        <button className="ig-ctx-btn" style={{ color: '#ff6a8a' }} onClick={() => { onDelete(); onClose() }}>
-          <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
-          Delete
-        </button>
-      )}
-    </div>
-  </>
-))
+    </>
+  )
+})
 
 // ── GIF Lightbox ──────────────────────────────────────────
 const GifLightbox = memo(({ gif, onClose }) => (
