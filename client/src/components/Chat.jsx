@@ -90,24 +90,7 @@ const Reactions = memo(({ reactions = {}, onReact, username, isSelf, recentEmoji
   // Recent emojis first, then fill with QUICK_EMOJIS, deduplicated
   const pickerEmojis = [...new Set([...recentEmojis, ...QUICK_EMOJIS])].slice(0, 24)
 
-  if (!entries.length && !showAdd) {
-    // No reactions yet — show a subtle + to invite first reaction
-    return (
-      <div className={`ig-reactions ${isSelf ? 'ig-reactions--self' : ''}`} style={{ position: 'relative' }}>
-        <button
-          className="ig-reaction"
-          onClick={() => setShowAdd(p => !p)}
-          title="Add reaction"
-          style={{ opacity: 0.35, fontSize: '0.8rem', padding: '2px 8px', transition: 'opacity 0.15s' }}
-          onMouseEnter={e => e.currentTarget.style.opacity = 0.7}
-          onMouseLeave={e => e.currentTarget.style.opacity = 0.35}
-        >
-          😊 +
-        </button>
-        {showAdd && <ReactionAddPicker pickerEmojis={pickerEmojis} isSelf={isSelf} onReact={onReact} onClose={() => setShowAdd(false)} />}
-      </div>
-    )
-  }
+  if (!entries.length) return null
 
   return (
     <div className={`ig-reactions ${isSelf ? 'ig-reactions--self' : ''}`} style={{ position: 'relative' }}>
@@ -372,27 +355,26 @@ const MessageBubble = memo(({
             onMouseEnter={handleMouseEnter}
             onMouseLeave={handleMouseLeave}
           >
-            {/* Discord-style action bar */}
+            {/* Action bar — emojis inline + action icons */}
             {showQuick && !IS_MOBILE && (
               <div
                 className={`ig-action-bar ${isSelf ? 'ig-action-bar--self' : 'ig-action-bar--other'}`}
                 onMouseEnter={handleQuickMouseEnter}
                 onMouseLeave={handleQuickMouseLeave}
+                style={{ display: 'flex', alignItems: 'center', gap: 2 }}
               >
-                {/* React */}
-                <div style={{ position: 'relative' }}>
-                  <button className="ig-action-btn" title="React"
-                    onClick={() => setShowQuick(v => v === 'picker' ? true : 'picker')}>
-                    <svg viewBox="0 0 24 24" fill="currentColor" width="15" height="15"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm3.5-9c.83 0 1.5-.67 1.5-1.5S16.33 8 15.5 8 14 8.67 14 9.5s.67 1.5 1.5 1.5zm-7 0c.83 0 1.5-.67 1.5-1.5S9.33 8 8.5 8 7 8.67 7 9.5 7.67 11 8.5 11zm3.5 6.5c2.33 0 4.31-1.46 5.11-3.5H6.89c.8 2.04 2.78 3.5 5.11 3.5z"/></svg>
+                {/* Quick emoji buttons — shown inline in bar */}
+                {(recentEmojis.length > 0 ? [...new Set([...recentEmojis, ...QUICK_EMOJIS])] : QUICK_EMOJIS).slice(0, 5).map(e => (
+                  <button key={e}
+                    className="ig-action-btn"
+                    style={{ fontSize: '1rem', width: 28, height: 28 }}
+                    title={e}
+                    onClick={() => { onReact(msg.id, e); setShowQuick(true) }}>
+                    {e}
                   </button>
-                  {showQuick === 'picker' && (
-                    <div className={`ig-mini-picker ${isSelf ? 'ig-mini-picker--self' : ''}`}>
-                      {QUICK_EMOJIS.map(e => (
-                        <button key={e} onClick={() => { onReact(msg.id, e); setShowQuick(true) }}>{e}</button>
-                      ))}
-                    </div>
-                  )}
-                </div>
+                ))}
+                {/* Divider */}
+                <div style={{ width: 1, height: 16, background: 'rgba(255,255,255,0.1)', margin: '0 2px', flexShrink: 0 }} />
                 {/* Reply */}
                 <button className="ig-action-btn" title="Reply" onClick={() => onReply(msg)}>
                   <svg viewBox="0 0 24 24" fill="currentColor" width="15" height="15"><path d="M10 9V5l-7 7 7 7v-4.1c5 0 8.5 1.6 11 5.1-1-5-4-10-11-11z"/></svg>
@@ -561,19 +543,16 @@ const GifBubble = memo(({ msg, isSelf, avatarSrc, showAvatar, showName, onReact,
                 className={`ig-action-bar ${isSelf ? 'ig-action-bar--self' : 'ig-action-bar--other'}`}
                 onMouseEnter={handleActionMouseEnter} onMouseLeave={handleActionMouseLeave}
               >
-                <div style={{ position: 'relative' }}>
-                  <button className="ig-action-btn" title="React"
-                    onClick={() => setShowHover(v => v === 'picker' ? true : 'picker')}>
-                    <svg viewBox="0 0 24 24" fill="currentColor" width="15" height="15"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm3.5-9c.83 0 1.5-.67 1.5-1.5S16.33 8 15.5 8 14 8.67 14 9.5s.67 1.5 1.5 1.5zm-7 0c.83 0 1.5-.67 1.5-1.5S9.33 8 8.5 8 7 8.67 7 9.5 7.67 11 8.5 11zm3.5 6.5c2.33 0 4.31-1.46 5.11-3.5H6.89c.8 2.04 2.78 3.5 5.11 3.5z"/></svg>
+                {/* Quick emoji buttons inline */}
+                {QUICK_EMOJIS.slice(0, 5).map(e => (
+                  <button key={e}
+                    className="ig-action-btn"
+                    style={{ fontSize: '1rem', width: 28, height: 28 }}
+                    onClick={() => { onReact(msg.id, e) }}>
+                    {e}
                   </button>
-                  {showHover === 'picker' && (
-                    <div className={`ig-mini-picker ${isSelf ? 'ig-mini-picker--self' : ''}`}>
-                      {QUICK_EMOJIS.map(e => (
-                        <button key={e} onClick={() => { onReact(msg.id, e); setShowHover(true) }}>{e}</button>
-                      ))}
-                    </div>
-                  )}
-                </div>
+                ))}
+                <div style={{ width: 1, height: 16, background: 'rgba(255,255,255,0.1)', margin: '0 2px', flexShrink: 0 }} />
                 <button className="ig-action-btn" title="Reply" onClick={() => onReply(msg)}>
                   <svg viewBox="0 0 24 24" fill="currentColor" width="15" height="15"><path d="M10 9V5l-7 7 7 7v-4.1c5 0 8.5 1.6 11 5.1-1-5-4-10-11-11z"/></svg>
                 </button>
