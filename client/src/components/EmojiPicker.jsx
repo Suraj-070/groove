@@ -2,6 +2,8 @@ import { useEffect, useRef } from 'react'
 import data from '@emoji-mart/data'
 import Picker from '@emoji-mart/react'
 
+const IS_MOBILE = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent) || window.innerWidth <= 768
+
 export default function EmojiPicker({ onSelect, onClose }) {
   const ref = useRef(null)
 
@@ -36,6 +38,8 @@ export default function EmojiPicker({ onSelect, onClose }) {
         skinTonePosition="search"
         navPosition="bottom"
         perLine={9}
+        autoFocus={false}
+        searchPosition={IS_MOBILE ? "none" : "sticky"}
       />
     </div>
   )

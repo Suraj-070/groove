@@ -610,7 +610,15 @@ export default function Chat({
   }, [users, messages])
 
   useEffect(() => {
-    if (chatHistory.length > 0 && !historySeeded.current) { historySeeded.current = true; setMessages(chatHistory) }
+    if (chatHistory.length > 0 && !historySeeded.current) {
+      historySeeded.current = true
+      setMessages(chatHistory)
+      // After history loads, scroll to bottom
+      setTimeout(() => {
+        const el = messagesRef.current
+        if (el) el.scrollTop = el.scrollHeight
+      }, 50)
+    }
   }, [chatHistory])
 
   useEffect(() => {
@@ -662,10 +670,25 @@ export default function Chat({
   }, [socket, muted, isOpen])
 
   useEffect(() => { if (isOpen) { unreadMarked.current = false; setNewCount(0) } }, [isOpen])
+
+  // Scroll to bottom when chat opens — wait for DOM to paint
   useEffect(() => {
-    const el = messagesRef.current; if (!el || !atBottom) return
+    if (!isOpen) return
+    const tryScroll = (attempts = 0) => {
+      const el = messagesRef.current
+      if (!el) { if (attempts < 10) setTimeout(() => tryScroll(attempts + 1), 30); return }
+      el.scrollTop = el.scrollHeight
+      setAtBottom(true)
+    }
+    tryScroll()
+  }, [isOpen])
+
+  // Scroll to bottom when new messages arrive (only if already at bottom)
+  useEffect(() => {
+    const el = messagesRef.current; if (!el || !atBottom || !isOpen) return
     el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' })
-  }, [messages, typers, atBottom])
+  }, [messages, typers, atBottom, isOpen])
+
   useEffect(() => { if (isOpen) setTimeout(() => inputRef.current?.focus(), 120) }, [isOpen])
 
   const handleScroll = useCallback(() => {

@@ -67,8 +67,9 @@ export default function ReactionBurst({ socket, roomId, username }) {
     const wasDrag = didDrag
     dragStartRef.current = null
     setIsDragging(false)
+    setDidDrag(false)
     if (wasDrag) {
-      const snapped = snapToEdge(btnPosRef.current.x, btnPosRef.current.y)
+      const snapped = snapToEdge(btnPosRef.current?.x ?? 16, btnPosRef.current?.y ?? window.innerHeight - 160)
       btnPosRef.current = snapped
       setBtnPos({ ...snapped })
     } else {
@@ -96,8 +97,9 @@ export default function ReactionBurst({ socket, roomId, username }) {
       clearInterval(spamIntervalRef.current)
       holdTimerRef.current = null
       spamIntervalRef.current = null
-      if (activeEmojiRef.current && !isHoldingRef.current) {
-        sendReactionRef.current?.(activeEmojiRef.current)
+      // Only fire if we were in a hold-spam session (not a simple tap — tap fires in onTouchEnd)
+      if (activeEmojiRef.current && isHoldingRef.current) {
+        // was holding — spam already sent, just clean up
       }
       isHoldingRef.current = false
       activeEmojiRef.current = null
@@ -216,7 +218,7 @@ export default function ReactionBurst({ socket, roomId, username }) {
                   onMouseUp={() => { clearTimeout(holdTimerRef.current); clearInterval(spamIntervalRef.current); isHoldingRef.current = false; if (!isHoldingRef.current) sendReaction(emoji) }}
                   onMouseLeave={() => { clearTimeout(holdTimerRef.current); clearInterval(spamIntervalRef.current); isHoldingRef.current = false }}
                   onTouchStart={(e) => { e.preventDefault(); startHold(emoji) }}
-                  onTouchEnd={(e) => { e.preventDefault(); clearTimeout(holdTimerRef.current); clearInterval(spamIntervalRef.current); if (!isHoldingRef.current) sendReaction(emoji); isHoldingRef.current = false }}
+                  onTouchEnd={(e) => { e.preventDefault(); clearTimeout(holdTimerRef.current); clearInterval(spamIntervalRef.current); const wasHolding = isHoldingRef.current; isHoldingRef.current = false; if (!wasHolding) sendReaction(emoji) }}
                   onTouchCancel={() => { clearTimeout(holdTimerRef.current); clearInterval(spamIntervalRef.current); isHoldingRef.current = false }}
                 >
                   {emoji}
