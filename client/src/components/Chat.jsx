@@ -233,14 +233,17 @@ const MessageBubble = memo(({
   const handleMouseEnter = () => {
     if (IS_MOBILE) return
     clearTimeout(hoverLeaveTimer.current)
-    setShowQuick(true)
+    setShowQuick(prev => prev === 'picker' ? 'picker' : true)
   }
   const handleMouseLeave = () => {
     if (IS_MOBILE) return
+    // Never close via mouse leave if full picker is open — user clicked intentionally
+    if (showQuick === 'picker') return
     hoverLeaveTimer.current = setTimeout(() => setShowQuick(false), 200)
   }
   const handleQuickMouseEnter = () => clearTimeout(hoverLeaveTimer.current)
   const handleQuickMouseLeave = () => {
+    if (showQuick === 'picker') return
     hoverLeaveTimer.current = setTimeout(() => setShowQuick(false), 150)
   }
 
@@ -473,10 +476,10 @@ const GifBubble = memo(({ msg, isSelf, avatarSrc, showAvatar, showName, onReact,
   const hoverLeaveTimer = useRef(null)
   const gifRef = useRef(null)
 
-  const handleMouseEnter = () => { if (IS_MOBILE) return; clearTimeout(hoverLeaveTimer.current); setShowHover(true) }
-  const handleMouseLeave = () => { if (IS_MOBILE) return; hoverLeaveTimer.current = setTimeout(() => setShowHover(false), 200) }
+  const handleMouseEnter = () => { if (IS_MOBILE) return; clearTimeout(hoverLeaveTimer.current); setShowHover(prev => prev === 'picker' ? 'picker' : true) }
+  const handleMouseLeave = () => { if (IS_MOBILE) return; if (showHover === 'picker') return; hoverLeaveTimer.current = setTimeout(() => setShowHover(false), 200) }
   const handleActionMouseEnter = () => clearTimeout(hoverLeaveTimer.current)
-  const handleActionMouseLeave = () => { hoverLeaveTimer.current = setTimeout(() => setShowHover(false), 150) }
+  const handleActionMouseLeave = () => { if (showHover === 'picker') return; hoverLeaveTimer.current = setTimeout(() => setShowHover(false), 150) }
 
   const onTouchStart = (e) => {
     touchStartPos.current = { x: e.touches[0].clientX, y: e.touches[0].clientY }
