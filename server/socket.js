@@ -21,7 +21,7 @@ async function saveMessage(roomId, msg) {
   if (!memMessages[roomId]) memMessages[roomId] = []
   memMessages[roomId].push(msg)
   if (memMessages[roomId].length > 100) memMessages[roomId].shift()
-  if (!process.env.MONGODB_URI || msg.type !== 'msg') return
+  if (!process.env.MONGODB_URI || (msg.type !== 'msg' && msg.type !== 'gif')) return
   try {
     await Message.create({ roomId, ...msg, createdAt: new Date() })
   } catch (e) { console.error('[Chat] saveMessage error:', e.message) }
@@ -264,7 +264,7 @@ module.exports = function registerSockets(io) {
   })
 
   socket.on('chat-msg', ({ roomId, msg }) => {
-    const stamped = { ...msg, ts: Date.now(), type: 'msg' };
+    const stamped = { ...msg, ts: Date.now() };
     socket.to(roomId).emit('chat-msg', stamped);
     socket.emit('chat-msg-echo', stamped);
     saveMessage(roomId, stamped);
