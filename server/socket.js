@@ -1,12 +1,11 @@
 const { Message } = require('./models')
 const { enrichSong, flowScore } = require('./services/music')
 const { sendPushToRoom } = require('./services/push')
+const { rooms, getRoom, saveRoom, updateStreak, recordListen, computeChemistry } = require('./services/room')
 
-// ── In-memory state ───────────────────────────────────────
-const rooms       = {}
+// ── In-memory message store ───────────────────────────────
 const memMessages = {}
 
-// ── Message helpers ───────────────────────────────────────
 async function getMessages(roomId) {
   if (!process.env.MONGODB_URI) return memMessages[roomId] || []
   try {

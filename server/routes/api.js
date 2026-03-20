@@ -4,6 +4,7 @@ const { SongDNA, UserProfile, ListenHistory, Moment, SharedSongs, PushSub, RoomS
 const { enrichSong, flowScore, deriveCategory } = require('../services/music')
 const { sendPush, sendPushToRoom } = require('../services/push')
 const { requireAuth } = require('./auth')
+const { rooms, getRoom, updateStreak, recordListen, computeChemistry } = require('../services/room')
 
 // ─── YOUTUBE SEARCH ──────────────────────────────────────────
 router.get('/youtube/search', requireAuth, async (req, res) => {
