@@ -111,50 +111,17 @@ const Reactions = memo(({ reactions = {}, onReact, username, isSelf, recentEmoji
       >
         +
       </button>
-      {showAdd && <ReactionAddPicker pickerEmojis={pickerEmojis} isSelf={isSelf} onReact={onReact} onClose={() => setShowAdd(false)} />}
+      {showAdd && <ReactionAddPicker isSelf={isSelf} onReact={onReact} onClose={() => setShowAdd(false)} />}
     </div>
   )
 })
 
-// ── Reaction add picker — emoji row style like the screenshot ──
-const ReactionAddPicker = memo(({ pickerEmojis, isSelf, onReact, onClose }) => (
-  <>
-    <div style={{ position: 'fixed', inset: 0, zIndex: 49 }} onClick={onClose} />
-    <div
-      style={{
-        position: 'absolute',
-        bottom: 'calc(100% + 8px)',
-        left: isSelf ? 'auto' : 0,
-        right: isSelf ? 0 : 'auto',
-        zIndex: 50,
-        background: 'rgba(26,23,48,0.97)',
-        border: '1px solid rgba(255,255,255,0.12)',
-        borderRadius: 24,
-        boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
-        padding: '6px 8px',
-        display: 'flex',
-        flexWrap: 'wrap',
-        gap: 2,
-        maxWidth: 240,
-      }}
-    >
-      {pickerEmojis.map((e, i) => (
-        <button key={i}
-          onClick={() => { onReact(e); onClose() }}
-          style={{
-            background: 'none', border: 'none',
-            fontSize: '1.25rem', cursor: 'pointer',
-            padding: '4px 5px', borderRadius: 8,
-            lineHeight: 1, transition: 'transform 0.1s',
-          }}
-          onMouseEnter={el => el.currentTarget.style.transform = 'scale(1.3)'}
-          onMouseLeave={el => el.currentTarget.style.transform = 'scale(1)'}
-        >
-          {e}
-        </button>
-      ))}
-    </div>
-  </>
+// ── Reaction add picker — full emoji library ──
+const ReactionAddPicker = memo(({ isSelf, onReact, onClose }) => (
+  <div style={{ position: 'absolute', bottom: 'calc(100% + 8px)', left: isSelf ? 'auto' : 0, right: isSelf ? 0 : 'auto', zIndex: 50 }}>
+    <div style={{ position: 'fixed', inset: 0, zIndex: -1 }} onClick={onClose} />
+    <EmojiPicker onSelect={(e) => { onReact(e); onClose() }} onClose={onClose} />
+  </div>
 ))
 
 // ── Reply Quote ───────────────────────────────────────────
@@ -373,6 +340,24 @@ const MessageBubble = memo(({
                     {e}
                   </button>
                 ))}
+                {/* More emojis — smiley button like Discord */}
+                <div style={{ position: 'relative' }}>
+                  <button className="ig-action-btn"
+                    title="More reactions"
+                    style={{ opacity: 0.6 }}
+                    onClick={() => setShowQuick(v => v === 'picker' ? true : 'picker')}>
+                    <svg viewBox="0 0 24 24" fill="currentColor" width="15" height="15"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm3.5-9c.83 0 1.5-.67 1.5-1.5S16.33 8 15.5 8 14 8.67 14 9.5s.67 1.5 1.5 1.5zm-7 0c.83 0 1.5-.67 1.5-1.5S9.33 8 8.5 8 7 8.67 7 9.5 7.67 11 8.5 11zm3.5 6.5c2.33 0 4.31-1.46 5.11-3.5H6.89c.8 2.04 2.78 3.5 5.11 3.5z"/></svg>
+                  </button>
+                  {showQuick === 'picker' && (
+                    <div style={{ position: 'absolute', bottom: 'calc(100% + 6px)', left: isSelf ? 'auto' : 0, right: isSelf ? 0 : 'auto', zIndex: 200 }}>
+                      <div style={{ position: 'fixed', inset: 0, zIndex: -1 }} onClick={() => setShowQuick(false)} />
+                      <EmojiPicker
+                        onSelect={(e) => { onReact(msg.id, e); setShowQuick(false) }}
+                        onClose={() => setShowQuick(false)}
+                      />
+                    </div>
+                  )}
+                </div>
                 {/* Divider */}
                 <div style={{ width: 1, height: 16, background: 'rgba(255,255,255,0.1)', margin: '0 2px', flexShrink: 0 }} />
                 {/* Reply */}
@@ -552,6 +537,23 @@ const GifBubble = memo(({ msg, isSelf, avatarSrc, showAvatar, showName, onReact,
                     {e}
                   </button>
                 ))}
+                {/* More emojis smiley button */}
+                <div style={{ position: 'relative' }}>
+                  <button className="ig-action-btn" title="More reactions"
+                    style={{ opacity: 0.6 }}
+                    onClick={() => setShowHover(v => v === 'picker' ? true : 'picker')}>
+                    <svg viewBox="0 0 24 24" fill="currentColor" width="15" height="15"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm3.5-9c.83 0 1.5-.67 1.5-1.5S16.33 8 15.5 8 14 8.67 14 9.5s.67 1.5 1.5 1.5zm-7 0c.83 0 1.5-.67 1.5-1.5S9.33 8 8.5 8 7 8.67 7 9.5 7.67 11 8.5 11zm3.5 6.5c2.33 0 4.31-1.46 5.11-3.5H6.89c.8 2.04 2.78 3.5 5.11 3.5z"/></svg>
+                  </button>
+                  {showHover === 'picker' && (
+                    <div style={{ position: 'absolute', bottom: 'calc(100% + 6px)', left: isSelf ? 'auto' : 0, right: isSelf ? 0 : 'auto', zIndex: 200 }}>
+                      <div style={{ position: 'fixed', inset: 0, zIndex: -1 }} onClick={() => setShowHover(false)} />
+                      <EmojiPicker
+                        onSelect={(e) => { onReact(msg.id, e); setShowHover(false) }}
+                        onClose={() => setShowHover(false)}
+                      />
+                    </div>
+                  )}
+                </div>
                 <div style={{ width: 1, height: 16, background: 'rgba(255,255,255,0.1)', margin: '0 2px', flexShrink: 0 }} />
                 <button className="ig-action-btn" title="Reply" onClick={() => onReply(msg)}>
                   <svg viewBox="0 0 24 24" fill="currentColor" width="15" height="15"><path d="M10 9V5l-7 7 7 7v-4.1c5 0 8.5 1.6 11 5.1-1-5-4-10-11-11z"/></svg>
