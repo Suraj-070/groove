@@ -514,28 +514,11 @@ async function saveMessage(roomId, msg) {
 
   // Only persist real chat messages — not system/np dividers
   if (!MONGO_URI || msg.type !== 'msg') return;
-  
-  // Retry logic for database saves
-  const maxRetries = 3;
-  for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    try {
-      await Message.create({ roomId, ...msg, createdAt: new Date() });
-      console.log('[Chat] ✅ Saved message from', msg.username, 'in room', roomId);
-      return; // Success - exit function
-    } catch (e) {
-      console.error(`[Chat] ❌ saveMessage error (attempt ${attempt}/${maxRetries}):`, e.message);
-      if (attempt === maxRetries) {
-        console.error('[Chat] ⚠️  FAILED to persist message after', maxRetries, 'attempts:', {
-          msgId: msg.id,
-          username: msg.username,
-          roomId,
-          timestamp: msg.ts
-        });
-      } else {
-        // Wait before retry (exponential backoff: 100ms, 200ms, 400ms)
-        await new Promise(resolve => setTimeout(resolve, 100 * Math.pow(2, attempt - 1)));
-      }
-    }
+  try {
+    await Message.create({ roomId, ...msg, createdAt: new Date() });
+    console.log('[Chat] Saved message from', msg.username, 'in room', roomId);
+  } catch (e) {
+    console.error('[Chat] saveMessage error:', e.message);
   }
 }
 
@@ -592,8 +575,22 @@ app.get('/health', (req, res) => res.json({ status: 'ok' }));
 
 app.get('/auth/discord', passport.authenticate('discord'));
 app.get('/auth/discord/callback',
-  passport.authenticate('discord', { failureRedirect: `${FRONTEND}?error=auth_failed` }),
-  (req, res) => res.redirect(`${FRONTEND}?auth=success`)
+  (req, res, next) => {
+    passport.authenticate('discord', (err, user, info) => {
+      if (err) {
+        console.error('[Discord Auth Error]', err.message, err.oauthError?.data || '')
+        return res.redirect(`${FRONTEND}?error=auth_failed&reason=${encodeURIComponent(err.message)}`)
+      }
+      if (!user) {
+        console.error('[Discord Auth Failed]', info)
+        return res.redirect(`${FRONTEND}?error=auth_failed`)
+      }
+      req.login(user, (loginErr) => {
+        if (loginErr) return next(loginErr)
+        return res.redirect(`${FRONTEND}?auth=success`)
+      })
+    })(req, res, next)
+  }
 );
 
 app.get('/auth/google', passport.authenticate('google', { scope: ['profile'] }));
