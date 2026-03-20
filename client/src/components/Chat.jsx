@@ -87,9 +87,28 @@ const SongCard = memo(({ msg, onAddToQueue, isSelf }) => (
 const Reactions = memo(({ reactions = {}, onReact, username, isSelf, recentEmojis = [] }) => {
   const [showAdd, setShowAdd] = useState(false)
   const entries = Object.entries(reactions).filter(([, v]) => v.count > 0)
-  const pickerEmojis = recentEmojis.length > 0
-    ? [...new Set([...recentEmojis, ...QUICK_EMOJIS])].slice(0, 16)
-    : QUICK_EMOJIS
+  // Recent emojis first, then fill with QUICK_EMOJIS, deduplicated
+  const pickerEmojis = [...new Set([...recentEmojis, ...QUICK_EMOJIS])].slice(0, 24)
+
+  if (!entries.length && !showAdd) {
+    // No reactions yet — show a subtle + to invite first reaction
+    return (
+      <div className={`ig-reactions ${isSelf ? 'ig-reactions--self' : ''}`} style={{ position: 'relative' }}>
+        <button
+          className="ig-reaction"
+          onClick={() => setShowAdd(p => !p)}
+          title="Add reaction"
+          style={{ opacity: 0.35, fontSize: '0.8rem', padding: '2px 8px', transition: 'opacity 0.15s' }}
+          onMouseEnter={e => e.currentTarget.style.opacity = 0.7}
+          onMouseLeave={e => e.currentTarget.style.opacity = 0.35}
+        >
+          😊 +
+        </button>
+        {showAdd && <ReactionAddPicker pickerEmojis={pickerEmojis} isSelf={isSelf} onReact={onReact} onClose={() => setShowAdd(false)} />}
+      </div>
+    )
+  }
+
   return (
     <div className={`ig-reactions ${isSelf ? 'ig-reactions--self' : ''}`} style={{ position: 'relative' }}>
       {entries.map(([emoji, { count, users }]) => (
@@ -100,28 +119,60 @@ const Reactions = memo(({ reactions = {}, onReact, username, isSelf, recentEmoji
           {emoji}<span>{count}</span>
         </button>
       ))}
-      {/* + button to add reaction */}
-      <button className="ig-reaction ig-reaction--add" onClick={() => setShowAdd(p => !p)}
-        title="Add reaction" style={{ fontSize: '0.85rem', padding: '2px 7px', opacity: 0.6 }}>
+      {/* + button to add more */}
+      <button
+        className="ig-reaction"
+        onClick={() => setShowAdd(p => !p)}
+        title="Add reaction"
+        style={{ opacity: 0.6, fontSize: '0.8rem', padding: '2px 8px' }}
+      >
         +
       </button>
-      {showAdd && (
-        <>
-          <div style={{ position: 'fixed', inset: 0, zIndex: 49 }} onClick={() => setShowAdd(false)} />
-          <div className={`ig-mini-picker ${isSelf ? 'ig-mini-picker--self' : ''}`}
-            style={{ position: 'absolute', bottom: 'calc(100% + 6px)', left: isSelf ? 'auto' : 0, right: isSelf ? 0 : 'auto', zIndex: 50, display: 'flex', flexWrap: 'wrap', maxWidth: 220, gap: 2, padding: '6px 8px', background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 14, boxShadow: '0 4px 20px rgba(0,0,0,0.6)' }}>
-            {pickerEmojis.map((e, i) => (
-              <button key={i} onClick={() => { onReact(e); setShowAdd(false) }}
-                style={{ background: 'none', border: 'none', fontSize: '1.15rem', cursor: 'pointer', padding: '3px 4px', borderRadius: 6, lineHeight: 1 }}>
-                {e}
-              </button>
-            ))}
-          </div>
-        </>
-      )}
+      {showAdd && <ReactionAddPicker pickerEmojis={pickerEmojis} isSelf={isSelf} onReact={onReact} onClose={() => setShowAdd(false)} />}
     </div>
   )
 })
+
+// ── Reaction add picker — emoji row style like the screenshot ──
+const ReactionAddPicker = memo(({ pickerEmojis, isSelf, onReact, onClose }) => (
+  <>
+    <div style={{ position: 'fixed', inset: 0, zIndex: 49 }} onClick={onClose} />
+    <div
+      style={{
+        position: 'absolute',
+        bottom: 'calc(100% + 8px)',
+        left: isSelf ? 'auto' : 0,
+        right: isSelf ? 0 : 'auto',
+        zIndex: 50,
+        background: 'rgba(26,23,48,0.97)',
+        border: '1px solid rgba(255,255,255,0.12)',
+        borderRadius: 24,
+        boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
+        padding: '6px 8px',
+        display: 'flex',
+        flexWrap: 'wrap',
+        gap: 2,
+        maxWidth: 240,
+      }}
+    >
+      {pickerEmojis.map((e, i) => (
+        <button key={i}
+          onClick={() => { onReact(e); onClose() }}
+          style={{
+            background: 'none', border: 'none',
+            fontSize: '1.25rem', cursor: 'pointer',
+            padding: '4px 5px', borderRadius: 8,
+            lineHeight: 1, transition: 'transform 0.1s',
+          }}
+          onMouseEnter={el => el.currentTarget.style.transform = 'scale(1.3)'}
+          onMouseLeave={el => el.currentTarget.style.transform = 'scale(1)'}
+        >
+          {e}
+        </button>
+      ))}
+    </div>
+  </>
+))
 
 // ── Reply Quote ───────────────────────────────────────────
 const ReplyQuote = memo(({ reply, isSelf }) => {
