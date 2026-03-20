@@ -199,6 +199,144 @@ const PinnedBanner = memo(({ msg, onDismiss, canPin }) => {
 })
 
 // ── Chat Bubble ───────────────────────────────────────────
+// ── GIF Bubble — Discord-style with lightbox, reactions, actions ──
+const GifBubble = memo(({ msg, isSelf, isFirstUnread, showAvatar, showName, avatarSrc, onReact, onReply, onCopy, onPin, canPin }) => {
+  const color = userColor(msg.username)
+  const [lightbox, setLightbox] = useState(false)
+  const [showActions, setShowActions] = useState(false)
+  const [showReactPicker, setShowReactPicker] = useState(false)
+  const [showContextMenu, setShowContextMenu] = useState(false)
+  const longPressTimer = useRef(null)
+
+  const onTouchStart = () => {
+    longPressTimer.current = setTimeout(() => setShowContextMenu(true), 600)
+  }
+  const onTouchEnd = () => clearTimeout(longPressTimer.current)
+
+  const reactions = msg.reactions || {}
+  const reactionEntries = Object.entries(reactions).filter(([, v]) => v.count > 0)
+
+  return (
+    <>
+      {/* Lightbox overlay */}
+      {lightbox && (
+        <div className="gif-lightbox-overlay" onClick={() => setLightbox(false)}>
+          <div className="gif-lightbox-inner" onClick={e => e.stopPropagation()}>
+            <button className="gif-lightbox-close" onClick={() => setLightbox(false)}>✕</button>
+            <img src={msg.gif} alt={msg.text} className="gif-lightbox-img" />
+            <div className="gif-lightbox-title">{msg.text}</div>
+            <a href={msg.gif} target="_blank" rel="noopener noreferrer" className="gif-lightbox-open">
+              Open original ↗
+            </a>
+          </div>
+        </div>
+      )}
+
+      <div
+        className={`chat-row ${isSelf ? 'chat-row--self' : 'chat-row--other'}`}
+        data-id={msg.id}
+        onMouseEnter={() => !IS_MOBILE && setShowActions(true)}
+        onMouseLeave={() => { setShowActions(false); setShowReactPicker(false) }}
+      >
+        {/* Avatar col */}
+        {!isSelf && (
+          <div className="chat-avatar-col">
+            {showAvatar
+              ? avatarSrc
+                ? <img src={avatarSrc} alt="" className="chat-avatar chat-avatar--img" />
+                : <div className="chat-avatar" style={{ background: color }}>{userInitial(msg.username)}</div>
+              : <div className="chat-avatar-spacer" />
+            }
+          </div>
+        )}
+
+        <div className="chat-bubble-col">
+          {!isSelf && showName && <span className="chat-name" style={{ color }}>{msg.username}</span>}
+
+          {/* Hover action bar */}
+          {showActions && !IS_MOBILE && (
+            <div className={`chat-action-bar ${isSelf ? 'chat-action-bar--self' : ''}`}>
+              <button className="chat-action-icon" onClick={() => setShowReactPicker(p => !p)}>😊</button>
+              <button className="chat-action-icon" onClick={() => onReply(msg)} title="Reply">
+                <svg viewBox="0 0 24 24" fill="currentColor" width="13" height="13"><path d="M10 9V5l-7 7 7 7v-4.1c5 0 8.5 1.6 11 5.1-1-5-4-10-11-11z"/></svg>
+              </button>
+              <button className="chat-action-icon" onClick={() => onCopy(msg.gif)} title="Copy URL">
+                <svg viewBox="0 0 24 24" fill="currentColor" width="13" height="13"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
+              </button>
+              {canPin && (
+                <button className="chat-action-icon" onClick={() => onPin(msg)} title="Pin">
+                  <svg viewBox="0 0 24 24" fill="currentColor" width="13" height="13"><path d="M17 4a2 2 0 0 0-2-2H9a2 2 0 0 0-2 2v1H5v2h1v9a3 3 0 0 0 3 3h6a3 3 0 0 0 3-3V7h1V5h-2V4z"/></svg>
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* Quick react picker */}
+          {showReactPicker && (
+            <div className={`chat-quick-react ${isSelf ? 'chat-quick-react--self' : ''}`}>
+              {['❤️','🔥','😂','😮','👏','💀','🎵','✨'].map(e => (
+                <button key={e} onClick={() => { onReact(msg.id, e); setShowReactPicker(false) }}>{e}</button>
+              ))}
+            </div>
+          )}
+
+          {/* Mobile context menu */}
+          {showContextMenu && (
+            <>
+              <div className="chat-context-overlay" onClick={() => setShowContextMenu(false)} />
+              <div className={`chat-context-menu ${isSelf ? 'chat-context-menu--self' : ''}`}>
+                <div className="chat-context-reactions">
+                  {['❤️','🔥','😂','😮','👏','💀','🎵','✨'].map(e => (
+                    <button key={e} className="chat-context-reaction" onClick={() => { onReact(msg.id, e); setShowContextMenu(false) }}>{e}</button>
+                  ))}
+                </div>
+                <button onClick={() => { onReply(msg); setShowContextMenu(false) }}>↩ Reply</button>
+                <button onClick={() => { onCopy(msg.gif); setShowContextMenu(false) }}>📋 Copy URL</button>
+                <button onClick={() => { setLightbox(true); setShowContextMenu(false) }}>🔍 View</button>
+                {canPin && <button onClick={() => { onPin(msg); setShowContextMenu(false) }}>📌 Pin</button>}
+              </div>
+            </>
+          )}
+
+          {/* GIF image — click to open lightbox */}
+          <div
+            className={`chat-gif-bubble ${isSelf ? 'chat-gif-bubble--self' : ''}`}
+            onTouchStart={onTouchStart}
+            onTouchEnd={onTouchEnd}
+          >
+            <img
+              src={msg.gif}
+              alt={msg.text}
+              className="chat-gif-img"
+              loading="lazy"
+              onClick={() => setLightbox(true)}
+            />
+            <div className="chat-gif-badge">GIF</div>
+          </div>
+
+          {/* Reaction pills */}
+          {reactionEntries.length > 0 && (
+            <div className={`chat-reactions ${isSelf ? 'chat-reactions--self' : ''}`}>
+              {reactionEntries.map(([emoji, { count, users }]) => (
+                <button key={emoji} className={`chat-reaction-pill ${users?.includes?.('me') ? 'active' : ''}`}
+                  onClick={() => onReact(msg.id, emoji)} title={users?.join?.(', ')}>
+                  {emoji} <span>{count}</span>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Meta */}
+          <div className="chat-meta">
+            <span className="chat-ts">{formatTs(msg.ts)}</span>
+            {isSelf && <StatusIcon status={msg.status || 'sent'} />}
+          </div>
+        </div>
+      </div>
+    </>
+  )
+})
+
 const ChatBubble = memo(({
   msg, isSelf, showAvatar, showName, avatarSrc,
   onReact, onReply, onForward, onCopy, onPin,
@@ -761,23 +899,28 @@ export default function Chat({
           if (msg.type === 'np')     return <NowPlayingDivider key={msg.id} msg={msg} />
           if (msg.type === 'song')   return <SongCard key={msg.id} msg={msg} onAddToQueue={!msg.self ? onAddSongToQueue : null} />
           if (msg.type === 'stamp')  return <StampCard key={msg.id} msg={msg} />
+          if (msg.type === 'gif')    return (
+            <GifBubble
+              key={msg.id}
+              msg={msg}
+              isSelf={!!msg.self}
+              isFirstUnread={isFirstUnread}
+              showAvatar={!messagesWithDividers[i-1] || messagesWithDividers[i-1]?.username !== msg.username}
+              showName={!messagesWithDividers[i-1] || messagesWithDividers[i-1]?.username !== msg.username}
+              avatarSrc={msg.avatar || avatarMap[msg.username]}
+              onReact={handleReact}
+              onReply={setReplyTo}
+              onCopy={handleCopy}
+              onPin={handlePin}
+              canPin={isDJ}
+            />
+          )
+
           const prevMsg = messagesWithDividers[i - 1]
           const nextMsg = messagesWithDividers[i + 1]
           const isFirstInGroup = !prevMsg || prevMsg.type !== 'msg' || prevMsg.username !== msg.username
           const isLastInGroup  = !nextMsg || nextMsg.type !== 'msg' || nextMsg.username !== msg.username
           const isFirstUnread  = msg.id === firstUnreadId
-
-          if (msg.type === 'gif')    return (
-            <div key={msg.id} className={`chat-gif-row ${msg.self ? 'chat-gif-row--self' : ''}`} data-id={msg.id}>
-              {isFirstUnread && <UnreadDivider />}
-              <img src={msg.gif} alt={msg.text} className="chat-gif-img" loading="lazy"
-                onClick={() => window.open(msg.gif, '_blank')} />
-              <div className="chat-meta" style={{ padding: '0 14px 4px', justifyContent: msg.self ? 'flex-end' : 'flex-start' }}>
-                <span className="chat-ts">{formatTs(msg.ts)}</span>
-                {msg.self && <StatusIcon status={msg.status || 'sent'} />}
-              </div>
-            </div>
-          )
 
           return (
             <div key={msg.id} data-id={msg.id}>
