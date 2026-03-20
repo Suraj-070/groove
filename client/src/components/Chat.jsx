@@ -45,7 +45,7 @@ function ytId(url) {
   const m = url.match(/(?:v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/)
   return m ? m[1] : null
 }
-const QUICK_EMOJIS = ['❤️','🔥','😂','😮','👏','💀','🎵','✨']
+const QUICK_EMOJIS = ['❤️','🔥','😂','😮','👏','💀','🎵','✨','🤩','🎉','💯','😭','🤣','👀','💜','🥹']
 
 // ── Date Divider ──────────────────────────────────────────
 const DateDivider = memo(({ ts }) => (
@@ -84,11 +84,14 @@ const SongCard = memo(({ msg, onAddToQueue, isSelf }) => (
 ))
 
 // ── Reactions ─────────────────────────────────────────────
-const Reactions = memo(({ reactions = {}, onReact, username, isSelf }) => {
+const Reactions = memo(({ reactions = {}, onReact, username, isSelf, recentEmojis = [] }) => {
+  const [showAdd, setShowAdd] = useState(false)
   const entries = Object.entries(reactions).filter(([, v]) => v.count > 0)
-  if (!entries.length) return null
+  const pickerEmojis = recentEmojis.length > 0
+    ? [...new Set([...recentEmojis, ...QUICK_EMOJIS])].slice(0, 16)
+    : QUICK_EMOJIS
   return (
-    <div className={`ig-reactions ${isSelf ? 'ig-reactions--self' : ''}`}>
+    <div className={`ig-reactions ${isSelf ? 'ig-reactions--self' : ''}`} style={{ position: 'relative' }}>
       {entries.map(([emoji, { count, users }]) => (
         <button key={emoji}
           className={`ig-reaction ${users?.includes(username) ? 'ig-reaction--mine' : ''}`}
@@ -97,6 +100,25 @@ const Reactions = memo(({ reactions = {}, onReact, username, isSelf }) => {
           {emoji}<span>{count}</span>
         </button>
       ))}
+      {/* + button to add reaction */}
+      <button className="ig-reaction ig-reaction--add" onClick={() => setShowAdd(p => !p)}
+        title="Add reaction" style={{ fontSize: '0.85rem', padding: '2px 7px', opacity: 0.6 }}>
+        +
+      </button>
+      {showAdd && (
+        <>
+          <div style={{ position: 'fixed', inset: 0, zIndex: 49 }} onClick={() => setShowAdd(false)} />
+          <div className={`ig-mini-picker ${isSelf ? 'ig-mini-picker--self' : ''}`}
+            style={{ position: 'absolute', bottom: 'calc(100% + 6px)', left: isSelf ? 'auto' : 0, right: isSelf ? 0 : 'auto', zIndex: 50, display: 'flex', flexWrap: 'wrap', maxWidth: 220, gap: 2, padding: '6px 8px', background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 14, boxShadow: '0 4px 20px rgba(0,0,0,0.6)' }}>
+            {pickerEmojis.map((e, i) => (
+              <button key={i} onClick={() => { onReact(e); setShowAdd(false) }}
+                style={{ background: 'none', border: 'none', fontSize: '1.15rem', cursor: 'pointer', padding: '3px 4px', borderRadius: 6, lineHeight: 1 }}>
+                {e}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
     </div>
   )
 })
@@ -190,7 +212,7 @@ const MessageBubble = memo(({
   msg, isSelf, avatarSrc, showAvatar, showName,
   onReact, onReply, onCopy, onEdit, onDelete, onPin,
   isEditing, editText, onEditChange, onEditSave, onEditCancel,
-  username, isDJ,
+  username, isDJ, recentEmojis = [],
 }) => {
   const color = userColor(msg.username)
   const [showQuick, setShowQuick] = useState(false)
@@ -374,7 +396,7 @@ const MessageBubble = memo(({
         })}
 
         {/* Reactions */}
-        <Reactions reactions={msg.reactions} onReact={e => onReact(msg.id, e)} username={username} isSelf={isSelf} />
+        <Reactions reactions={msg.reactions} onReact={e => onReact(msg.id, e)} username={username} isSelf={isSelf} recentEmojis={recentEmojis} />
 
         {/* Timestamp + status */}
         <div className={`ig-meta ${isSelf ? 'ig-meta--self' : ''}`}>
@@ -406,7 +428,7 @@ const MessageBubble = memo(({
 })
 
 // ── GIF Bubble ────────────────────────────────────────────
-const GifBubble = memo(({ msg, isSelf, avatarSrc, showAvatar, showName, onReact, onReply, onDelete, onPin, username, isDJ }) => {
+const GifBubble = memo(({ msg, isSelf, avatarSrc, showAvatar, showName, onReact, onReply, onDelete, onPin, username, isDJ, recentEmojis = [] }) => {
   const color = userColor(msg.username)
   const [lightbox, setLightbox] = useState(false)
   const [showCtx, setShowCtx] = useState(false)
@@ -488,10 +510,19 @@ const GifBubble = memo(({ msg, isSelf, avatarSrc, showAvatar, showName, onReact,
                 className={`ig-action-bar ${isSelf ? 'ig-action-bar--self' : 'ig-action-bar--other'}`}
                 onMouseEnter={handleActionMouseEnter} onMouseLeave={handleActionMouseLeave}
               >
-                <button className="ig-action-btn" title="React"
-                  onClick={() => onReact(msg.id, '❤️')}>
-                  <svg viewBox="0 0 24 24" fill="currentColor" width="15" height="15"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm3.5-9c.83 0 1.5-.67 1.5-1.5S16.33 8 15.5 8 14 8.67 14 9.5s.67 1.5 1.5 1.5zm-7 0c.83 0 1.5-.67 1.5-1.5S9.33 8 8.5 8 7 8.67 7 9.5 7.67 11 8.5 11zm3.5 6.5c2.33 0 4.31-1.46 5.11-3.5H6.89c.8 2.04 2.78 3.5 5.11 3.5z"/></svg>
-                </button>
+                <div style={{ position: 'relative' }}>
+                  <button className="ig-action-btn" title="React"
+                    onClick={() => setShowHover(v => v === 'picker' ? true : 'picker')}>
+                    <svg viewBox="0 0 24 24" fill="currentColor" width="15" height="15"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm3.5-9c.83 0 1.5-.67 1.5-1.5S16.33 8 15.5 8 14 8.67 14 9.5s.67 1.5 1.5 1.5zm-7 0c.83 0 1.5-.67 1.5-1.5S9.33 8 8.5 8 7 8.67 7 9.5 7.67 11 8.5 11zm3.5 6.5c2.33 0 4.31-1.46 5.11-3.5H6.89c.8 2.04 2.78 3.5 5.11 3.5z"/></svg>
+                  </button>
+                  {showHover === 'picker' && (
+                    <div className={`ig-mini-picker ${isSelf ? 'ig-mini-picker--self' : ''}`}>
+                      {QUICK_EMOJIS.map(e => (
+                        <button key={e} onClick={() => { onReact(msg.id, e); setShowHover(true) }}>{e}</button>
+                      ))}
+                    </div>
+                  )}
+                </div>
                 <button className="ig-action-btn" title="Reply" onClick={() => onReply(msg)}>
                   <svg viewBox="0 0 24 24" fill="currentColor" width="15" height="15"><path d="M10 9V5l-7 7 7 7v-4.1c5 0 8.5 1.6 11 5.1-1-5-4-10-11-11z"/></svg>
                 </button>
@@ -514,7 +545,7 @@ const GifBubble = memo(({ msg, isSelf, avatarSrc, showAvatar, showName, onReact,
             </div>
           </div>
 
-          <Reactions reactions={msg.reactions} onReact={e => onReact(msg.id, e)} username={username} isSelf={isSelf} />
+          <Reactions reactions={msg.reactions} onReact={e => onReact(msg.id, e)} username={username} isSelf={isSelf} recentEmojis={recentEmojis} />
           <div className={`ig-meta ${isSelf ? 'ig-meta--self' : ''}`}>
             <span className="ig-ts">{formatTs(msg.ts)}</span>
             {isSelf && <span className={`ig-status ig-status--${msg.status || 'sent'}`}>{msg.status === 'read' ? '✓✓' : '✓'}</span>}
@@ -591,6 +622,7 @@ export default function Chat({
   const [searchQuery, setSearchQuery]     = useState('')
   const [firstUnreadId, setFirstUnreadId] = useState(null)
   const [toast, setToast]                 = useState('')
+  const [recentEmojis, setRecentEmojis]     = useState([])
 
   const messagesRef   = useRef(null)
   const inputRef      = useRef(null)
@@ -724,6 +756,7 @@ export default function Chat({
     const msg = messages.find(m => m.id === msgId); if (!msg) return
     const already = msg.reactions?.[emoji]?.users?.includes(username)
     socket.emit('chat-reaction', { roomId, msgId, emoji, username, action: already ? 'remove' : 'add' })
+    if (!already) setRecentEmojis(prev => [emoji, ...prev.filter(e => e !== emoji)].slice(0, 16))
     try { navigator.vibrate?.(8) } catch {}
   }, [messages, socket, roomId, username])
 
@@ -731,7 +764,11 @@ export default function Chat({
     const msg = { id: Date.now(), type: 'gif', username, gif: gif.url, preview: gif.preview, text: gif.title || 'GIF', avatar: userAvatar || null, ts: Date.now(), status: 'sending' }
     socket.emit('chat-msg', { roomId, msg }); setMessages(prev => [...prev, { ...msg, self: true }])
     setShowGifPicker(false); setAtBottom(true)
-    setTimeout(() => messagesRef.current?.scrollTo({ top: messagesRef.current.scrollHeight, behavior: 'smooth' }), 30)
+    // GIF images take time to load — retry scroll a few times
+    const scrollDown = () => { const el = messagesRef.current; if (el) el.scrollTop = el.scrollHeight }
+    setTimeout(scrollDown, 50)
+    setTimeout(scrollDown, 200)
+    setTimeout(scrollDown, 600)
   }, [socket, roomId, username, userAvatar])
 
   const handleEditSave = useCallback((msgId) => {
@@ -861,7 +898,7 @@ export default function Chat({
             onReply: setReplyTo,
             onDelete: handleDelete,
             onPin: handlePin,
-            username, isDJ,
+            username, isDJ, recentEmojis,
           }
 
           if (msg.type === 'gif') return <GifBubble {...commonProps} />

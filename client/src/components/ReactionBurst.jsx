@@ -3,7 +3,7 @@ import EmojiPicker from './EmojiPicker'
 
 const SPAM_LIMIT = 8
 const SPAM_WINDOW = 2000
-const QUICK_EMOJIS = ['🔥','💯','🎵','❤️','😂','👏','🚀','✨','💀','🤩']
+const QUICK_EMOJIS = ['🔥','💯','🎵','❤️','😂','👏','🚀','✨','💀','🤩','😭','🤣','👀','💜','🥹','🎉','😍','🤯','🫶','💥','🎶','😤','🙌','⚡','🫠','😈','🤘','💃','🕺','🎸']
 const HOLD_DELAY = 400
 const SPAM_INTERVAL = 200
 
@@ -208,12 +208,13 @@ export default function ReactionBurst({ socket, roomId, username }) {
           >
             {/* Hold-to-spam hint */}
             <div className="reaction-hold-hint">⚡ Tap once · Hold to spam</div>
-            {/* Quick emojis — hold supported */}
-            <div className="reaction-quick-row">
+            {/* Emoji grid — all emojis, hold supported */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 2, padding: '6px 8px' }}>
               {quickEmojis.map((emoji, i) => (
                 <button
                   key={i}
                   className="reaction-quick-btn"
+                  style={{ fontSize: '1.3rem', padding: '5px 3px', textAlign: 'center' }}
                   onMouseDown={(e) => { e.preventDefault(); startHold(emoji) }}
                   onMouseUp={() => { clearTimeout(holdTimerRef.current); clearInterval(spamIntervalRef.current); isHoldingRef.current = false; if (!isHoldingRef.current) sendReaction(emoji) }}
                   onMouseLeave={() => { clearTimeout(holdTimerRef.current); clearInterval(spamIntervalRef.current); isHoldingRef.current = false }}
