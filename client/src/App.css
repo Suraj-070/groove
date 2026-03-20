@@ -11296,3 +11296,27 @@ body.chat-is-open .fcb-bubble { opacity: 0; pointer-events: none; }
   .dc-input-area { padding: 0 8px 10px; }
   .dc-search-input { width: 110px; }
 }
+
+/* ── DC Panel Fix ── */
+.dc-panel {
+  position: fixed !important;
+  right: 20px !important;
+  top: 72px !important;
+  width: 440px !important;
+  height: calc(100dvh - 88px) !important;
+  background: #0e0c1a !important;
+  border: 1px solid rgba(124,106,255,0.18) !important;
+  border-radius: 22px !important;
+  box-shadow: 0 32px 80px rgba(0,0,0,0.7) !important;
+  z-index: 200 !important;
+}
+
+@media (max-width: 768px) {
+  .dc-panel {
+    right: 0 !important;
+    top: 0 !important;
+    width: 100vw !important;
+    height: calc(100dvh - 64px) !important;
+    border-radius: 0 !important;
+  }
+}
