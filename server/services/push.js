@@ -1,5 +1,6 @@
 const webpush = require('web-push')
 const { PushSub } = require('../models')
+const { rooms } = require('./room')
 
 const VAPID_PUBLIC  = process.env.VAPID_PUBLIC_KEY  || ''
 const VAPID_PRIVATE = process.env.VAPID_PRIVATE_KEY || ''
@@ -48,8 +49,7 @@ async function sendPush(userId, payload) {
 }
 
 // Send push to all users in a room except one (the actor)
-// rooms must be passed in — it lives in services/room.js
-async function sendPushToRoom(roomId, exceptUserId, payload, rooms) {
+async function sendPushToRoom(roomId, exceptUserId, payload) {
   const room = rooms[roomId];
   if (!room) return;
   const userIds = Object.values(room.users)
