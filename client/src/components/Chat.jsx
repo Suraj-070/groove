@@ -125,7 +125,7 @@ const QuickReact = memo(({ isSelf, onReact, onClose }) => (
 ))
 
 // ── Mobile Context Menu ───────────────────────────────────
-const ContextMenu = memo(({ isSelf, onReact, onReply, onCopy, onEdit, onClose, isGif }) => (
+const ContextMenu = memo(({ isSelf, onReact, onReply, onCopy, onEdit, onDelete, onPin, onClose, isGif, canPin }) => (
   <>
     <div className="ig-ctx-overlay" onClick={onClose} />
     <div className="ig-ctx-menu">
@@ -148,6 +148,18 @@ const ContextMenu = memo(({ isSelf, onReact, onReply, onCopy, onEdit, onClose, i
         <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
         {isGif ? 'Copy URL' : 'Copy'}
       </button>
+      {canPin && (
+        <button className="ig-ctx-btn" onClick={() => { onPin(); onClose() }}>
+          <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2l-2-2z"/></svg>
+          Pin message
+        </button>
+      )}
+      {(isSelf || canPin) && (
+        <button className="ig-ctx-btn" style={{ color: '#ff6a8a' }} onClick={() => { onDelete(); onClose() }}>
+          <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+          Delete
+        </button>
+      )}
     </div>
   </>
 ))
@@ -176,9 +188,9 @@ const TypingIndicator = memo(({ typers, avatarMap }) => {
 // ── Message Bubble ────────────────────────────────────────
 const MessageBubble = memo(({
   msg, isSelf, avatarSrc, showAvatar, showName,
-  onReact, onReply, onCopy, onEdit,
+  onReact, onReply, onCopy, onEdit, onDelete, onPin,
   isEditing, editText, onEditChange, onEditSave, onEditCancel,
-  username,
+  username, isDJ,
 }) => {
   const color = userColor(msg.username)
   const [showQuick, setShowQuick] = useState(false)
@@ -318,6 +330,19 @@ const MessageBubble = memo(({
                     <svg viewBox="0 0 24 24" fill="currentColor" width="15" height="15"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
                   </button>
                 )}
+                {/* Pin — DJ only */}
+                {isDJ && (
+                  <button className="ig-action-btn" title="Pin" onClick={() => onPin(msg)}>
+                    <svg viewBox="0 0 24 24" fill="currentColor" width="15" height="15"><path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2l-2-2z"/></svg>
+                  </button>
+                )}
+                {/* Delete — own or DJ */}
+                {(isSelf || isDJ) && (
+                  <button className="ig-action-btn" title="Delete" onClick={() => onDelete(msg)}
+                    style={{ color: '#ff6a8a' }}>
+                    <svg viewBox="0 0 24 24" fill="currentColor" width="15" height="15"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+                  </button>
+                )}
                 {/* Copy */}
                 <button className="ig-action-btn" title="Copy" onClick={onCopy}>
                   <svg viewBox="0 0 24 24" fill="currentColor" width="15" height="15"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
@@ -366,10 +391,13 @@ const MessageBubble = memo(({
       {showCtx && (
         <ContextMenu
           isSelf={isSelf}
+          canPin={isDJ}
           onReact={e => onReact(msg.id, e)}
           onReply={() => onReply(msg)}
           onCopy={() => { navigator.clipboard.writeText(msg.text || ''); setShowCtx(false) }}
           onEdit={isSelf ? () => onEdit(msg) : null}
+          onPin={() => { onPin(msg); setShowCtx(false) }}
+          onDelete={() => { onDelete(msg); setShowCtx(false) }}
           onClose={() => setShowCtx(false)}
         />
       )}
@@ -378,12 +406,58 @@ const MessageBubble = memo(({
 })
 
 // ── GIF Bubble ────────────────────────────────────────────
-const GifBubble = memo(({ msg, isSelf, avatarSrc, showAvatar, showName, onReact, onReply, username }) => {
+const GifBubble = memo(({ msg, isSelf, avatarSrc, showAvatar, showName, onReact, onReply, onDelete, onPin, username, isDJ }) => {
   const color = userColor(msg.username)
   const [lightbox, setLightbox] = useState(false)
   const [showCtx, setShowCtx] = useState(false)
+  const [showHover, setShowHover] = useState(false)
   const longPressTimer = useRef(null)
-  const touchMoved = useRef(false)
+  const touchStartPos = useRef(null)
+  const hoverLeaveTimer = useRef(null)
+
+  const handleMouseEnter = () => { if (IS_MOBILE) return; clearTimeout(hoverLeaveTimer.current); setShowHover(true) }
+  const handleMouseLeave = () => { if (IS_MOBILE) return; hoverLeaveTimer.current = setTimeout(() => setShowHover(false), 200) }
+  const handleActionMouseEnter = () => clearTimeout(hoverLeaveTimer.current)
+  const handleActionMouseLeave = () => { hoverLeaveTimer.current = setTimeout(() => setShowHover(false), 150) }
+
+  const onTouchStart = (e) => {
+    touchStartPos.current = { x: e.touches[0].clientX, y: e.touches[0].clientY }
+    longPressTimer.current = setTimeout(() => { setShowCtx(true); try { navigator.vibrate?.(12) } catch {} }, 500)
+  }
+  const onTouchMove = (e) => {
+    if (!touchStartPos.current) return
+    const dx = Math.abs(e.touches[0].clientX - touchStartPos.current.x)
+    const dy = Math.abs(e.touches[0].clientY - touchStartPos.current.y)
+    if (dx > 8 || dy > 8) clearTimeout(longPressTimer.current)
+  }
+  const onTouchEnd = () => { clearTimeout(longPressTimer.current); touchStartPos.current = null }
+
+  // If gif URL missing (old messages saved wrong), show fallback text
+  if (!msg.gif) {
+    return (
+      <div className={`ig-row ${isSelf ? 'ig-row--self' : 'ig-row--other'}`}>
+        {!isSelf && (
+          <div className="ig-av-col">
+            {showAvatar
+              ? avatarSrc
+                ? <img src={avatarSrc} alt="" className="ig-av ig-av--img" />
+                : <div className="ig-av" style={{ background: color }}>{userInitial(msg.username)}</div>
+              : <div className="ig-av-ghost" />
+            }
+          </div>
+        )}
+        <div className="ig-bubble-col">
+          {!isSelf && showName && <span className="ig-name" style={{ color }}>{msg.username}</span>}
+          <div className={`ig-bubble ${isSelf ? 'ig-bubble--self' : 'ig-bubble--other'}`}>
+            <p className="ig-bubble-text" style={{ opacity: 0.6, fontStyle: 'italic' }}>🎞 GIF unavailable</p>
+          </div>
+          <div className={`ig-meta ${isSelf ? 'ig-meta--self' : ''}`}>
+            <span className="ig-ts">{formatTs(msg.ts)}</span>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <>
@@ -400,16 +474,46 @@ const GifBubble = memo(({ msg, isSelf, avatarSrc, showAvatar, showName, onReact,
           </div>
         )}
         <div className="ig-bubble-col"
-          onTouchStart={() => { touchMoved.current = false; longPressTimer.current = setTimeout(() => { setShowCtx(true); try { navigator.vibrate?.(12) } catch {} }, 500) }}
-          onTouchMove={() => { touchMoved.current = true; clearTimeout(longPressTimer.current) }}
-          onTouchEnd={() => clearTimeout(longPressTimer.current)}
+          onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}
         >
           {!isSelf && showName && <span className="ig-name" style={{ color }}>{msg.username}</span>}
           {msg.replyTo && <ReplyQuote reply={msg.replyTo} isSelf={isSelf} />}
-          <div className={`ig-gif-wrap ${isSelf ? 'ig-gif-wrap--self' : ''}`} onClick={() => setLightbox(true)}>
-            <img src={msg.gif} alt={msg.text} className="ig-gif-img" loading="lazy" />
-            <span className="ig-gif-badge">GIF</span>
+
+          {/* Hover zone with action bar */}
+          <div className="ig-bubble-hover-zone"
+            onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}
+          >
+            {showHover && !IS_MOBILE && (
+              <div
+                className={`ig-action-bar ${isSelf ? 'ig-action-bar--self' : 'ig-action-bar--other'}`}
+                onMouseEnter={handleActionMouseEnter} onMouseLeave={handleActionMouseLeave}
+              >
+                <button className="ig-action-btn" title="React"
+                  onClick={() => onReact(msg.id, '❤️')}>
+                  <svg viewBox="0 0 24 24" fill="currentColor" width="15" height="15"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm3.5-9c.83 0 1.5-.67 1.5-1.5S16.33 8 15.5 8 14 8.67 14 9.5s.67 1.5 1.5 1.5zm-7 0c.83 0 1.5-.67 1.5-1.5S9.33 8 8.5 8 7 8.67 7 9.5 7.67 11 8.5 11zm3.5 6.5c2.33 0 4.31-1.46 5.11-3.5H6.89c.8 2.04 2.78 3.5 5.11 3.5z"/></svg>
+                </button>
+                <button className="ig-action-btn" title="Reply" onClick={() => onReply(msg)}>
+                  <svg viewBox="0 0 24 24" fill="currentColor" width="15" height="15"><path d="M10 9V5l-7 7 7 7v-4.1c5 0 8.5 1.6 11 5.1-1-5-4-10-11-11z"/></svg>
+                </button>
+                {isDJ && (
+                  <button className="ig-action-btn" title="Pin" onClick={() => onPin(msg)}>
+                    <svg viewBox="0 0 24 24" fill="currentColor" width="15" height="15"><path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2l-2-2z"/></svg>
+                  </button>
+                )}
+                {(isSelf || isDJ) && (
+                  <button className="ig-action-btn" title="Delete" onClick={() => onDelete(msg)}
+                    style={{ color: '#ff6a8a' }}>
+                    <svg viewBox="0 0 24 24" fill="currentColor" width="15" height="15"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+                  </button>
+                )}
+              </div>
+            )}
+            <div className={`ig-gif-wrap ${isSelf ? 'ig-gif-wrap--self' : ''}`} onClick={() => setLightbox(true)}>
+              <img src={msg.gif} alt={msg.text || 'GIF'} className="ig-gif-img" loading="lazy" />
+              <span className="ig-gif-badge">GIF</span>
+            </div>
           </div>
+
           <Reactions reactions={msg.reactions} onReact={e => onReact(msg.id, e)} username={username} isSelf={isSelf} />
           <div className={`ig-meta ${isSelf ? 'ig-meta--self' : ''}`}>
             <span className="ig-ts">{formatTs(msg.ts)}</span>
@@ -417,10 +521,12 @@ const GifBubble = memo(({ msg, isSelf, avatarSrc, showAvatar, showName, onReact,
           </div>
         </div>
         {showCtx && (
-          <ContextMenu isSelf={isSelf}
+          <ContextMenu isSelf={isSelf} canPin={isDJ}
             onReact={e => onReact(msg.id, e)}
             onReply={() => onReply(msg)}
             onCopy={() => { navigator.clipboard.writeText(msg.gif || ''); setShowCtx(false) }}
+            onPin={() => onPin(msg)}
+            onDelete={() => onDelete(msg)}
             onClose={() => setShowCtx(false)}
             isGif
           />
@@ -524,6 +630,7 @@ export default function Chat({
     }
     const onEcho     = (msg) => setMessages(prev => prev.map(m => m.id === msg.id ? { ...msg, self: true, status: 'sent' } : m))
     const onEdit     = ({ msgId, text }) => setMessages(prev => prev.map(m => m.id === msgId ? { ...m, text, edited: true } : m))
+    const onDelete   = ({ msgId }) => setMessages(prev => prev.filter(m => m.id !== msgId))
     const onReaction = ({ msgId, emoji, username: who, action }) => setMessages(prev => prev.map(m => {
       if (m.id !== msgId) return m
       const r = { ...(m.reactions || {}) }
@@ -541,13 +648,13 @@ export default function Chat({
     const onTyping = ({ username: who, isTyping }) => setTypers(prev => isTyping ? [...prev.filter(u => u !== who), who] : prev.filter(u => u !== who))
 
     socket.on('chat-msg', onMsg); socket.on('chat-msg-echo', onEcho)
-    socket.on('chat-edit', onEdit); socket.on('chat-reaction', onReaction)
+    socket.on('chat-edit', onEdit); socket.on('chat-delete', onDelete); socket.on('chat-reaction', onReaction)
     socket.on('chat-read', onRead); socket.on('chat-pin', onPin)
     socket.on('chat-unpin', onUnpin); socket.on('chat-system', onSystem)
     socket.on('user-typing', onTyping)
     return () => {
       socket.off('chat-msg', onMsg); socket.off('chat-msg-echo', onEcho)
-      socket.off('chat-edit', onEdit); socket.off('chat-reaction', onReaction)
+      socket.off('chat-edit', onEdit); socket.off('chat-delete', onDelete); socket.off('chat-reaction', onReaction)
       socket.off('chat-read', onRead); socket.off('chat-pin', onPin)
       socket.off('chat-unpin', onUnpin); socket.off('chat-system', onSystem)
       socket.off('user-typing', onTyping)
@@ -611,6 +718,18 @@ export default function Chat({
     setMessages(prev => prev.map(m => m.id === msgId ? { ...m, text: editText.trim(), edited: true } : m))
     socket.emit('chat-edit', { roomId, msgId, text: editText.trim() }); setEditingId(null)
   }, [editText, messages, socket, roomId])
+
+  const handleDelete = useCallback((msg) => {
+    setMessages(prev => prev.filter(m => m.id !== msg.id))
+    socket.emit('chat-delete', { roomId, msgId: msg.id })
+    showToast('🗑️ Deleted')
+  }, [socket, roomId, showToast])
+
+  const handlePin = useCallback((msg) => {
+    setPinnedMsg(msg)
+    socket.emit('chat-pin', { roomId, msg })
+    showToast('📌 Pinned')
+  }, [socket, roomId, showToast])
 
   const displayMessages = useMemo(() => {
     if (!searchQuery.trim()) return messages
@@ -717,7 +836,9 @@ export default function Chat({
             avatarSrc: msg.avatar || avatarMap[msg.username],
             onReact: handleReact,
             onReply: setReplyTo,
-            username,
+            onDelete: handleDelete,
+            onPin: handlePin,
+            username, isDJ,
           }
 
           if (msg.type === 'gif') return <GifBubble {...commonProps} />
@@ -731,6 +852,9 @@ export default function Chat({
               onEditChange={setEditText}
               onEditSave={() => handleEditSave(msg.id)}
               onEditCancel={() => setEditingId(null)}
+              onDelete={handleDelete}
+              onPin={handlePin}
+              isDJ={isDJ}
             />
           )
         })}

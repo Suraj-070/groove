@@ -250,6 +250,13 @@ module.exports = function registerSockets(io) {
     }
   })
 
+  socket.on('chat-delete', ({ roomId, msgId }) => {
+    io.to(roomId).emit('chat-delete', { msgId })
+    if (process.env.MONGODB_URI) {
+      Message.deleteOne({ id: msgId }).catch(() => {})
+    }
+  })
+
   socket.on('chat-pin', ({ roomId, msg }) => {
     io.to(roomId).emit('chat-pin', { msg })
   })
