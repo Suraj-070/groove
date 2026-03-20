@@ -20,7 +20,7 @@ router.post('/library/categories', requireAuth, async (req, res) => {
     if (!name?.trim()) return res.status(400).json({ error: 'Name required' });
     const category = { id: randomUUID(), name: name.trim(), color: color || '#7c6aff', songs: [], createdAt: Date.now() };
 
-    if (!MONGO_URI) {
+    if (!process.env.MONGODB_URI) {
       const lib = await getLibrary(req.user.id);
       lib.categories.push(category);
       return res.json(category);
@@ -40,7 +40,7 @@ router.post('/library/categories', requireAuth, async (req, res) => {
 
 router.delete('/library/categories/:categoryId', requireAuth, async (req, res) => {
   try {
-    if (!MONGO_URI) {
+    if (!process.env.MONGODB_URI) {
       const lib = await getLibrary(req.user.id);
       lib.categories = lib.categories.filter(c => c.id !== req.params.categoryId);
       return res.json({ success: true });
@@ -69,7 +69,7 @@ router.post('/library/categories/:categoryId/songs', requireAuth, async (req, re
 
     const song = { videoId, title, addedAt: Date.now() };
 
-    if (!MONGO_URI) {
+    if (!process.env.MONGODB_URI) {
       category.songs.push(song);
       return res.json(song);
     }
@@ -112,7 +112,7 @@ router.post('/library/categories/:categoryId/songs/batch', requireAuth, async (r
 
     const skipped = songs.length - toAdd.length;
 
-    if (!MONGO_URI) {
+    if (!process.env.MONGODB_URI) {
       category.songs.push(...toAdd);
       return res.json({ added: toAdd.length, skipped, songs: toAdd });
     }
@@ -132,7 +132,7 @@ router.post('/library/categories/:categoryId/songs/batch', requireAuth, async (r
 
 router.delete('/library/categories/:categoryId/songs/:videoId', requireAuth, async (req, res) => {
   try {
-    if (!MONGO_URI) {
+    if (!process.env.MONGODB_URI) {
       const lib = await getLibrary(req.user.id);
       const category = lib.categories.find(c => c.id === req.params.categoryId);
       if (category) category.songs = category.songs.filter(s => s.videoId !== req.params.videoId);

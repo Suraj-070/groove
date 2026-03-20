@@ -50,7 +50,7 @@ function estimateBpmFromTitle(title = '') {
 
 async function enrichSong(videoId, title) {
   // Check cache first
-  if (MONGO_URI) {
+  if (process.env.MONGODB_URI) {
     const cached = await SongDNA.findOne({ videoId }).lean();
     if (cached) return cached;
   }
@@ -145,7 +145,7 @@ async function enrichSong(videoId, title) {
     dna.category = deriveCategory(dna, ytTags);
 
     // ── 5. Cache in MongoDB ───────────────────────────────────
-    if (MONGO_URI) {
+    if (process.env.MONGODB_URI) {
       await SongDNA.findOneAndUpdate(
         { videoId },
         { ...dna, fetchedAt: Date.now() },

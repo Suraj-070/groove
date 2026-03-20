@@ -477,7 +477,7 @@ router.post('/share/songs', requireAuth, async (req, res) => {
   const shareId = randomUUID().replace(/-/g, '').slice(0, 8);
 
   try {
-    if (MONGO_URI) {
+    if (process.env.MONGODB_URI) {
       await SharedSongs.create({
         shareId,
         sharedBy: req.user.username || req.user.id,
@@ -485,7 +485,7 @@ router.post('/share/songs', requireAuth, async (req, res) => {
         songs: songs.map(s => ({ videoId: s.videoId, title: s.title })),
       });
     }
-    res.json({ shareId, url: `${FRONTEND}/shared/${shareId}` });
+    res.json({ shareId, url: `${process.env.FRONTEND_URL}/shared/${shareId}` });
   } catch (e) {
     console.error('POST /share/songs error:', e);
     res.status(500).json({ error: 'Failed to create share link' });
@@ -513,8 +513,8 @@ router.get('/share/songs/:shareId', async (req, res) => {
 
 // Return VAPID public key so client can subscribe
 router.get('/push/vapid-public-key', requireAuth, (req, res) => {
-  if (!VAPID_PUBLIC) return res.status(503).json({ error: 'Push not configured' });
-  res.json({ key: VAPID_PUBLIC });
+  if (!process.env.VAPID_PUBLIC_KEY) return res.status(503).json({ error: 'Push not configured' });
+  res.json({ key: process.env.VAPID_PUBLIC_KEY });
 });
 
 // Save a push subscription

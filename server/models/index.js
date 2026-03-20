@@ -150,7 +150,7 @@ const userProfileSchema = new mongoose.Schema({
 const UserProfile = mongoose.models.UserProfile || mongoose.model('UserProfile', userProfileSchema);
 
 // Sync all indexes after models are defined — handles TTL changes etc
-if (MONGO_URI) {
+if (process.env.MONGODB_URI || process.env.process.env.MONGODB_URI) {
   mongoose.connection.once('open', async () => {
     try {
       await Promise.all([

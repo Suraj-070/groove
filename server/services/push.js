@@ -5,12 +5,12 @@ const VAPID_PUBLIC  = process.env.VAPID_PUBLIC_KEY  || ''
 const VAPID_PRIVATE = process.env.VAPID_PRIVATE_KEY || ''
 const VAPID_MAILTO  = process.env.VAPID_MAILTO || 'mailto:groove@example.com'
 
-if (VAPID_PUBLIC && VAPID_PRIVATE) {
-  webpush.setVapidDetails(VAPID_MAILTO, VAPID_PUBLIC, VAPID_PRIVATE)
+if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
+  webpush.setVapidDetails((process.env.VAPID_MAILTO || 'mailto:groove@example.com'), process.env.VAPID_PUBLIC_KEY, process.env.VAPID_PRIVATE_KEY)
 }
 
 async function sendPush(userId, payload) {
-  if (!VAPID_PUBLIC || !VAPID_PRIVATE) {
+  if (!process.env.VAPID_PUBLIC_KEY || !process.env.VAPID_PRIVATE_KEY) {
     console.log('[Push] VAPID not configured — skipping');
     return;
   }

@@ -232,7 +232,7 @@ module.exports = function registerSockets(io) {
 
   socket.on('chat-edit', ({ roomId, msgId, text }) => {
     io.to(roomId).emit('chat-edit', { msgId, text })
-    if (MONGO_URI) {
+    if (process.env.MONGODB_URI) {
       Message.updateOne({ id: msgId }, { $set: { text, edited: true } }).catch(() => {})
     }
   })
@@ -240,7 +240,7 @@ module.exports = function registerSockets(io) {
   socket.on('chat-reaction', ({ roomId, msgId, emoji, username, action }) => {
     io.to(roomId).emit('chat-reaction', { msgId, emoji, username, action })
     // Persist reaction to MongoDB
-    if (MONGO_URI) {
+    if (process.env.MONGODB_URI) {
       const field = `reactions.${emoji}`
       if (action === 'add') {
         Message.updateOne({ id: msgId }, { $addToSet: { [`reactions.${emoji}.users`]: username }, $inc: { [`reactions.${emoji}.count`]: 1 } }).catch(() => {})
@@ -338,7 +338,7 @@ module.exports = function registerSockets(io) {
       delete rooms[roomId].users[socket.id];
       const users = Object.values(rooms[roomId].users);
       // Save session when room empties
-      if (users.length === 0 && MONGO_URI) {
+      if (users.length === 0 && process.env.MONGODB_URI) {
         const room = rooms[roomId];
         const allUsers = Object.values(room.users || {}); // already deleted but may have others
         try {
@@ -377,7 +377,7 @@ module.exports = function registerSockets(io) {
       // If room is empty, remove from memory AND clean up from DB
       if (users.length === 0) {
         delete rooms[roomId];
-        if (MONGO_URI) {
+        if (process.env.MONGODB_URI) {
           try {
             await Room.deleteOne({ roomId });
             console.log(`🗑  Room "${roomId}" deleted from DB (empty)`);
