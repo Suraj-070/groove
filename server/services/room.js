@@ -95,15 +95,14 @@ async function recordListen(userId, videoId, title, roomId) {
 
 // ── Chemistry algorithm ───────────────────────────────────
 async function computeChemistry(participants, songsPlayed, reactions) {
-  if (participants.length < 2) return 0
+  if (!participants || participants.length < 2) return 0
   try {
     const sessionLen = Date.now() - (songsPlayed[0]?.playedAt || Date.now())
     const retentionScore = Math.min(100, (sessionLen / 60000) * 5)
     const diversityScore = Math.min(100, new Set(songsPlayed.map(s => s.videoId)).size * 10)
     const reactionScore  = Math.min(100, Object.keys(reactions || {}).length * 5)
     return Math.round((retentionScore + diversityScore + reactionScore) / 3)
-  } catch {}
-  return 0
+  } catch { return 0 }
 }
 
 module.exports = { rooms, getRoom, saveRoom, updateStreak, recordListen, computeChemistry, todayStr }
