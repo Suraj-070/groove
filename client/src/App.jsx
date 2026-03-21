@@ -460,7 +460,7 @@ function App() {
 
           const params = new URLSearchParams(window.location.search)
           if (params.get('auth') === 'success') {
-            window.history.replaceState({}, '', '/')
+            window.history.replaceState({}, '', '/app')
             try {
               const res2 = await fetch(`${BACKEND}/auth/me`, { credentials: 'include' })
               if (res2.ok) setUser(await res2.json())

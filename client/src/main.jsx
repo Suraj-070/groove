@@ -2,12 +2,20 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.jsx'
+import Landing from './Landing.jsx'
 import ErrorBoundary from './ErrorBoundary.jsx'
+
+// Simple path-based routing — no react-router needed
+const path = window.location.pathname
+
+// /app or /app/* → render the Groove app
+// anything else (/ or unknown) → render landing page
+const isApp = path.startsWith('/app')
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <ErrorBoundary>
-      <App />
+      {isApp ? <App /> : <Landing />}
     </ErrorBoundary>
   </StrictMode>,
 )
@@ -18,7 +26,6 @@ let deferredPrompt = null
 window.addEventListener('beforeinstallprompt', (e) => {
   e.preventDefault()
   deferredPrompt = e
-  // Dispatch custom event so any component can trigger install
   window.dispatchEvent(new CustomEvent('pwa-installable'))
   console.log('[PWA] Install prompt ready')
 })
@@ -28,7 +35,6 @@ window.addEventListener('appinstalled', () => {
   console.log('[PWA] App installed!')
 })
 
-// Expose install trigger globally
 window.__triggerPWAInstall = async () => {
   if (!deferredPrompt) return false
   deferredPrompt.prompt()
@@ -37,20 +43,17 @@ window.__triggerPWAInstall = async () => {
   return outcome === 'accepted'
 }
 
-// ── Register Service Worker for PWA support ───────────────
+// ── Register Service Worker ───────────────────────────────
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker
       .register('/sw.js')
       .then((reg) => {
         console.log('[SW] Registered:', reg.scope)
-
-        // When a new SW is waiting, reload to activate it
         reg.addEventListener('updatefound', () => {
           const newWorker = reg.installing
           newWorker?.addEventListener('statechange', () => {
             if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-              // New version available — you could show a "Update available" toast here
               newWorker.postMessage('SKIP_WAITING')
               window.location.reload()
             }

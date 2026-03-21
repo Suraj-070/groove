@@ -33,15 +33,15 @@ router.get('/auth/discord/callback', (req, res, next) => {
   passport.authenticate('discord', (err, user, info) => {
     if (err) {
       console.error('[Discord Auth Error]', err.message, err.oauthError?.data || '')
-      return res.redirect(`${FRONTEND}?error=auth_failed&reason=${encodeURIComponent(err.message)}`)
+      return res.redirect(`${FRONTEND}/app?error=auth_failed&reason=${encodeURIComponent(err.message)}`)
     }
     if (!user) {
       console.error('[Discord Auth Failed]', info)
-      return res.redirect(`${FRONTEND}?error=auth_failed`)
+      return res.redirect(`${FRONTEND}/app?error=auth_failed`)
     }
     req.login(user, (loginErr) => {
       if (loginErr) return next(loginErr)
-      return res.redirect(`${FRONTEND}?auth=success`)
+      return res.redirect(`${FRONTEND}/app?auth=success`)
     })
   })(req, res, next)
 })
@@ -49,7 +49,7 @@ router.get('/auth/discord/callback', (req, res, next) => {
 router.get('/auth/google', passport.authenticate('google', { scope: ['profile'] }))
 router.get('/auth/google/callback',
   passport.authenticate('google', { failureRedirect: `${FRONTEND}?error=auth_failed` }),
-  (req, res) => res.redirect(`${FRONTEND}?auth=success`)
+  (req, res) => res.redirect(`${FRONTEND}/app?auth=success`)
 )
 
 router.get('/auth/me', (req, res) => {
