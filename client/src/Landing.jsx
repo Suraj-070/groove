@@ -26,13 +26,28 @@ function GrooveLogo({ size = 28 }) {
 
 export default function Landing() {
   useEffect(() => {
+    // Force scroll to work — App.css may set body overflow hidden
+    document.body.style.overflow = 'auto'
+    document.body.style.height = 'auto'
+    document.documentElement.style.overflow = 'auto'
+    document.documentElement.style.height = 'auto'
+    document.body.classList.add('landing-page')
+
     const observer = new IntersectionObserver((entries) => {
       entries.forEach(e => {
         if (e.isIntersecting) { e.target.classList.add('visible'); observer.unobserve(e.target) }
       })
     }, { threshold: 0.12 })
     document.querySelectorAll('.reveal').forEach(el => observer.observe(el))
-    return () => observer.disconnect()
+
+    return () => {
+      observer.disconnect()
+      document.body.classList.remove('landing-page')
+      document.body.style.overflow = ''
+      document.body.style.height = ''
+      document.documentElement.style.overflow = ''
+      document.documentElement.style.height = ''
+    }
   }, [])
 
   const features = [

@@ -1,10 +1,27 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+/* Ensure landing page can scroll — overrides any global overflow rules */
+body:has(.landing) {
+  overflow: auto !important;
+  height: auto !important;
+}
+
+html:has(.landing) {
+  overflow: auto !important;
+  height: auto !important;
+}
+
+.landing {
+  position: relative;
+  overflow-x: hidden;
+  overflow-y: auto;
+  min-height: 100vh;
+}
+
 .landing {
   background: #060410;
   color: #f0eeff;
   font-family: 'DM Sans', system-ui, sans-serif;
-  overflow-x: hidden;
   line-height: 1.6;
 }
 
@@ -25,7 +42,7 @@
 .l-nav-cta:hover { transform: translateY(-2px); box-shadow: 0 8px 32px rgba(124,106,255,0.5); }
 
 /* HERO */
-.l-hero { position: relative; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 120px 24px 80px; overflow: hidden; }
+.l-hero { position: relative; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 120px 24px 80px; overflow: visible; }
 .l-hero::before { content: ''; position: absolute; width: 700px; height: 700px; background: radial-gradient(circle, rgba(124,106,255,0.18) 0%, transparent 70%); top: -100px; left: 50%; transform: translateX(-50%); pointer-events: none; }
 
 .l-hero-badge { display: inline-flex; align-items: center; gap: 7px; padding: 6px 16px 6px 10px; background: rgba(124,106,255,0.1); border: 1px solid rgba(124,106,255,0.3); border-radius: 50px; font-size: 0.78rem; font-weight: 500; color: #c4b5fd; margin-bottom: 28px; animation: fadeUp 0.6s ease both; }
@@ -138,7 +155,7 @@
 .l-step-desc { color: rgba(255,255,255,0.4); font-size: 0.86rem; font-weight: 300; line-height: 1.6; }
 
 /* CTA */
-.l-cta { padding: 110px 24px; text-align: center; position: relative; overflow: hidden; }
+.l-cta { padding: 110px 24px; text-align: center; position: relative; overflow: visible; }
 .l-cta::before { content: ''; position: absolute; width: 600px; height: 600px; background: radial-gradient(circle, rgba(124,106,255,0.12) 0%, transparent 70%); top: 50%; left: 50%; transform: translate(-50%,-50%); pointer-events: none; }
 .l-cta-title { font-weight: 900; font-size: clamp(2rem,6vw,4rem); line-height: 1.05; letter-spacing: -0.03em; margin-bottom: 18px; position: relative; color: #fff; }
 .l-cta-gradient { background: linear-gradient(135deg,#7c6aff,#ff6a8a); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
