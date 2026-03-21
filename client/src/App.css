@@ -4807,6 +4807,25 @@ h1, h2, h3 {
   width: 100%;
   margin-top: 4px;
 }
+
+.join-form-input {
+  padding: 14px 16px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  color: var(--text);
+  font-family: 'Outfit', sans-serif;
+  font-size: 0.95rem;
+  outline: none;
+  transition: border-color 0.2s;
+  width: 100%;
+  box-sizing: border-box;
+}
+.join-form-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-glow);
+}
+.join-form-input::placeholder { color: var(--muted); }
 .guest-form-title {
   font-family: 'Outfit', sans-serif;
   font-size: 0.9rem;

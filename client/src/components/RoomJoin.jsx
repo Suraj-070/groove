@@ -91,6 +91,7 @@ export default function RoomJoin({ onJoin, user, onGuestLogin }) {
             <div className="guest-form">
               <p className="guest-form-title">Choose your display name</p>
               <input
+                className="join-form-input"
                 type="text"
                 placeholder="e.g. DreamCatcher..."
                 value={guestName}
