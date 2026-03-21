@@ -34,117 +34,110 @@ export default function UserList({ users: rawUsers = [], currentUser, djId, isDJ
   )
 
   const panel = showPanel && createPortal(
-    <>
-      {/* Backdrop */}
-      <div
-        onClick={() => setShowPanel(false)}
-        style={{ position: 'fixed', inset: 0, zIndex: 9998, background: 'rgba(0,0,0,0.82)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)' }}
-      />
-
-      {/* Panel */}
-      <div
-        onClick={e => e.stopPropagation()}
-        style={{
-          position: 'fixed',
-          top: '50%', left: '50%',
-          transform: 'translate(-50%, -50%)',
-          zIndex: 9999,
-          width: 'min(380px, calc(100vw - 40px))',
-          maxHeight: '70vh',
-          background: '#0e0c1a',
-          border: '1px solid rgba(124,106,255,0.25)',
-          borderRadius: 24,
-          boxShadow: '0 40px 80px rgba(0,0,0,0.9), 0 0 0 1px rgba(124,106,255,0.1)',
-          display: 'flex', flexDirection: 'column',
-          overflow: 'hidden',
-          animation: 'panelSpringIn 0.3s cubic-bezier(0.34,1.2,0.64,1)',
-        }}
-      >
-        {/* Header */}
-        <div style={{ padding: '20px 20px 14px', borderBottom: '1px solid rgba(255,255,255,0.06)', flexShrink: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'rgba(0,201,116,0.12)', border: '1px solid rgba(0,201,116,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#00c974', display: 'block', boxShadow: '0 0 8px rgba(0,201,116,0.8)', animation: 'blink 1.5s ease-in-out infinite' }} />
-              </div>
-              <div>
-                <p style={{ fontFamily: "'Unbounded', sans-serif", fontSize: '0.9rem', fontWeight: 800, color: '#fff', margin: 0 }}>
-                  {users.length} Listening
-                </p>
-                <p style={{ fontSize: '0.68rem', color: 'rgba(255,255,255,0.35)', margin: 0, marginTop: 2 }}>
-                  Live in this room
-                </p>
-              </div>
-            </div>
-            <button
-              onClick={() => setShowPanel(false)}
-              style={{ width: 32, height: 32, borderRadius: '50%', background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)', color: '#fff', cursor: 'pointer', fontSize: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-            >✕</button>
+    <div style={{
+      position: 'fixed',
+      right: 20,
+      top: 72,
+      width: 320,
+      height: 'calc(100dvh - 88px)',
+      zIndex: 9999,
+      background: '#0e0c1a',
+      border: '1px solid rgba(124,106,255,0.18)',
+      borderRadius: 22,
+      boxShadow: '0 32px 80px rgba(0,0,0,0.7), 0 0 0 1px rgba(124,106,255,0.08)',
+      display: 'flex',
+      flexDirection: 'column',
+      overflow: 'hidden',
+      animation: 'chatIn 0.28s cubic-bezier(0.34,1.2,0.64,1)',
+    }}>
+      {/* Header */}
+      <div style={{ padding: '14px 16px 12px', borderBottom: '1px solid rgba(255,255,255,0.06)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ color: 'var(--accent)', display: 'flex' }}>
+            <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>
           </div>
+          <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text)' }}>In the Room</span>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.68rem', color: 'var(--accent)', background: 'rgba(124,106,255,0.1)', border: '1px solid rgba(124,106,255,0.2)', borderRadius: 20, padding: '2px 8px 2px 6px', fontWeight: 500 }}>
+            <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#00c974', display: 'inline-block', boxShadow: '0 0 6px rgba(0,201,116,0.8)' }} />
+            {users.length} live
+          </span>
         </div>
-
-        {/* User list */}
-        <div style={{ overflowY: 'auto', flex: 1, padding: '12px 16px 16px' }}>
-          {users.map((user, i) => {
-            const isYou   = user.id === currentUser
-            const isDJUser = user.id === djId
-            const color   = getColor(user.id)
-            return (
-              <div key={user.id} style={{
-                display: 'flex', alignItems: 'center', gap: 14,
-                padding: '12px 14px', borderRadius: 16,
-                background: isYou ? `${color}14` : 'rgba(255,255,255,0.03)',
-                border: `1px solid ${isYou ? `${color}30` : 'rgba(255,255,255,0.06)'}`,
-                marginBottom: 8,
-                animation: `songItemIn 0.3s cubic-bezier(0.34,1.1,0.64,1) ${i * 0.05}s both`,
-              }}>
-                <Avatar user={user} size={46} />
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginBottom: 3 }}>
-                    <span style={{ fontSize: '0.9rem', fontWeight: 700, color: '#fff' }}>{user.username}</span>
-                    {isYou && <span style={{ fontSize: '0.6rem', background: `${color}22`, color, border: `1px solid ${color}44`, borderRadius: 10, padding: '2px 8px', fontWeight: 700 }}>You</span>}
-                    {isDJUser && <span style={{ fontSize: '0.6rem', background: 'rgba(255,184,106,0.12)', color: '#ffb86a', border: '1px solid rgba(255,184,106,0.3)', borderRadius: 10, padding: '2px 8px', fontWeight: 700 }}>👑 DJ</span>}
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                    <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#00c974', display: 'inline-block' }} />
-                    <span style={{ fontSize: '0.68rem', color: 'rgba(255,255,255,0.35)' }}>{formatJoinTime(user.joinedAt)}</span>
-                  </div>
-                </div>
-                {isDJ && !isYou && !isDJUser && (
-                  <button
-                    onClick={(e) => { e.stopPropagation(); setConfirmId(user.id); setShowPanel(false) }}
-                    style={{ background: 'rgba(255,184,106,0.08)', border: '1px solid rgba(255,184,106,0.2)', borderRadius: 10, color: '#ffb86a', fontSize: '0.72rem', fontWeight: 700, padding: '6px 12px', cursor: 'pointer', flexShrink: 0, fontFamily: 'inherit' }}
-                  >👑 Crown</button>
-                )}
-              </div>
-            )
-          })}
-        </div>
+        <button onClick={() => setShowPanel(false)}
+          style={{ background: 'rgba(255,255,255,0.04)', border: 'none', color: 'var(--muted)', width: 28, height: 28, borderRadius: 8, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 0.15s, color 0.15s' }}
+          onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.08)'; e.currentTarget.style.color = '#fff' }}
+          onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; e.currentTarget.style.color = '' }}
+        >
+          <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
       </div>
 
-      {/* DJ transfer confirm */}
+      {/* User list */}
+      <div style={{ overflowY: 'auto', flex: 1, padding: '10px 12px' }}>
+        {users.map((user, i) => {
+          const isYou   = user.id === currentUser
+          const isDJUser = user.id === djId
+          const color   = getColor(user.id)
+          return (
+            <div key={user.id} style={{
+              display: 'flex', alignItems: 'center', gap: 12,
+              padding: '10px 12px', borderRadius: 14,
+              background: isYou ? `${color}14` : 'rgba(255,255,255,0.03)',
+              border: `1px solid ${isYou ? `${color}28` : 'rgba(255,255,255,0.05)'}`,
+              marginBottom: 6,
+              transition: 'background 0.15s',
+              animation: `chatIn 0.25s cubic-bezier(0.34,1.1,0.64,1) ${i * 0.04}s both`,
+            }}
+              onMouseEnter={e => { if (!isYou) e.currentTarget.style.background = 'rgba(255,255,255,0.06)' }}
+              onMouseLeave={e => { if (!isYou) e.currentTarget.style.background = 'rgba(255,255,255,0.03)' }}
+            >
+              <Avatar user={user} size={40} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexWrap: 'wrap', marginBottom: 2 }}>
+                  <span style={{ fontSize: '0.88rem', fontWeight: 700, color: '#fff' }}>{user.username}</span>
+                  {isYou && <span style={{ fontSize: '0.58rem', background: `${color}22`, color, border: `1px solid ${color}44`, borderRadius: 10, padding: '1px 7px', fontWeight: 700 }}>You</span>}
+                  {isDJUser && <span style={{ fontSize: '0.58rem', background: 'rgba(255,184,106,0.12)', color: '#ffb86a', border: '1px solid rgba(255,184,106,0.3)', borderRadius: 10, padding: '1px 7px', fontWeight: 700 }}>👑 DJ</span>}
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#00c974', display: 'inline-block', flexShrink: 0 }} />
+                  <span style={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.3)' }}>{formatJoinTime(user.joinedAt)}</span>
+                </div>
+              </div>
+              {isDJ && !isYou && !isDJUser && (
+                <button
+                  onClick={() => { setConfirmId(user.id) }}
+                  style={{ background: 'rgba(255,184,106,0.08)', border: '1px solid rgba(255,184,106,0.2)', borderRadius: 8, color: '#ffb86a', fontSize: '0.68rem', fontWeight: 700, padding: '5px 10px', cursor: 'pointer', flexShrink: 0, fontFamily: 'inherit', transition: 'background 0.15s' }}
+                  onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,184,106,0.18)'}
+                  onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,184,106,0.08)'}
+                >👑</button>
+              )}
+            </div>
+          )
+        })}
+      </div>
+
+      {/* DJ transfer confirm — inline inside panel */}
       {confirmId && (() => {
         const user = users.find(u => u.id === confirmId)
         if (!user) return null
         return (
-          <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', zIndex: 10000, background: '#0e0c1a', border: '1px solid rgba(255,184,106,0.3)', borderRadius: 20, padding: '24px 22px', width: 'min(280px, calc(100vw - 40px))', textAlign: 'center', boxShadow: '0 24px 60px rgba(0,0,0,0.9)' }}>
-            <p style={{ fontSize: '0.88rem', color: 'rgba(255,255,255,0.5)', margin: '0 0 12px' }}>Pass the DJ crown to</p>
-            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 10 }}><Avatar user={user} size={52} /></div>
-            <p style={{ fontSize: '1rem', fontWeight: 800, color: '#fff', margin: '0 0 16px' }}>{user.username}</p>
-            <div style={{ display: 'flex', gap: 10 }}>
-              <button onClick={() => setConfirmId(null)} style={{ flex: 1, padding: 10, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 12, color: 'rgba(255,255,255,0.6)', cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.85rem', fontWeight: 600 }}>Cancel</button>
-              <button onClick={() => { onTransferDJ?.(user.id); setConfirmId(null) }} style={{ flex: 1, padding: 10, background: 'linear-gradient(135deg,#ffb86a,#ff8c00)', border: 'none', borderRadius: 12, color: '#fff', cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.85rem', fontWeight: 700 }}>👑 Crown</button>
+          <div style={{ padding: '14px 16px', borderTop: '1px solid rgba(255,255,255,0.06)', background: 'rgba(255,184,106,0.05)', flexShrink: 0 }}>
+            <p style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.5)', margin: '0 0 10px', textAlign: 'center' }}>
+              Pass 👑 crown to <strong style={{ color: '#fff' }}>{user.username}</strong>?
+            </p>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button onClick={() => setConfirmId(null)} style={{ flex: 1, padding: '9px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, color: 'rgba(255,255,255,0.6)', cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.82rem', fontWeight: 600 }}>Cancel</button>
+              <button onClick={() => { onTransferDJ?.(user.id); setConfirmId(null); setShowPanel(false) }} style={{ flex: 1, padding: '9px', background: 'linear-gradient(135deg,#ffb86a,#ff8c00)', border: 'none', borderRadius: 10, color: '#fff', cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.82rem', fontWeight: 700 }}>👑 Crown</button>
             </div>
           </div>
         )
       })()}
-    </>,
+    </div>,
     document.body
   )
 
   return (
     <>
-      <div className="user-list" onClick={() => setShowPanel(true)}
+      <div className="user-list" onClick={() => setShowPanel(p => !p)}
         style={{ cursor: 'pointer', userSelect: 'none' }}
       >
         <p className="user-list-label">
