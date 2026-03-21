@@ -152,8 +152,8 @@ const ContextMenu = memo(({ isSelf, onReact, onReply, onCopy, onEdit, onDelete, 
   const [showFullEmoji, setShowFullEmoji] = useState(false)
 
   if (showFullEmoji) {
-    const HEADER_H = 52
-    const pickerH = Math.floor(window.innerHeight * 0.62) - HEADER_H
+    const HEADER_H = 48
+    const pickerH = Math.floor(window.innerHeight * 0.65) - HEADER_H
     return (
       <>
         <div className="ig-ctx-overlay" onClick={() => setShowFullEmoji(false)} />
@@ -162,22 +162,23 @@ const ContextMenu = memo(({ isSelf, onReact, onReply, onCopy, onEdit, onDelete, 
           zIndex: 1052,
           background: '#0e0c1a',
           borderRadius: '20px 20px 0 0',
-          overflow: 'hidden',
         }}>
           {/* Header */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px 10px', height: HEADER_H, boxSizing: 'border-box' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px 8px' }}>
             <span style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.4)', fontWeight: 700, letterSpacing: '0.05em' }}>REACT</span>
             <button onClick={() => setShowFullEmoji(false)}
-              style={{ background: 'rgba(255,255,255,0.08)', border: 'none', borderRadius: '50%', width: 28, height: 28, color: '#fff', cursor: 'pointer', fontSize: '0.9rem' }}>
+              style={{ background: 'rgba(255,255,255,0.08)', border: 'none', borderRadius: '50%', width: 28, height: 28, color: '#fff', cursor: 'pointer', fontSize: '0.85rem' }}>
               ✕
             </button>
           </div>
-          {/* Picker — exact pixel height, overflow hidden on wrapper */}
-          <EmojiPicker
-            onSelect={(e) => { onReact(e); onClose() }}
-            onClose={() => setShowFullEmoji(false)}
-            height={pickerH}
-          />
+          {/* Picker — emoji-mart controls its own width, we just give it height */}
+          <div style={{ display: 'flex', justifyContent: 'center' }}>
+            <EmojiPicker
+              onSelect={(e) => { onReact(e); onClose() }}
+              onClose={() => setShowFullEmoji(false)}
+              height={pickerH}
+            />
+          </div>
         </div>
       </>
     )

@@ -21,19 +21,10 @@ export default function EmojiPicker({ onSelect, onClose, height }) {
     }
   }, [onClose])
 
-  // Calculate actual pixel height
   const pickerHeight = height || (IS_MOBILE ? Math.floor(window.innerHeight * 0.55) : 380)
 
   return (
-    <div
-      ref={ref}
-      style={{
-        width: IS_MOBILE ? '100%' : 320,
-        height: pickerHeight,
-        overflow: 'hidden',
-        borderRadius: IS_MOBILE ? 0 : 16,
-      }}
-    >
+    <div ref={ref}>
       <Picker
         data={data}
         onEmojiSelect={(e) => onSelect(e.native)}
@@ -43,8 +34,8 @@ export default function EmojiPicker({ onSelect, onClose, height }) {
         skinTonePosition="none"
         navPosition="bottom"
         perLine={IS_MOBILE ? 8 : 9}
-        emojiSize={IS_MOBILE ? 22 : 22}
-        emojiButtonSize={IS_MOBILE ? 34 : 32}
+        emojiSize={22}
+        emojiButtonSize={34}
         maxFrequentRows={1}
         autoFocus={false}
         searchPosition={IS_MOBILE ? 'none' : 'sticky'}
