@@ -68,7 +68,7 @@ export default function UserList({ users: rawUsers = [], currentUser, djId, isDJ
         <>
           {/* Backdrop */}
           <div onClick={() => setShowPanel(false)}
-            style={{ position: 'fixed', inset: 0, zIndex: 500, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(8px)', animation: 'fadeIn 0.18s ease' }}
+            style={{ position: 'fixed', inset: 0, zIndex: 500, background: 'rgba(0,0,0,0.82)', backdropFilter: 'blur(16px)', animation: 'fadeIn 0.18s ease' }}
           />
 
           {/* Panel */}
@@ -77,15 +77,16 @@ export default function UserList({ users: rawUsers = [], currentUser, djId, isDJ
             top: '50%', left: '50%',
             transform: 'translate(-50%, -50%)',
             zIndex: 501,
-            width: 360,
+            width: 'min(360px, calc(100vw - 40px))',
             maxHeight: '70vh',
-            background: 'linear-gradient(160deg, #0f0a1e, #0a0814)',
-            border: '1px solid rgba(124,106,255,0.2)',
+            background: '#0e0c1a',
+            border: '1px solid rgba(124,106,255,0.25)',
             borderRadius: 24,
             boxShadow: '0 32px 80px rgba(0,0,0,0.7), 0 0 0 1px rgba(124,106,255,0.08)',
             display: 'flex', flexDirection: 'column',
             overflow: 'hidden',
             animation: 'panelSpringIn 0.3s cubic-bezier(0.34,1.2,0.64,1)',
+            willChange: 'transform, opacity',
           }}
             onClick={e => e.stopPropagation()}
           >
