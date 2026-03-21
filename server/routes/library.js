@@ -1,7 +1,20 @@
 const express   = require('express')
 const router    = express.Router()
+const { randomUUID } = require('crypto')
 const { Library, SharedSongs, ListenHistory } = require('../models')
 const { requireAuth } = require('./auth')
+
+// In-memory fallback when no MongoDB
+const memLibraries = {}
+async function getLibrary(userId) {
+  if (!process.env.MONGODB_URI) {
+    if (!memLibraries[userId]) memLibraries[userId] = { categories: [] }
+    return memLibraries[userId]
+  }
+  let lib = await Library.findOne({ userId })
+  if (!lib) lib = await Library.create({ userId, categories: [] })
+  return lib
+}
 
 // ─── LIBRARY API ──────────────────────────────────────────────
 router.get('/library', requireAuth, async (req, res) => {
