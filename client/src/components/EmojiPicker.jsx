@@ -4,7 +4,7 @@ import Picker from '@emoji-mart/react'
 
 const IS_MOBILE = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent) || window.innerWidth <= 768
 
-export default function EmojiPicker({ onSelect, onClose }) {
+export default function EmojiPicker({ onSelect, onClose, height }) {
   const ref = useRef(null)
 
   useEffect(() => {
@@ -40,6 +40,7 @@ export default function EmojiPicker({ onSelect, onClose }) {
         perLine={IS_MOBILE ? 8 : 9}
         autoFocus={false}
         searchPosition={IS_MOBILE ? "none" : "sticky"}
+        {...(height ? { height } : {})}
       />
     </div>
   )

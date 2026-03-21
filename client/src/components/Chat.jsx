@@ -120,7 +120,7 @@ const Reactions = memo(({ reactions = {}, onReact, username, isSelf, recentEmoji
 const ReactionAddPicker = memo(({ isSelf, onReact, onClose }) => (
   <div style={{ position: 'absolute', bottom: 'calc(100% + 8px)', left: isSelf ? 'auto' : 0, right: isSelf ? 0 : 'auto', zIndex: 50 }}>
     <div style={{ position: 'fixed', inset: 0, zIndex: -1 }} onClick={onClose} />
-    <EmojiPicker onSelect={(e) => { onReact(e); onClose() }} onClose={onClose} />
+    <EmojiPicker onSelect={(e) => { onReact(e); onClose() }} onClose={onClose} height={350} />
   </div>
 ))
 
@@ -160,6 +160,7 @@ const ContextMenu = memo(({ isSelf, onReact, onReply, onCopy, onEdit, onDelete, 
           zIndex: 1052, background: '#0e0c1a',
           borderRadius: '20px 20px 0 0',
           paddingBottom: 'env(safe-area-inset-bottom, 8px)',
+          height: 'calc(70dvh)',
           maxHeight: '70dvh',
           display: 'flex',
           flexDirection: 'column',
@@ -176,6 +177,7 @@ const ContextMenu = memo(({ isSelf, onReact, onReply, onCopy, onEdit, onDelete, 
             <EmojiPicker
               onSelect={(e) => { onReact(e); onClose() }}
               onClose={() => setShowFullEmoji(false)}
+              height={Math.floor(window.innerHeight * 0.7) - 52}
             />
           </div>
         </div>
@@ -464,6 +466,7 @@ const MessageBubble = memo(({
               <EmojiPicker
                 onSelect={(e) => { onReact(msg.id, e); setShowQuick(false) }}
                 onClose={() => setShowQuick(false)}
+                height={350}
               />
             </div>
           </>
@@ -649,7 +652,7 @@ const GifBubble = memo(({ msg, isSelf, avatarSrc, showAvatar, showName, onReact,
             <>
               <div style={{ position: 'fixed', inset: 0, zIndex: 299 }} onClick={() => setShowHover(true)} />
               <div style={{ position: 'fixed', top: pickerPos.top, left: pickerPos.left, zIndex: 300 }}>
-                <EmojiPicker onSelect={(e) => { onReact(msg.id, e); setShowHover(false) }} onClose={() => setShowHover(false)} />
+                <EmojiPicker onSelect={(e) => { onReact(msg.id, e); setShowHover(false) }} onClose={() => setShowHover(false)} height={350} />
               </div>
             </>
           )}
