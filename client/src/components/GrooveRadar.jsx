@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
 
 const BACKEND = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'
-const MOOD_EMOJI = { euphoric:'😤', confident:'😎', chill:'😌', sad:'😢', aggressive:'🔥', neutral:'🎵' }
-const MATCH_LABEL = score => score >= 80 ? { text:'Perfect match', color:'#00c974' } : score >= 60 ? { text:'Great match', color:'#7c6aff' } : { text:'Good match', color:'#ffb300' }
+const MOOD_EMOJI = { euphoric:'🤩', confident:'😎', chill:'😌', sad:'😢', aggressive:'🔥', neutral:'🎵' }
+const MATCH_LABEL = score => score >= 85 ? { text:'Perfect match', color:'#00c974' } : score >= 70 ? { text:'Great match', color:'#7c6aff' } : score >= 55 ? { text:'Good match', color:'#ffb300' } : { text:'Possible match', color:'#888' }
+const SOURCE_BADGE = { lastfm:'🎵 Last.fm', related:'🔗 Related', collaborative:'👥 Room', search:'🔍 Search' }
 
 export default function GrooveRadar({ isOpen, onClose, onAddToQueue }) {
   const [results, setResults]       = useState([])
@@ -41,8 +42,9 @@ export default function GrooveRadar({ isOpen, onClose, onAddToQueue }) {
               <p className="panel-title">Groove Radar</p>
               {fingerprint && (
                 <p className="panel-sub">
-                  Based on your {MOOD_EMOJI[fingerprint.mood]} {fingerprint.mood} taste
+                  {MOOD_EMOJI[fingerprint.mood]} {fingerprint.mood}
                   {fingerprint.bpm ? ` · ${fingerprint.bpm} BPM` : ''}
+                  {fingerprint.timeContext ? ` · ${fingerprint.timeContext}` : ''}
                 </p>
               )}
             </div>
@@ -68,9 +70,10 @@ export default function GrooveRadar({ isOpen, onClose, onAddToQueue }) {
                     <div className="radar-info">
                       <p className="radar-title">{song.title}</p>
                       <div className="radar-meta">
-                        <span className="radar-channel">{song.channel}</span>
+                        {song.channel && <span className="radar-channel">{song.channel}</span>}
                         {song.mood && <span className="radar-mood">{MOOD_EMOJI[song.mood]} {song.mood}</span>}
                         {song.bpm && <span className="radar-bpm">♩{song.bpm}</span>}
+                        {song.source && <span style={{ fontSize:'0.6rem', color:'var(--muted2)', marginLeft: 2 }}>{SOURCE_BADGE[song.source] || ''}</span>}
                       </div>
                       <div className="radar-score-row">
                         <div className="radar-score-bar">

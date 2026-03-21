@@ -219,84 +219,335 @@ router.get('/time-machine', requireAuth, async (req, res) => {
 
 // ─── GROOVE RADAR ENDPOINT ────────────────────────────────────
 
-router.get('/radar', requireAuth, async (req, res) => {
-  const apiKey = process.env.YOUTUBE_API_KEY;
-  if (!apiKey) return res.status(503).json({ error: 'Radar not configured' });
+// ── Smart Radar Helpers ───────────────────────────────────────
+
+// Time-aware context: what kind of music fits right now?
+function getTimeContext() {
+  const hour = new Date().getHours()
+  const day  = new Date().getDay() // 0=Sun, 6=Sat
+  const isWeekend = day === 0 || day === 6
+  if (hour >= 23 || hour < 5)  return { label: 'Late Night',  mood: 'chill',     bpmBoost: -10, energy: 'low' }
+  if (hour >= 5  && hour < 9)  return { label: 'Morning',     mood: 'chill',     bpmBoost:   0, energy: 'low' }
+  if (hour >= 9  && hour < 12) return { label: 'Focus Time',  mood: 'confident', bpmBoost:   5, energy: 'mid' }
+  if (hour >= 12 && hour < 17) return { label: 'Afternoon',   mood: 'neutral',   bpmBoost:   0, energy: 'mid' }
+  if (isWeekend && hour >= 20) return { label: 'Weekend Night',mood: 'euphoric', bpmBoost:  15, energy: 'high'}
+  if (hour >= 17 && hour < 20) return { label: 'Evening',     mood: 'chill',     bpmBoost:  -5, energy: 'mid' }
+  return                               { label: 'Evening',     mood: 'neutral',   bpmBoost:   0, energy: 'mid' }
+}
+
+// Extract artist name from song title
+function extractArtist(title = '') {
+  const parts = title.split(/[-–|]/)
+  if (parts.length >= 2) return parts[0].trim()
+  return ''
+}
+
+// Fetch similar tracks from Last.fm
+async function getLastFmSimilar(artist, track, limit = 10) {
+  const key = process.env.LASTFM_API_KEY
+  if (!key || !artist) return []
   try {
-    // Build fingerprint from listen history
+    const url = `https://ws.audioscrobbler.com/2.0/?method=track.getsimilar&artist=${encodeURIComponent(artist)}&track=${encodeURIComponent(track)}&api_key=${key}&format=json&limit=${limit}`
+    const res  = await fetch(url)
+    const data = await res.json()
+    return (data.similartracks?.track || []).map(t => ({
+      title: `${t.artist?.name || artist} - ${t.name}`,
+      artist: t.artist?.name || artist,
+      track: t.name,
+      match: parseFloat(t.match) || 0.5,
+    }))
+  } catch { return [] }
+}
+
+// Fetch similar artists from Last.fm
+async function getLastFmSimilarArtists(artist, limit = 5) {
+  const key = process.env.LASTFM_API_KEY
+  if (!key || !artist) return []
+  try {
+    const url = `https://ws.audioscrobbler.com/2.0/?method=artist.getsimilar&artist=${encodeURIComponent(artist)}&api_key=${key}&format=json&limit=${limit}`
+    const res  = await fetch(url)
+    const data = await res.json()
+    return (data.similarartists?.artist || []).map(a => a.name)
+  } catch { return [] }
+}
+
+// Fetch top tracks for an artist from Last.fm
+async function getLastFmTopTracks(artist, limit = 3) {
+  const key = process.env.LASTFM_API_KEY
+  if (!key || !artist) return []
+  try {
+    const url = `https://ws.audioscrobbler.com/2.0/?method=artist.gettoptracks&artist=${encodeURIComponent(artist)}&api_key=${key}&format=json&limit=${limit}`
+    const res  = await fetch(url)
+    const data = await res.json()
+    return (data.toptracks?.track || []).map(t => ({
+      title: `${artist} - ${t.name}`,
+      artist,
+      track: t.name,
+    }))
+  } catch { return [] }
+}
+
+// Search YouTube for exact song
+async function ytSearch(query, apiKey, maxResults = 3) {
+  try {
+    const url = new URL('https://www.googleapis.com/youtube/v3/search')
+    url.searchParams.set('part', 'snippet')
+    url.searchParams.set('q', query)
+    url.searchParams.set('type', 'video')
+    url.searchParams.set('videoCategoryId', '10')
+    url.searchParams.set('maxResults', maxResults)
+    url.searchParams.set('key', apiKey)
+    const res  = await fetch(url.toString())
+    const data = await res.json()
+    return (data.items || []).map(item => ({
+      videoId: item.id.videoId,
+      title:   item.snippet.title,
+      channel: item.snippet.channelTitle,
+      thumbnail: item.snippet.thumbnails?.medium?.url,
+    }))
+  } catch { return [] }
+}
+
+// Build co-occurrence map from room history (collaborative filtering)
+async function getRoomCoOccurrences(videoIds, historyIds) {
+  if (!process.env.MONGODB_URI || !videoIds.length) return {}
+  try {
+    // Find all listen history entries in same rooms where user's songs were played
+    const userRoomIds = await ListenHistory.distinct('roomId', { videoId: { $in: videoIds } })
+    if (!userRoomIds.length) return {}
+    // Get what other people listened to in those rooms
+    const coListens = await ListenHistory.find({
+      roomId: { $in: userRoomIds },
+      videoId: { $nin: [...historyIds] }
+    }).lean()
+    // Count co-occurrence frequency
+    const freq = {}
+    coListens.forEach(h => {
+      if (!freq[h.videoId]) freq[h.videoId] = { count: 0, title: h.title }
+      freq[h.videoId].count++
+    })
+    return freq
+  } catch { return {} }
+}
+
+router.get('/radar', requireAuth, async (req, res) => {
+  const apiKey = process.env.YOUTUBE_API_KEY
+  if (!apiKey) return res.status(503).json({ error: 'Radar not configured' })
+
+  try {
+    // 1. Get listen history
     const history = await ListenHistory.find({ userId: req.user.id })
-      .sort({ listenedAt: -1 }).limit(100).lean();
-    if (history.length < 3) return res.json({ results: [], message: 'Listen to more songs to unlock Radar' });
+      .sort({ listenedAt: -1 }).limit(150).lean()
+    if (history.length < 3) return res.json({ results: [], message: 'Listen to more songs to unlock Radar' })
 
-    const dnaList = await Promise.all(history.slice(0,30).map(h => enrichSong(h.videoId, h.title).catch(()=>({}))));
-    const valid   = dnaList.filter(d => d.bpm || d.energy != null);
-    const avgBpm  = valid.filter(d=>d.bpm).reduce((a,d)=>a+d.bpm,0) / (valid.filter(d=>d.bpm).length||1);
-    const avgEnergy = valid.filter(d=>d.energy!=null).reduce((a,d)=>a+d.energy,0) / (valid.filter(d=>d.energy!=null).length||1);
-    const moodCounts = {};
-    dnaList.forEach(d => { if(d.mood) moodCounts[d.mood]=(moodCounts[d.mood]||0)+1; });
-    const dominantMood = Object.entries(moodCounts).sort((a,b)=>b[1]-a[1])[0]?.[0] || 'neutral';
-    const catCounts = {};
-    dnaList.forEach(d => { if(d.category) catCounts[d.category]=(catCounts[d.category]||0)+1; });
-    const dominantCat = Object.entries(catCounts).sort((a,b)=>b[1]-a[1])[0]?.[0] || 'Vibes';
+    const historyIds = new Set(history.map(h => h.videoId))
 
-    // Build search query from fingerprint
-    const MOOD_QUERIES = {
-      euphoric: 'upbeat feel good energy',
-      confident: 'confident anthem bold',
-      chill: 'chill relaxing calm vibes',
-      sad: 'emotional heartfelt melancholy',
-      aggressive: 'intense powerful hype',
-      neutral: 'popular music',
-    };
-    const BPM_LABEL = avgBpm > 130 ? 'fast energetic' : avgBpm > 100 ? 'upbeat mid-tempo' : avgBpm > 75 ? 'mid-tempo' : 'slow';
-    const catQuery  = dominantCat !== 'Vibes' ? dominantCat.toLowerCase() : '';
-    const query     = `${MOOD_QUERIES[dominantMood]||'music'} ${BPM_LABEL} ${catQuery} music`.trim();
+    // 2. Build taste fingerprint from DNA
+    const dnaList = await Promise.all(
+      history.slice(0, 40).map(h => enrichSong(h.videoId, h.title).catch(() => ({})))
+    )
+    const valid   = dnaList.filter(d => d.bpm)
+    const avgBpm  = valid.length ? valid.reduce((a, d) => a + d.bpm, 0) / valid.length : 120
+    const validE  = dnaList.filter(d => d.energy != null)
+    const avgEnergy = validE.length ? validE.reduce((a, d) => a + d.energy, 0) / validE.length : 0.5
+    const moodCounts = {}
+    dnaList.forEach(d => { if (d.mood) moodCounts[d.mood] = (moodCounts[d.mood] || 0) + 1 })
+    const dominantMood = Object.entries(moodCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || 'neutral'
+    const catCounts = {}
+    dnaList.forEach(d => { if (d.category) catCounts[d.category] = (catCounts[d.category] || 0) + 1 })
+    const dominantCat = Object.entries(catCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || 'Vibes'
 
-    // YouTube search
-    const ytUrl = new URL('https://www.googleapis.com/youtube/v3/search');
-    ytUrl.searchParams.set('part', 'snippet');
-    ytUrl.searchParams.set('q', query);
-    ytUrl.searchParams.set('type', 'video');
-    ytUrl.searchParams.set('videoCategoryId', '10');
-    ytUrl.searchParams.set('maxResults', '20');
-    ytUrl.searchParams.set('key', apiKey);
-    const ytRes = await fetch(ytUrl.toString());
-    const ytData = await ytRes.json();
-    const items  = ytData.items || [];
+    // 3. Time-aware context
+    const timeCtx = getTimeContext()
+    const targetBpm = Math.max(60, Math.min(180, avgBpm + timeCtx.bpmBoost))
 
-    // Filter out already heard songs
-    const historyIds = new Set(history.map(h => h.videoId));
-    const fresh = items.filter(item => !historyIds.has(item.id.videoId));
+    // 4. Extract top artists from history
+    const artistFreq = {}
+    history.forEach(h => {
+      const artist = extractArtist(h.title)
+      if (artist) artistFreq[artist] = (artistFreq[artist] || 0) + 1
+    })
+    const topArtists = Object.entries(artistFreq)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([a]) => a)
 
-    // Enrich + score each result
-    const fingerprint = { bpm: avgBpm, energy: avgEnergy, mood: dominantMood };
-    const scored = await Promise.all(fresh.slice(0, 12).map(async item => {
-      const dna = await enrichSong(item.id.videoId, item.snippet.title).catch(() => ({}));
-      // Similarity score
-      let score = 60;
-      if (dna.bpm && fingerprint.bpm) score += Math.max(-25, 25 - Math.abs(dna.bpm - fingerprint.bpm) / 2);
-      if (dna.energy != null && fingerprint.energy != null) score += Math.max(-20, 20 - Math.abs(dna.energy - fingerprint.energy) * 40);
-      if (dna.mood === fingerprint.mood) score += 15;
-      score = Math.max(10, Math.min(99, Math.round(score)));
+    // 5. Get Last.fm similar tracks + similar artists' top tracks
+    const lfmCandidates = []
+
+    // Similar tracks for top 3 most listened songs
+    const topSongs = history.slice(0, 3)
+    await Promise.all(topSongs.map(async h => {
+      const artist = extractArtist(h.title)
+      if (!artist) return
+      const similar = await getLastFmSimilar(artist, h.title.replace(artist, '').replace(/^[-–|\s]+/, '').trim(), 8)
+      lfmCandidates.push(...similar)
+    }))
+
+    // Similar artists → their top tracks
+    const similarArtists = []
+    await Promise.all(topArtists.slice(0, 3).map(async artist => {
+      const similar = await getLastFmSimilarArtists(artist, 4)
+      similarArtists.push(...similar)
+    }))
+    const uniqueSimilarArtists = [...new Set(similarArtists)].slice(0, 8)
+    await Promise.all(uniqueSimilarArtists.map(async artist => {
+      const tracks = await getLastFmTopTracks(artist, 3)
+      lfmCandidates.push(...tracks)
+    }))
+
+    // 6. YouTube related videos for top 3 listened songs
+    const relatedCandidates = []
+    await Promise.all(history.slice(0, 3).map(async h => {
+      try {
+        const url = new URL('https://www.googleapis.com/youtube/v3/search')
+        url.searchParams.set('part', 'snippet')
+        url.searchParams.set('type', 'video')
+        url.searchParams.set('relatedToVideoId', h.videoId)
+        url.searchParams.set('videoCategoryId', '10')
+        url.searchParams.set('maxResults', '8')
+        url.searchParams.set('key', apiKey)
+        const r = await fetch(url.toString())
+        const d = await r.json()
+        ;(d.items || []).forEach(item => {
+          if (!historyIds.has(item.id?.videoId) && item.id?.videoId) {
+            relatedCandidates.push({
+              videoId: item.id.videoId,
+              title: item.snippet.title,
+              channel: item.snippet.channelTitle,
+              thumbnail: item.snippet.thumbnails?.medium?.url,
+              source: 'related',
+              baseScore: 70,
+            })
+          }
+        })
+      } catch {}
+    }))
+
+    // 7. Collaborative filtering — what do users with same taste listen to?
+    const coFreq = await getRoomCoOccurrences(history.slice(0, 20).map(h => h.videoId), historyIds)
+    const coSongs = Object.entries(coFreq)
+      .sort((a, b) => b[1].count - a[1].count)
+      .slice(0, 10)
+      .map(([videoId, { title, count }]) => ({ videoId, title, coScore: count }))
+
+    // 8. Search YouTube for Last.fm candidates (deduplicated)
+    const seen = new Set([...historyIds])
+    const ytCandidates = []
+
+    // Last.fm candidates → YouTube search
+    const uniqueLfm = lfmCandidates.filter((c, i, arr) =>
+      arr.findIndex(x => x.title === c.title) === i
+    ).slice(0, 15)
+
+    await Promise.all(uniqueLfm.map(async c => {
+      const results = await ytSearch(`${c.artist} ${c.track} official`, apiKey, 1)
+      results.forEach(r => {
+        if (!seen.has(r.videoId)) {
+          seen.add(r.videoId)
+          ytCandidates.push({ ...r, source: 'lastfm', lfmMatch: c.match || 0.5, baseScore: 75 })
+        }
+      })
+    }))
+
+    // Related videos candidates
+    relatedCandidates.forEach(r => {
+      if (!seen.has(r.videoId)) {
+        seen.add(r.videoId)
+        ytCandidates.push(r)
+      }
+    })
+
+    // Co-occurrence candidates → YouTube search
+    await Promise.all(coSongs.map(async c => {
+      if (seen.has(c.videoId)) {
+        // Already have it, just add with coScore
+        const existing = ytCandidates.find(x => x.videoId === c.videoId)
+        if (existing) existing.coScore = c.coScore
+        return
+      }
+      seen.add(c.videoId)
+      ytCandidates.push({
+        videoId: c.videoId,
+        title: c.title,
+        source: 'collaborative',
+        coScore: c.coScore,
+        baseScore: 65,
+        thumbnail: `https://img.youtube.com/vi/${c.videoId}/mqdefault.jpg`,
+        channel: '',
+      })
+    }))
+
+    // 9. Enrich + score all candidates
+    const fingerprint = { bpm: targetBpm, energy: avgEnergy, mood: dominantMood }
+
+    const scored = await Promise.all(ytCandidates.slice(0, 20).map(async item => {
+      const dna = await enrichSong(item.videoId, item.title).catch(() => ({}))
+
+      // Base score from source quality
+      let score = item.baseScore || 60
+
+      // Last.fm similarity match (0-1 float → 0-20 points)
+      if (item.lfmMatch) score += item.lfmMatch * 20
+
+      // Collaborative filtering bonus (capped at 15)
+      if (item.coScore) score += Math.min(15, item.coScore * 3)
+
+      // BPM match (±20 points)
+      if (dna.bpm && fingerprint.bpm) {
+        const bpmDiff = Math.abs(dna.bpm - fingerprint.bpm)
+        score += bpmDiff < 10 ? 20 : bpmDiff < 20 ? 12 : bpmDiff < 35 ? 5 : -5
+      }
+
+      // Energy match (±15 points)
+      if (dna.energy != null && fingerprint.energy != null) {
+        const eDiff = Math.abs(dna.energy - fingerprint.energy)
+        score += eDiff < 0.1 ? 15 : eDiff < 0.2 ? 8 : eDiff < 0.35 ? 3 : -5
+      }
+
+      // Mood match (+12 points)
+      if (dna.mood === fingerprint.mood) score += 12
+
+      // Time context mood bonus (+8)
+      if (dna.mood === timeCtx.mood) score += 8
+
+      score = Math.max(10, Math.min(99, Math.round(score)))
+
       return {
-        videoId: item.id.videoId,
-        title: item.snippet.title,
-        channel: item.snippet.channelTitle,
-        thumbnail: item.snippet.thumbnails?.medium?.url,
+        videoId: item.videoId,
+        title: item.title,
+        channel: item.channel || '',
+        thumbnail: item.thumbnail || `https://img.youtube.com/vi/${item.videoId}/mqdefault.jpg`,
         matchScore: score,
         mood: dna.mood || null,
-        bpm: dna.bpm || null,
+        bpm: dna.bpm ? Math.round(dna.bpm) : null,
         category: dna.category || null,
-      };
-    }));
+        source: item.source || 'search',
+      }
+    }))
 
-    const results = scored.sort((a,b) => b.matchScore - a.matchScore).filter(r => r.matchScore >= 40);
-    res.json({ results, fingerprint: { mood: dominantMood, bpm: Math.round(avgBpm), category: dominantCat }, query });
+    // 10. Sort, deduplicate, return top results
+    const results = scored
+      .filter(r => r.matchScore >= 40)
+      .sort((a, b) => b.matchScore - a.matchScore)
+      .slice(0, 15)
+
+    res.json({
+      results,
+      fingerprint: {
+        mood: dominantMood,
+        bpm: Math.round(avgBpm),
+        category: dominantCat,
+        timeContext: timeCtx.label,
+        targetBpm: Math.round(targetBpm),
+      },
+    })
+
   } catch (e) {
-    console.error('radar error:', e.message);
-    res.status(500).json({ error: 'Radar failed' });
+    console.error('radar error:', e.message)
+    res.status(500).json({ error: 'Radar failed' })
   }
-});
+})
 
 // ─── SMART RADIO ENDPOINT ─────────────────────────────────────
 
