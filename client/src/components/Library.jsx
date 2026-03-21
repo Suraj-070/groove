@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
-import { useCategories, getCategoryDef } from '../hooks/useCategories'
+import { useCategories, getCategoryDef, CATEGORIES } from '../hooks/useCategories'
 import { useLibrary } from '../hooks/useLibrary'
 
 const BACKEND = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'
@@ -196,11 +196,26 @@ function CrateDetail({ crate, colorIdx, onBack, onAddSong, onAddSongsBatch, onDe
   const showToast = msg => { setToast(msg); setTimeout(() => setToast(''), 2500) }
 
   const { categories } = useCategories(crate.songs || [])
+  const [activeFilter, setActiveFilter] = useState('All')
 
-  const filtered = useMemo(() =>
-    (crate.songs || []).filter(s => s.title.toLowerCase().includes(search.toLowerCase())),
-    [crate.songs, search]
-  )
+  // Get only categories that actually appear in this crate's songs
+  const availableCategories = useMemo(() => {
+    const present = new Set(Object.values(categories).map(c => c.category).filter(Boolean))
+    return CATEGORIES.filter(c => c.id === 'All' || present.has(c.id))
+  }, [categories])
+
+  // Reset filter when switching crates
+  useEffect(() => { setActiveFilter('All'); setSearch(''); setPage(1) }, [crate.id])
+
+  const filtered = useMemo(() => {
+    let songs = (crate.songs || []).filter(s =>
+      s.title.toLowerCase().includes(search.toLowerCase())
+    )
+    if (activeFilter !== 'All') {
+      songs = songs.filter(s => categories[s.videoId]?.category === activeFilter)
+    }
+    return songs
+  }, [crate.songs, search, activeFilter, categories])
   const visible = filtered.slice(0, page * PAGE_SIZE)
 
   const handleAddSong = async () => {
@@ -295,6 +310,38 @@ function CrateDetail({ crate, colorIdx, onBack, onAddSong, onAddSongsBatch, onDe
                   {sharing ? 'Sharing…' : `🔗 Share ${selectedIds.size || ''}`}
                 </button>
               </div>
+            </div>
+          )}
+
+          {/* Mood/Category filter pills — only shows categories present in this crate */}
+          {availableCategories.length > 1 && (
+            <div style={{
+              display: 'flex', gap: 6, overflowX: 'auto', padding: '8px 16px',
+              scrollbarWidth: 'none', flexShrink: 0, borderBottom: '1px solid rgba(255,255,255,0.05)'
+            }}>
+              {availableCategories.map(cat => (
+                <button
+                  key={cat.id}
+                  onClick={() => { setActiveFilter(cat.id); setPage(1) }}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 5,
+                    padding: '5px 12px', borderRadius: 20, border: '1px solid',
+                    whiteSpace: 'nowrap', cursor: 'pointer', fontSize: '0.78rem',
+                    fontFamily: 'inherit', fontWeight: activeFilter === cat.id ? 700 : 500,
+                    transition: 'all 0.15s',
+                    background: activeFilter === cat.id
+                      ? `${cat.color}22`
+                      : 'rgba(255,255,255,0.04)',
+                    borderColor: activeFilter === cat.id
+                      ? `${cat.color}88`
+                      : 'rgba(255,255,255,0.08)',
+                    color: activeFilter === cat.id ? cat.color : 'var(--muted)',
+                  }}
+                >
+                  <span>{cat.emoji}</span>
+                  <span>{cat.id}</span>
+                </button>
+              ))}
             </div>
           )}
 
