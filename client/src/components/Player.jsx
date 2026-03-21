@@ -521,7 +521,7 @@ export default function Player({ socket, roomId, videoId, title, onEnded, onSkip
         </div>
       )}
 
-      <div className="player-art">
+      <div className={`player-art${videoId ? ' song-changing' : ''}`} key={videoId}>
         {videoId
           ? <img src={`https://img.youtube.com/vi/${videoId}/hqdefault.jpg`} alt="thumbnail" className="art-img" />
           : <div className="art-placeholder"><span>🎵</span></div>}

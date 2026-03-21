@@ -11269,3 +11269,201 @@ body.chat-is-open .fcb-bubble { opacity: 0; pointer-events: none; }
   .ig-bubble-text { font-size: 0.9rem; }
   .ig-gif-img { max-width: 190px; max-height: 160px; }
 }
+/* ═══════════════════════════════════════════════════════════
+   MOBILE ADVANCED ANIMATIONS & TRANSITIONS
+   ═══════════════════════════════════════════════════════════ */
+
+@media (max-width: 768px) {
+
+  /* ── 1. Page tab switching — slide in from direction ─────── */
+  .left-panel {
+    animation: mobilePageIn 0.32s cubic-bezier(0.34, 1.1, 0.64, 1) both;
+  }
+  @keyframes mobilePageIn {
+    from { opacity: 0; transform: translateY(12px) scale(0.98); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+  }
+
+  /* ── 2. Album art — scale up when song changes ───────────── */
+  .player-art {
+    transition: transform 0.5s cubic-bezier(0.34, 1.2, 0.64, 1) !important;
+  }
+  .player-art.song-changing {
+    animation: artPop 0.5s cubic-bezier(0.34, 1.2, 0.64, 1);
+  }
+  @keyframes artPop {
+    0%   { transform: scale(0.92); opacity: 0.6; }
+    60%  { transform: scale(1.04); }
+    100% { transform: scale(1);    opacity: 1; }
+  }
+
+  /* ── 3. Play button — satisfying press feedback ──────────── */
+  .play-btn:active {
+    transform: scale(0.88) !important;
+    transition: transform 0.08s ease !important;
+  }
+  .play-btn.playing {
+    animation: playPulse 2s ease-in-out infinite;
+  }
+  @keyframes playPulse {
+    0%, 100% { box-shadow: 0 8px 24px rgba(124,106,255,0.4); }
+    50%       { box-shadow: 0 8px 36px rgba(124,106,255,0.7), 0 0 0 8px rgba(124,106,255,0.1); }
+  }
+
+  /* ── 4. Control buttons — spring press ──────────────────── */
+  .ctrl-btn:active {
+    transform: scale(0.84) !important;
+    transition: transform 0.08s ease !important;
+  }
+
+  /* ── 5. Nav tab switch — icon spring + indicator slide ───── */
+  .mobile-nav-btn {
+    transition: color 0.2s ease !important;
+  }
+  .mobile-nav-btn .nav-icon {
+    transition: transform 0.3s cubic-bezier(0.34, 1.4, 0.64, 1) !important;
+  }
+  .mobile-nav-btn.active .nav-icon {
+    transform: scale(1.2) translateY(-2px) !important;
+  }
+  .mobile-nav-btn::after {
+    transition: left 0.3s cubic-bezier(0.34, 1.2, 0.64, 1),
+                right 0.3s cubic-bezier(0.34, 1.2, 0.64, 1),
+                opacity 0.2s ease !important;
+  }
+
+  /* ── 6. Queue sheet — spring open ───────────────────────── */
+  .right-panel.mobile-open {
+    transition: transform 0.38s cubic-bezier(0.34, 1.15, 0.64, 1) !important;
+  }
+  .right-panel:not(.mobile-open) {
+    transition: transform 0.26s cubic-bezier(0.4, 0, 1, 1) !important;
+  }
+
+  /* ── 7. Song items — stagger fade in when queue opens ─────── */
+  .right-panel.mobile-open .song-item {
+    animation: songItemIn 0.3s cubic-bezier(0.34, 1.1, 0.64, 1) both;
+  }
+  .right-panel.mobile-open .song-item:nth-child(1)  { animation-delay: 0.04s; }
+  .right-panel.mobile-open .song-item:nth-child(2)  { animation-delay: 0.07s; }
+  .right-panel.mobile-open .song-item:nth-child(3)  { animation-delay: 0.10s; }
+  .right-panel.mobile-open .song-item:nth-child(4)  { animation-delay: 0.13s; }
+  .right-panel.mobile-open .song-item:nth-child(5)  { animation-delay: 0.16s; }
+  .right-panel.mobile-open .song-item:nth-child(n+6){ animation-delay: 0.18s; }
+  @keyframes songItemIn {
+    from { opacity: 0; transform: translateX(-10px); }
+    to   { opacity: 1; transform: translateX(0); }
+  }
+
+  /* ── 8. Active song highlight pulse ─────────────────────── */
+  .song-item.active {
+    animation: activeSongGlow 3s ease-in-out infinite !important;
+  }
+  @keyframes activeSongGlow {
+    0%, 100% { box-shadow: inset 0 0 0 1px rgba(124,106,255,0.3); }
+    50%       { box-shadow: inset 0 0 0 1px rgba(124,106,255,0.6), 0 0 12px rgba(124,106,255,0.15); }
+  }
+
+  /* ── 9. Library cards — spring press ────────────────────── */
+  .lc-card:active {
+    transform: scale(0.96) !important;
+    transition: transform 0.1s ease !important;
+  }
+
+  /* ── 10. Chat open — slide in from right ────────────────── */
+  .dc-panel {
+    animation: chatSlideIn 0.3s cubic-bezier(0.34, 1.1, 0.64, 1) both !important;
+  }
+  @keyframes chatSlideIn {
+    from { opacity: 0; transform: translateX(32px); }
+    to   { opacity: 1; transform: translateX(0); }
+  }
+
+  /* ── 11. Progress bar touch expand ──────────────────────── */
+  .progress-track {
+    transition: height 0.15s ease !important;
+  }
+  .player-progress:active .progress-track {
+    height: 8px !important;
+    border-radius: 4px !important;
+  }
+
+  /* ── 12. Reaction burst — more dramatic on mobile ───────── */
+  .burst-item {
+    animation: burstMobile linear forwards !important;
+  }
+  @keyframes burstMobile {
+    0%   { transform: translateY(0) scale(0.4) rotate(-15deg); opacity: 0; }
+    12%  { transform: translateY(-30px) scale(1.3) rotate(8deg); opacity: 1; }
+    75%  { opacity: 1; }
+    100% { transform: translateY(-260px) scale(0.85) rotate(20deg); opacity: 0; }
+  }
+
+  /* ── 13. Bottom nav appearance — slide up on load ───────── */
+  .mobile-bottom-nav {
+    animation: navSlideUp 0.45s 0.1s cubic-bezier(0.34, 1.2, 0.64, 1) both !important;
+  }
+
+  /* ── 14. Profile dropdown — spring in ───────────────────── */
+  .profile-dropdown--portal {
+    animation: dropdownSpring 0.28s cubic-bezier(0.34, 1.3, 0.64, 1) !important;
+  }
+  @keyframes dropdownSpring {
+    from { opacity: 0; transform: translateY(-12px) scale(0.95); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+  }
+
+  /* ── 15. Song thumb — shimmer loading placeholder ───────── */
+  .song-thumb img[src=""],
+  .song-thumb img:not([src]) {
+    background: linear-gradient(
+      90deg,
+      rgba(255,255,255,0.04) 25%,
+      rgba(255,255,255,0.08) 50%,
+      rgba(255,255,255,0.04) 75%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 1.4s ease infinite;
+  }
+  @keyframes shimmer {
+    from { background-position: 200% 0; }
+    to   { background-position: -200% 0; }
+  }
+
+  /* ── 16. Player title — smooth text change ───────────────── */
+  .player-title {
+    transition: opacity 0.25s ease !important;
+  }
+
+  /* ── 17. Volume slider — smooth track fill ──────────────── */
+  .volume-inline-slider {
+    transition: background 0.1s ease !important;
+  }
+
+  /* ── 18. Toast — spring in from bottom ──────────────────── */
+  .lib-toast, .queue-toast, .general-toast {
+    animation: toastSpring 0.3s cubic-bezier(0.34, 1.3, 0.64, 1) !important;
+  }
+  @keyframes toastSpring {
+    from { opacity: 0; transform: translateX(-50%) translateY(16px) scale(0.9); }
+    to   { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+  }
+
+  /* ── 19. Swipe to reply — rubber band feel ───────────────── */
+  .ig-bubble-col {
+    transition: transform 0.25s cubic-bezier(0.34, 1.2, 0.64, 1) !important;
+  }
+
+  /* ── 20. Modal overlays — backdrop blur fade ─────────────── */
+  .panel-overlay,
+  .recap-overlay,
+  .new-crate-overlay,
+  .ig-ctx-overlay {
+    animation: backdropIn 0.2s ease !important;
+  }
+  @keyframes backdropIn {
+    from { backdrop-filter: blur(0px); background: rgba(0,0,0,0); }
+    to   { backdrop-filter: blur(8px);  background: rgba(0,0,0,0.6); }
+  }
+
+}
