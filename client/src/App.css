@@ -9787,6 +9787,24 @@ body.chat-is-open .fcb-bubble { opacity: 0; pointer-events: none; }
   width: 100% !important;
   max-width: 340px !important;
 }
+
+/* Mobile — force picker to fill container height, not use its internal fixed height */
+@media (max-width: 768px) {
+  .ep-wrapper {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+  }
+  .ep-wrapper em-emoji-picker,
+  .ep-wrapper [data-ref="picker"] {
+    height: 100% !important;
+    max-height: 100% !important;
+    min-height: unset !important;
+    max-width: 100% !important;
+    border-radius: 0 !important;
+    --shadow: none !important;
+  }
+}
 .chat-emoji-wrap {
   position: absolute;
   bottom: 60px;
