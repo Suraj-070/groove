@@ -265,6 +265,14 @@ module.exports = function registerSockets(io) {
     io.to(roomId).emit('chat-unpin')
   })
 
+  socket.on('leave-room', ({ roomId, username }) => {
+    socket.leave(roomId)
+    if (roomId) {
+      io.to(roomId).emit('user-left', { username })
+      io.to(roomId).emit('chat-system', { text: `${username} left the room` })
+    }
+  })
+
   socket.on('chat-read', ({ roomId, msgId }) => {
     // Notify the sender their message was read
     socket.to(roomId).emit('chat-read', { msgId })

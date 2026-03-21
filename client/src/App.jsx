@@ -495,6 +495,20 @@ function App() {
     socket.emit('join-room', { roomId, username: user.username, avatar: user.avatar, discordId: user.id })
   }
 
+  const handleLeaveRoom = () => {
+    if (!window.confirm(`Leave room "${roomId}"? You can rejoin anytime.`)) return
+    socket.emit('leave-room', { roomId, username: user?.username })
+    localStorage.removeItem('groove_roomId')
+    setRoomId(null)
+    setQueue([])
+    setCurrentIndex(0)
+    setIsPlaying(false)
+    setChatOpen(false)
+    setLibraryOpen(false)
+    setProfileOpen(false)
+    setVideoOpen(false)
+  }
+
   const handleTogglePush = async () => {
     if (!isPushSupported()) {
       alert('Push notifications are not supported on this device/browser.')
@@ -807,6 +821,12 @@ function App() {
           {/* Session tools — desktop only */}
           <div className="header-tools">
             <button className={`tool-btn party-tool-btn ${partyMode ? 'active' : ''}`} onClick={() => setPartyMode(p => !p)} title="Party Mode">🎊</button>
+            <button className="tool-btn" onClick={handleLeaveRoom} title="Leave Room"
+              style={{ color: '#ff6a8a' }}>
+              <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16">
+                <path d="M10.09 15.59L11.5 17l5-5-5-5-1.41 1.41L12.67 11H3v2h9.67l-2.58 2.59zM19 3H5a2 2 0 0 0-2 2v4h2V5h14v14H5v-4H3v4a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2z"/>
+              </svg>
+            </button>
             {currentSong && (
               <button className={`tool-btn ${videoOpen ? 'active' : ''}`} onClick={() => setVideoOpen(p => !p)} title="Watch video">
                 <svg viewBox="0 0 24 24" fill="currentColor" width="15" height="15">
@@ -921,6 +941,13 @@ function App() {
                     {!IS_DISCORD && (
                       <>
                         <div className="pd-divider" />
+                        <button className="pd-logout" style={{ color: '#ff6a8a' }}
+                          onClick={() => { setProfileOpen(false); handleLeaveRoom() }}>
+                          <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16">
+                            <path d="M10.09 15.59L11.5 17l5-5-5-5-1.41 1.41L12.67 11H3v2h9.67l-2.58 2.59zM19 3H5a2 2 0 0 0-2 2v4h2V5h14v14H5v-4H3v4a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2z"/>
+                          </svg>
+                          Leave Room
+                        </button>
                         <button className="pd-logout" onClick={() => { setProfileOpen(false); handleLogout() }}>
                           <span>↩</span><span>Sign Out</span>
                         </button>
