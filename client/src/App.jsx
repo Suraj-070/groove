@@ -465,6 +465,29 @@ function App() {
               const res2 = await fetch(`${BACKEND}/auth/me`, { credentials: 'include' })
               if (res2.ok) setUser(await res2.json())
             } catch {}
+          }
+
+          // Magic link verification
+          const magicToken = params.get('magic')
+          if (magicToken) {
+            window.history.replaceState({}, '', '/app')
+            try {
+              const res2 = await fetch(`${BACKEND}/auth/magic/verify`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ token: magicToken })
+              })
+              if (res2.ok) setUser(await res2.json())
+              else setAuthError('magic_failed')
+            } catch { setAuthError('magic_failed') }
+          }
+
+          // Password reset token
+          const resetToken = params.get('reset')
+          if (resetToken) {
+            window.history.replaceState({}, '', '/app')
+            setAuthError({ type: 'reset', token: resetToken })
           } else if (params.get('error') === 'auth_failed') {
             window.history.replaceState({}, '', '/')
             const reason = params.get('reason') || ''

@@ -65,10 +65,12 @@ if (MONGO_URI) {
 
 // ── Routes ────────────────────────────────────────────────
 const { router: authRouter } = require('./routes/auth')
+const emailAuthRouter = require('./routes/emailAuth')
 const libraryRouter = require('./routes/library')
 const apiRouter     = require('./routes/api')
 
 app.use('/', authRouter)
+app.use('/', emailAuthRouter)
 app.use('/', libraryRouter)
 app.use('/', apiRouter)
 

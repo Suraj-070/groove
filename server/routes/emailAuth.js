@@ -1,0 +1,357 @@
+const express    = require('express')
+const router     = express.Router()
+const bcrypt     = require('bcryptjs')
+const crypto     = require('crypto')
+const nodemailer = require('nodemailer')
+const { User, MagicToken } = require('../models')
+
+const FRONTEND = process.env.FRONTEND_URL || 'http://localhost:5173'
+
+// ── Email transporter ─────────────────────────────────────
+function getTransporter() {
+  // Supports Gmail, Resend, or any SMTP
+  if (process.env.EMAIL_HOST) {
+    return nodemailer.createTransport({
+      host:   process.env.EMAIL_HOST,
+      port:   parseInt(process.env.EMAIL_PORT || '587'),
+      secure: process.env.EMAIL_SECURE === 'true',
+      auth:   { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS },
+    })
+  }
+  // Gmail shorthand
+  if (process.env.GMAIL_USER) {
+    return nodemailer.createTransport({
+      service: 'gmail',
+      auth: { user: process.env.GMAIL_USER, pass: process.env.GMAIL_PASS },
+    })
+  }
+  return null
+}
+
+async function sendEmail({ to, subject, html }) {
+  const transporter = getTransporter()
+  if (!transporter) {
+    console.warn('[Email] No email provider configured — skipping send')
+    return false
+  }
+  try {
+    await transporter.sendMail({
+      from: `"Groove Together" <${process.env.GMAIL_USER || process.env.EMAIL_USER || 'noreply@groove.app'}>`,
+      to, subject, html,
+    })
+    return true
+  } catch (e) {
+    console.error('[Email] Send failed:', e.message)
+    return false
+  }
+}
+
+// ── Email templates ───────────────────────────────────────
+function magicLinkEmail(link, username) {
+  return `
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+<body style="margin:0;padding:0;background:#060410;font-family:'Helvetica Neue',Arial,sans-serif;">
+  <div style="max-width:480px;margin:0 auto;padding:40px 24px;">
+    <div style="text-align:center;margin-bottom:32px;">
+      <div style="font-size:2rem;font-weight:900;letter-spacing:-0.02em;background:linear-gradient(135deg,#7c6aff,#ff6a8a);-webkit-background-clip:text;-webkit-text-fill-color:transparent;color:#7c6aff;">GROOVE</div>
+      <div style="font-size:0.7rem;letter-spacing:0.18em;color:rgba(255,255,255,0.4);margin-top:2px;">· together ·</div>
+    </div>
+    <div style="background:#0e0c1a;border:1px solid rgba(124,106,255,0.2);border-radius:20px;padding:36px;text-align:center;">
+      <div style="font-size:2.5rem;margin-bottom:16px;">🎵</div>
+      <h1 style="color:#fff;font-size:1.3rem;font-weight:700;margin:0 0 10px;">Your magic link is ready</h1>
+      <p style="color:rgba(255,255,255,0.45);font-size:0.9rem;line-height:1.6;margin:0 0 28px;">
+        Hey ${username ? username : 'there'}! Click the button below to sign in to Groove Together. This link expires in <strong style="color:rgba(255,255,255,0.7);">15 minutes</strong>.
+      </p>
+      <a href="${link}" style="display:inline-block;padding:14px 36px;background:linear-gradient(135deg,#7c6aff,#ff6a8a);border-radius:50px;color:#fff;font-weight:700;font-size:1rem;text-decoration:none;box-shadow:0 8px 24px rgba(124,106,255,0.4);">
+        Sign In to Groove →
+      </a>
+      <p style="color:rgba(255,255,255,0.2);font-size:0.75rem;margin:24px 0 0;">
+        If you didn't request this, you can safely ignore this email.<br>
+        Link expires in 15 minutes and can only be used once.
+      </p>
+    </div>
+    <p style="text-align:center;color:rgba(255,255,255,0.15);font-size:0.72rem;margin-top:24px;">
+      © 2026 Groove Together · <a href="${FRONTEND}" style="color:rgba(124,106,255,0.6);text-decoration:none;">groovetoget.vercel.app</a>
+    </p>
+  </div>
+</body>
+</html>`
+}
+
+function welcomeEmail(username) {
+  return `
+<!DOCTYPE html>
+<html>
+<body style="margin:0;padding:0;background:#060410;font-family:'Helvetica Neue',Arial,sans-serif;">
+  <div style="max-width:480px;margin:0 auto;padding:40px 24px;">
+    <div style="text-align:center;margin-bottom:32px;">
+      <div style="font-size:2rem;font-weight:900;color:#7c6aff;">GROOVE</div>
+      <div style="font-size:0.7rem;letter-spacing:0.18em;color:rgba(255,255,255,0.4);">· together ·</div>
+    </div>
+    <div style="background:#0e0c1a;border:1px solid rgba(124,106,255,0.2);border-radius:20px;padding:36px;text-align:center;">
+      <div style="font-size:2.5rem;margin-bottom:16px;">🎉</div>
+      <h1 style="color:#fff;font-size:1.3rem;font-weight:700;margin:0 0 10px;">Welcome to Groove, ${username}!</h1>
+      <p style="color:rgba(255,255,255,0.45);font-size:0.9rem;line-height:1.6;margin:0 0 28px;">
+        Your account is all set. Start a room, invite friends, and listen together in real time.
+      </p>
+      <a href="${FRONTEND}/app" style="display:inline-block;padding:14px 36px;background:linear-gradient(135deg,#7c6aff,#ff6a8a);border-radius:50px;color:#fff;font-weight:700;font-size:1rem;text-decoration:none;">
+        Open Groove →
+      </a>
+    </div>
+  </div>
+</body>
+</html>`
+}
+
+// ── Helpers ───────────────────────────────────────────────
+function makeUserSession(user) {
+  return {
+    id:       `email_${user._id}`,
+    username: user.username,
+    avatar:   user.avatar,
+    email:    user.email,
+    provider: 'email',
+  }
+}
+
+function validateEmail(email) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+}
+
+function validatePassword(password) {
+  if (!password || password.length < 6) return 'Password must be at least 6 characters'
+  if (password.length > 128) return 'Password too long'
+  return null
+}
+
+// ── Routes ────────────────────────────────────────────────
+
+// REGISTER with email + password
+router.post('/auth/email/register', async (req, res) => {
+  try {
+    const { email, password, username } = req.body
+
+    if (!email || !validateEmail(email))
+      return res.status(400).json({ error: 'Invalid email address' })
+
+    const pwError = validatePassword(password)
+    if (pwError) return res.status(400).json({ error: pwError })
+
+    if (!username?.trim() || username.trim().length < 2)
+      return res.status(400).json({ error: 'Username must be at least 2 characters' })
+
+    if (username.trim().length > 24)
+      return res.status(400).json({ error: 'Username must be under 24 characters' })
+
+    // Check if email already exists
+    const existing = await User.findOne({ email: email.toLowerCase() })
+    if (existing) return res.status(409).json({ error: 'An account with this email already exists' })
+
+    const passwordHash = await bcrypt.hash(password, 12)
+
+    const user = await User.create({
+      email:    email.toLowerCase(),
+      username: username.trim(),
+      passwordHash,
+      provider: 'email',
+      verified: true, // skip email verification for now
+    })
+
+    const sessionUser = makeUserSession(user)
+    req.login(sessionUser, (err) => {
+      if (err) return res.status(500).json({ error: 'Login failed after registration' })
+      // Send welcome email (non-blocking)
+      sendEmail({ to: user.email, subject: 'Welcome to Groove Together! 🎵', html: welcomeEmail(user.username) })
+      res.json(sessionUser)
+    })
+  } catch (e) {
+    console.error('[Auth] Register error:', e.message)
+    res.status(500).json({ error: 'Registration failed. Please try again.' })
+  }
+})
+
+// LOGIN with email + password
+router.post('/auth/email/login', async (req, res) => {
+  try {
+    const { email, password } = req.body
+
+    if (!email || !password)
+      return res.status(400).json({ error: 'Email and password are required' })
+
+    const user = await User.findOne({ email: email.toLowerCase() })
+    if (!user) return res.status(401).json({ error: 'No account found with this email' })
+
+    if (!user.passwordHash)
+      return res.status(401).json({ error: 'This account uses magic link sign in. Request a magic link instead.' })
+
+    const valid = await bcrypt.compare(password, user.passwordHash)
+    if (!valid) return res.status(401).json({ error: 'Incorrect password' })
+
+    const sessionUser = makeUserSession(user)
+    req.login(sessionUser, (err) => {
+      if (err) return res.status(500).json({ error: 'Login failed' })
+      res.json(sessionUser)
+    })
+  } catch (e) {
+    console.error('[Auth] Login error:', e.message)
+    res.status(500).json({ error: 'Login failed. Please try again.' })
+  }
+})
+
+// SEND MAGIC LINK
+router.post('/auth/magic/send', async (req, res) => {
+  try {
+    const { email } = req.body
+
+    if (!email || !validateEmail(email))
+      return res.status(400).json({ error: 'Invalid email address' })
+
+    const emailLower = email.toLowerCase()
+
+    // Find or create user (magic link creates account automatically)
+    let user = await User.findOne({ email: emailLower })
+    if (!user) {
+      // Auto-create account with email as username base
+      const username = email.split('@')[0].replace(/[^a-zA-Z0-9_]/g, '').slice(0, 20) || 'Groover'
+      user = await User.create({ email: emailLower, username, provider: 'email', verified: true })
+    }
+
+    // Delete any existing unused tokens for this email
+    await MagicToken.deleteMany({ email: emailLower, used: false })
+
+    // Create new token
+    const token = crypto.randomBytes(32).toString('hex')
+    await MagicToken.create({
+      email: emailLower,
+      token,
+      type: 'magic',
+      expiresAt: new Date(Date.now() + 15 * 60 * 1000), // 15 minutes
+    })
+
+    const link = `${FRONTEND}/app?magic=${token}`
+    const sent = await sendEmail({
+      to: emailLower,
+      subject: 'Your Groove sign-in link 🎵',
+      html: magicLinkEmail(link, user.username),
+    })
+
+    if (!sent) {
+      // Dev mode — return token in response for testing
+      if (process.env.NODE_ENV !== 'production') {
+        return res.json({ success: true, devToken: token, devLink: link })
+      }
+    }
+
+    res.json({ success: true, message: 'Magic link sent! Check your email.' })
+  } catch (e) {
+    console.error('[Auth] Magic send error:', e.message)
+    res.status(500).json({ error: 'Failed to send magic link. Please try again.' })
+  }
+})
+
+// VERIFY MAGIC LINK TOKEN
+router.post('/auth/magic/verify', async (req, res) => {
+  try {
+    const { token } = req.body
+    if (!token) return res.status(400).json({ error: 'Token required' })
+
+    const record = await MagicToken.findOne({ token })
+
+    if (!record)       return res.status(401).json({ error: 'Invalid or expired link' })
+    if (record.used)   return res.status(401).json({ error: 'This link has already been used' })
+    if (record.expiresAt < new Date()) return res.status(401).json({ error: 'This link has expired. Request a new one.' })
+
+    // Mark as used
+    record.used = true
+    await record.save()
+
+    // Get user
+    const user = await User.findOne({ email: record.email })
+    if (!user) return res.status(401).json({ error: 'Account not found' })
+
+    const sessionUser = makeUserSession(user)
+    req.login(sessionUser, (err) => {
+      if (err) return res.status(500).json({ error: 'Login failed' })
+      res.json(sessionUser)
+    })
+  } catch (e) {
+    console.error('[Auth] Magic verify error:', e.message)
+    res.status(500).json({ error: 'Verification failed. Please try again.' })
+  }
+})
+
+// FORGOT PASSWORD — sends reset link
+router.post('/auth/email/forgot', async (req, res) => {
+  try {
+    const { email } = req.body
+    if (!email || !validateEmail(email))
+      return res.status(400).json({ error: 'Invalid email' })
+
+    const user = await User.findOne({ email: email.toLowerCase() })
+    // Always return success to prevent email enumeration
+    if (!user || !user.passwordHash) return res.json({ success: true })
+
+    await MagicToken.deleteMany({ email: email.toLowerCase(), type: 'reset' })
+    const token = crypto.randomBytes(32).toString('hex')
+    await MagicToken.create({
+      email: email.toLowerCase(), token, type: 'reset',
+      expiresAt: new Date(Date.now() + 60 * 60 * 1000), // 1 hour
+    })
+
+    const link = `${FRONTEND}/app?reset=${token}`
+    await sendEmail({
+      to: email.toLowerCase(),
+      subject: 'Reset your Groove password',
+      html: `<div style="font-family:sans-serif;background:#060410;color:#fff;padding:40px;max-width:480px;margin:0 auto;border-radius:20px;">
+        <h2 style="color:#7c6aff">Reset your password</h2>
+        <p style="color:rgba(255,255,255,0.6)">Click below to set a new password. Link expires in 1 hour.</p>
+        <a href="${link}" style="display:inline-block;padding:12px 32px;background:linear-gradient(135deg,#7c6aff,#ff6a8a);border-radius:50px;color:#fff;font-weight:700;text-decoration:none;margin:16px 0">Reset Password →</a>
+        <p style="color:rgba(255,255,255,0.3);font-size:0.8rem">If you didn't request this, ignore this email.</p>
+      </div>`,
+    })
+
+    res.json({ success: true })
+  } catch (e) {
+    console.error('[Auth] Forgot error:', e.message)
+    res.status(500).json({ error: 'Failed to send reset email' })
+  }
+})
+
+// RESET PASSWORD
+router.post('/auth/email/reset', async (req, res) => {
+  try {
+    const { token, password } = req.body
+    if (!token || !password) return res.status(400).json({ error: 'Token and password required' })
+
+    const pwError = validatePassword(password)
+    if (pwError) return res.status(400).json({ error: pwError })
+
+    const record = await MagicToken.findOne({ token, type: 'reset' })
+    if (!record || record.used || record.expiresAt < new Date())
+      return res.status(401).json({ error: 'Invalid or expired reset link' })
+
+    record.used = true
+    await record.save()
+
+    const passwordHash = await bcrypt.hash(password, 12)
+    const user = await User.findOneAndUpdate(
+      { email: record.email },
+      { passwordHash },
+      { new: true }
+    )
+    if (!user) return res.status(404).json({ error: 'Account not found' })
+
+    const sessionUser = makeUserSession(user)
+    req.login(sessionUser, (err) => {
+      if (err) return res.status(500).json({ error: 'Login failed after reset' })
+      res.json({ success: true, user: sessionUser })
+    })
+  } catch (e) {
+    console.error('[Auth] Reset error:', e.message)
+    res.status(500).json({ error: 'Password reset failed' })
+  }
+})
+
+module.exports = router

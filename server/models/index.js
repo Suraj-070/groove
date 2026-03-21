@@ -185,7 +185,29 @@ roomSessionSchema.index({ 'participants.userId': 1 });
 const RoomSession = mongoose.models.RoomSession || mongoose.model('RoomSession', roomSessionSchema);
 
 
+// ── Email Auth Models ─────────────────────────────────────
+const userSchema = new mongoose.Schema({
+  email:        { type: String, required: true, unique: true, lowercase: true, trim: true },
+  username:     { type: String, required: true, trim: true },
+  passwordHash: { type: String, default: null },
+  avatar:       { type: String, default: null },
+  provider:     { type: String, default: 'email' },
+  verified:     { type: Boolean, default: false },
+  createdAt:    { type: Date, default: Date.now },
+})
+const User = mongoose.models.User || mongoose.model('User', userSchema)
+
+const magicTokenSchema = new mongoose.Schema({
+  email:     { type: String, required: true, lowercase: true },
+  token:     { type: String, required: true, unique: true },
+  type:      { type: String, enum: ['magic', 'verify', 'reset'], default: 'magic' },
+  expiresAt: { type: Date, required: true },
+  used:      { type: Boolean, default: false },
+})
+magicTokenSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 })
+const MagicToken = mongoose.models.MagicToken || mongoose.model('MagicToken', magicTokenSchema)
+
 module.exports = {
   Library, Room, Message, PushSub, SharedSongs,
-  ListenHistory, Moment, SongDNA, UserProfile, RoomSession
+  ListenHistory, Moment, SongDNA, UserProfile, RoomSession, User, MagicToken
 }
