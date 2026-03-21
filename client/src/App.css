@@ -11467,3 +11467,9 @@ body.chat-is-open .fcb-bubble { opacity: 0; pointer-events: none; }
   }
 
 }
+
+/* ── User panel spring animation ── */
+@keyframes panelSpringIn {
+  from { opacity: 0; transform: translate(-50%, -50%) scale(0.92); }
+  to   { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
