@@ -159,6 +159,7 @@ function App() {
   const [authError, setAuthError]       = useState(null)
   const [serverWaking, setServerWaking] = useState(false)
   const [roomId, setRoomId] = useState(null)
+  const [showLeaveConfirm, setShowLeaveConfirm] = useState(false)
   const [queue, setQueue] = useState([])
   const [currentIndex, setCurrentIndex] = useState(0)
   const [users, setUsers] = useState([])
@@ -495,8 +496,10 @@ function App() {
     socket.emit('join-room', { roomId, username: user.username, avatar: user.avatar, discordId: user.id })
   }
 
-  const handleLeaveRoom = () => {
-    if (!window.confirm(`Leave room "${roomId}"? You can rejoin anytime.`)) return
+  const handleLeaveRoom = () => setShowLeaveConfirm(true)
+
+  const confirmLeaveRoom = () => {
+    setShowLeaveConfirm(false)
     socket.emit('leave-room', { roomId, username: user?.username })
     localStorage.removeItem('groove_roomId')
     setRoomId(null)
@@ -1131,6 +1134,113 @@ function App() {
       />
       {showRecap && recap && (
         <SessionDNACard recap={recap} onClose={() => setShowRecap(false)} />
+      )}
+
+      {/* Leave Room Confirmation */}
+      {showLeaveConfirm && (
+        <div
+          onClick={() => setShowLeaveConfirm(false)}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 2000,
+            background: 'rgba(0,0,0,0.7)',
+            backdropFilter: 'blur(8px)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            padding: 20,
+            animation: 'fadeIn 0.18s ease',
+          }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              background: 'linear-gradient(160deg, #0f0a1e, #0a0814)',
+              border: '1px solid rgba(255,106,138,0.2)',
+              borderRadius: 24,
+              padding: '32px 28px',
+              maxWidth: 360,
+              width: '100%',
+              textAlign: 'center',
+              boxShadow: '0 32px 80px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,106,138,0.1)',
+              animation: 'slideUp 0.22s cubic-bezier(0.34,1.2,0.64,1)',
+            }}
+          >
+            {/* Icon */}
+            <div style={{
+              width: 64, height: 64, borderRadius: '50%',
+              background: 'rgba(255,106,138,0.12)',
+              border: '1px solid rgba(255,106,138,0.25)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              margin: '0 auto 20px',
+            }}>
+              <svg viewBox="0 0 24 24" fill="#ff6a8a" width="28" height="28">
+                <path d="M10.09 15.59L11.5 17l5-5-5-5-1.41 1.41L12.67 11H3v2h9.67l-2.58 2.59zM19 3H5a2 2 0 0 0-2 2v4h2V5h14v14H5v-4H3v4a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2z"/>
+              </svg>
+            </div>
+
+            {/* Title */}
+            <h2 style={{
+              fontFamily: "'Unbounded', sans-serif",
+              fontSize: '1.1rem', fontWeight: 800,
+              color: '#fff', margin: '0 0 8px',
+            }}>
+              Leave Room?
+            </h2>
+
+            {/* Room pill */}
+            <div style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+              background: 'rgba(255,255,255,0.06)',
+              border: '1px solid rgba(255,255,255,0.1)',
+              borderRadius: 20, padding: '4px 14px',
+              fontFamily: "'JetBrains Mono', monospace",
+              fontSize: '0.8rem', color: 'var(--accent)',
+              marginBottom: 16,
+            }}>
+              <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#00c974', display: 'inline-block' }} />
+              {roomId}
+            </div>
+
+            <p style={{ fontSize: '0.85rem', color: 'rgba(255,255,255,0.45)', margin: '0 0 28px', lineHeight: 1.5 }}>
+              You can rejoin anytime with the same room code.
+            </p>
+
+            {/* Buttons */}
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button
+                onClick={() => setShowLeaveConfirm(false)}
+                style={{
+                  flex: 1, padding: '13px',
+                  background: 'rgba(255,255,255,0.06)',
+                  border: '1px solid rgba(255,255,255,0.1)',
+                  borderRadius: 14, color: 'rgba(255,255,255,0.6)',
+                  fontFamily: "'Outfit', sans-serif",
+                  fontSize: '0.92rem', fontWeight: 600,
+                  cursor: 'pointer', transition: 'all 0.15s',
+                }}
+                onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; e.currentTarget.style.color = '#fff' }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; e.currentTarget.style.color = 'rgba(255,255,255,0.6)' }}
+              >
+                Stay
+              </button>
+              <button
+                onClick={confirmLeaveRoom}
+                style={{
+                  flex: 1, padding: '13px',
+                  background: 'linear-gradient(135deg, #ff6a8a, #ff2d78)',
+                  border: 'none',
+                  borderRadius: 14, color: '#fff',
+                  fontFamily: "'Outfit', sans-serif",
+                  fontSize: '0.92rem', fontWeight: 700,
+                  cursor: 'pointer', transition: 'all 0.15s',
+                  boxShadow: '0 4px 20px rgba(255,45,120,0.35)',
+                }}
+                onMouseEnter={e => { e.currentTarget.style.opacity = '0.88'; e.currentTarget.style.transform = 'scale(1.02)' }}
+                onMouseLeave={e => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.transform = 'scale(1)' }}
+              >
+                Leave
+              </button>
+            </div>
+          </div>
+        </div>
       )}
       {libraryOpen && (
         <Library
