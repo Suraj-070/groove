@@ -29,8 +29,14 @@ async function saveMessage(roomId, msg) {
 
 // ── Register all socket handlers ──────────────────────────
 module.exports = function registerSockets(io) {
+  // Safe handler wrapper — catches errors so one bad event doesn't break the connection
+  const safe = (handler) => async (...args) => {
+    try { await handler(...args) }
+    catch (e) { console.error('[Socket Error]', e.message) }
+  }
+
   io.on('connection', (socket) => {
-  socket.on('join-room', async ({ roomId, username, avatar, discordId }) => {
+  socket.on('join-room', safe(async ({ roomId, username, avatar, discordId }) => {
     socket.join(roomId);
     socket.roomId = roomId;
     socket.username = username;
@@ -83,28 +89,28 @@ module.exports = function registerSockets(io) {
     }
   });
 
-  socket.on('play', async ({ roomId, time }) => {
+  socket.on('play', safe(async ({ roomId, time }) => {
     const room = await getRoom(roomId);
     if (room.djMode && socket.id !== room.djId) return;
     room.isPlaying = true; room.currentTime = time;
     socket.to(roomId).emit('play', { time });
   });
 
-  socket.on('pause', async ({ roomId, time }) => {
+  socket.on('pause', safe(async ({ roomId, time }) => {
     const room = await getRoom(roomId);
     if (room.djMode && socket.id !== room.djId) return;
     room.isPlaying = false; room.currentTime = time;
     socket.to(roomId).emit('pause', { time });
   });
 
-  socket.on('seek', async ({ roomId, time }) => {
+  socket.on('seek', safe(async ({ roomId, time }) => {
     const room = await getRoom(roomId);
     if (room.djMode && socket.id !== room.djId) return;
     room.currentTime = time;
     socket.to(roomId).emit('seek', { time });
   });
 
-  socket.on('add-song', async ({ roomId, videoId, title, addedBy }) => {
+  socket.on('add-song', safe(async ({ roomId, videoId, title, addedBy }) => {
     const room = await getRoom(roomId);
     if (room.queue.length >= 200) {
       socket.emit('queue-full', { limit: 200 });
@@ -113,6 +119,8 @@ module.exports = function registerSockets(io) {
     socket.to(roomId).emit('song-added-notify', { title, addedBy });
     room.queue.push({ videoId, title, addedBy });
     io.to(roomId).emit('queue-updated', { queue: room.queue });
+    // Confirm to the sender with position number
+    socket.emit('song-added-confirm', { title, addedBy, position: room.queue.length })
     await saveRoom(roomId);
     sendPushToRoom(roomId, socket.id, {
       type: 'song_added',
@@ -129,7 +137,7 @@ module.exports = function registerSockets(io) {
   });
 
   // Batch add songs from a playlist import — single DB write, single broadcast
-  socket.on('add-songs-batch', async ({ roomId, songs, addedBy }) => {
+  socket.on('add-songs-batch', safe(async ({ roomId, songs, addedBy }) => {
     const room = await getRoom(roomId);
     const remaining = 200 - room.queue.length;
     if (remaining <= 0) {
@@ -144,7 +152,7 @@ module.exports = function registerSockets(io) {
     await saveRoom(roomId);
   });
 
-  socket.on('load-song', async ({ roomId, index }) => {
+  socket.on('load-song', safe(async ({ roomId, index }) => {
     const room = await getRoom(roomId);
     if (room.djMode && socket.id !== room.djId) return;
     const prev = room.queue[room.currentIndex];
@@ -155,14 +163,14 @@ module.exports = function registerSockets(io) {
     const song = room.queue[index];
     if (song) {
       Object.values(room.users).forEach(u => {
-        if (u.discordId) recordListen(u.discordId, song.videoId, song.title, roomId);
+        if (u.discordId) await recordListen(u.discordId, song.videoId, song.title, roomId);
       });
     }
     io.to(roomId).emit('load-song', { index, videoId: room.queue[index]?.videoId, title: room.queue[index]?.title, queue: room.queue });
     await saveRoom(roomId);
   });
 
-  socket.on('remove-song', async ({ roomId, index }) => {
+  socket.on('remove-song', safe(async ({ roomId, index }) => {
     const room = await getRoom(roomId);
     room.queue.splice(index, 1);
     if (room.currentIndex >= room.queue.length)
@@ -208,7 +216,7 @@ module.exports = function registerSockets(io) {
     }
   });
 
-  socket.on('toggle-dj-mode', async ({ roomId }) => {
+  socket.on('toggle-dj-mode', safe(async ({ roomId }) => {
     const room = await getRoom(roomId);
     const prevDjId = room.djId;
     if (socket.id !== room.djId) return;
@@ -300,7 +308,7 @@ module.exports = function registerSockets(io) {
   socket.on('user-typing', ({ roomId, username, isTyping }) => socket.to(roomId).emit('user-typing', { username, isTyping }));
 
   // Reorder queue (drag-to-reorder / shuffle)
-  socket.on('reorder-queue', async ({ roomId, queue: newQueue }) => {
+  socket.on('reorder-queue', safe(async ({ roomId, queue: newQueue }) => {
     const room = await getRoom(roomId);
     if (!room || !Array.isArray(newQueue)) return;
     room.queue = newQueue;

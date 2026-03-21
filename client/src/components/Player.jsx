@@ -310,7 +310,19 @@ export default function Player({ socket, roomId, videoId, title, onEnded, onSkip
         },
         events: {
           onReady: () => { if (!destroyed) setIsReady(true) },
-          onStateChange: (e) => { if (e.data === YT.PlayerState.ENDED) onEndedRef.current?.() }
+          onStateChange: (e) => { if (e.data === YT.PlayerState.ENDED) onEndedRef.current?.() },
+          onError: (e) => {
+            if (!destroyed) {
+              // Error codes: 2=invalid id, 5=html5 error, 100=not found, 101/150=embed not allowed
+              const msg = e.data === 100 || e.data === 101 || e.data === 150
+                ? 'Video unavailable — skipping'
+                : 'Video error — skipping'
+              console.warn('[YouTube Error]', e.data, msg)
+              setIsReady(false)
+              // Show error briefly then auto-skip
+              setTimeout(() => onEndedRef.current?.(), 2500)
+            }
+          }
         }
       })
     }

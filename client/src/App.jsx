@@ -181,6 +181,7 @@ function App() {
   const [streakData, setStreakData]           = useState(null)
   const [streakToast, setStreakToast]         = useState(null)
   const [toast, setToast]                     = useState(null)
+  const [reconnecting, setReconnecting]       = useState(false)
   const [lastMessage, setLastMessage]         = useState(null)
   const [radioMode, setRadioMode]             = useState(() => localStorage.getItem('groove_radio') === 'true')
   const [radioLoading, setRadioLoading]       = useState(false)
@@ -242,7 +243,10 @@ function App() {
   const [showShortcuts, setShowShortcuts] = useState(false)
   const [showSleepTimer, setShowSleepTimer] = useState(false)
   const [sleepTimer, setSleepTimer] = useState(null)   // { endsAt: timestamp, label: '30m' }
-  const [volume, setVolume] = useState(80)             // lifted to App for keyboard mute
+  const [volume, setVolume] = useState(() => {
+    const saved = parseInt(localStorage.getItem('groove_vol'))
+    return isNaN(saved) ? 80 : Math.max(0, Math.min(100, saved))
+  })
   const sleepTimerRef = useRef(null)
   const playerRef = useRef(null)  // ref to Player's imperative handle
 
@@ -261,6 +265,11 @@ function App() {
   useEffect(() => {
     localStorage.setItem('groove_radio', radioMode)
   }, [radioMode])
+
+  // Persist volume
+  useEffect(() => {
+    localStorage.setItem('groove_vol', volume)
+  }, [volume])
 
   // Hide floating chat bubble when chat panel is open on mobile
   useEffect(() => {
@@ -419,7 +428,26 @@ function App() {
             const timeout = setTimeout(() => controller.abort(), 5000)
             const res = await fetch(`${BACKEND}/auth/me`, { credentials: 'include', signal: controller.signal })
             clearTimeout(timeout)
-            if (res.ok) setUser(await res.json())
+            if (res.ok) {
+              setUser(await res.json())
+            } else {
+              // Not logged in via OAuth — check for persisted guest session
+              const savedGuest = sessionStorage.getItem('groove_guest')
+              if (savedGuest) {
+                try {
+                  const guestData = JSON.parse(savedGuest)
+                  // Re-authenticate guest on server
+                  const gRes = await fetch(`${BACKEND}/auth/guest`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ username: guestData.username })
+                  })
+                  if (gRes.ok) setUser(await gRes.json())
+                  else sessionStorage.removeItem('groove_guest')
+                } catch { sessionStorage.removeItem('groove_guest') }
+              }
+            }
           } catch {
             // First attempt timed out — server is cold starting, retry with longer timeout
             setServerWaking(true)
@@ -485,7 +513,12 @@ function App() {
         credentials: 'include',
         body: JSON.stringify({ username })
       })
-      if (res.ok) setUser(await res.json())
+      if (res.ok) {
+        const userData = await res.json()
+        setUser(userData)
+        // Persist guest session so refresh doesn't log them out
+        sessionStorage.setItem('groove_guest', JSON.stringify(userData))
+      }
     } catch (e) {
       console.error('Guest login failed:', e)
     }
@@ -612,6 +645,7 @@ function App() {
   const handleLogout = async () => {
     await fetch(`${BACKEND}/auth/logout`, { credentials: 'include' })
     if (roomStorageKey) localStorage.removeItem(roomStorageKey)
+    sessionStorage.removeItem('groove_guest')
     setUser(null)
     setRoomId(null)
   }
@@ -632,12 +666,15 @@ function App() {
 
   useEffect(() => {
     const handleReconnect = () => {
+      setReconnecting(false)
       if (roomId && user) {
         socket.emit('join-room', { roomId, username: user.username, avatar: user.avatar, discordId: user.id })
       }
     }
+    const handleDisconnect = () => setReconnecting(true)
     socket.on('connect', handleReconnect)
-    return () => socket.off('connect', handleReconnect)
+    socket.on('disconnect', handleDisconnect)
+    return () => { socket.off('connect', handleReconnect); socket.off('disconnect', handleDisconnect) }
   }, [roomId, user])
 
   useEffect(() => {
@@ -688,10 +725,13 @@ function App() {
     socket.on('play', () => setIsPlaying(true))
     socket.on('pause', () => setIsPlaying(false))
     socket.on('queue-full', ({ limit }) => {
-      showToast?.(`⚠️ Queue is full (${limit} songs max)`)
+      showToast(`⚠️ Queue is full (${limit} songs max)`)
     })
     socket.on('queue-limit-reached', ({ added, skipped, limit }) => {
-      showToast?.(`✅ Added ${added} songs · ${skipped} skipped (queue limit)`)
+      showToast(`✅ Added ${added} songs · ${skipped} skipped (queue limit)`)
+    })
+    socket.on('song-added-confirm', ({ title, addedBy, position }) => {
+      showToast(`🎵 "${title.length > 30 ? title.slice(0,30)+'…' : title}" added at #${position}`)
     })
     return () => {
       socket.off('room-state')
@@ -770,6 +810,19 @@ function App() {
   return (
     <div className="app">
       <OfflineBanner />
+      {reconnecting && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, zIndex: 9000,
+          background: 'linear-gradient(90deg, #7c6aff, #ff6a8a)',
+          color: '#fff', textAlign: 'center', fontSize: '0.8rem',
+          fontWeight: 600, padding: '8px 16px',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+          animation: 'slideDown 0.3s ease',
+        }}>
+          <div style={{ width: 12, height: 12, borderRadius: '50%', border: '2px solid rgba(255,255,255,0.5)', borderTopColor: '#fff', animation: 'spin 0.8s linear infinite' }} />
+          Reconnecting to server…
+        </div>
+      )}
       <Visualizer isPlaying={isPlaying} partyMode={partyMode} />
       <ReactionBurst socket={socket} roomId={roomId} username={user?.username} />
 

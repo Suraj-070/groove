@@ -202,6 +202,12 @@ export default function Queue({
   const itemRefs     = useRef({})
   const lastDragOver = useRef(-1)
 
+  // Auto-scroll to current song when index changes
+  useEffect(() => {
+    const el = itemRefs.current[currentIndex]
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+  }, [currentIndex])
+
   const showToast = useCallback((msg) => {
     setToast(msg)
     clearTimeout(toastTimer.current)
@@ -544,10 +550,26 @@ export default function Queue({
 
       <ul className="song-list">
         {queue.length === 0 && (
-          <li className="empty">
-            <span>🎧</span>
-            <p>Queue is empty</p>
-            <p className="empty-sub">Add a song or import a playlist above</p>
+          <li className="empty" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '40px 20px', gap: 12 }}>
+            <div style={{ fontSize: '2.5rem', animation: 'pulse 2s ease-in-out infinite' }}>🎧</div>
+            <p style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--text)', margin: 0 }}>Queue is empty</p>
+            <p className="empty-sub" style={{ margin: 0, textAlign: 'center', lineHeight: 1.5 }}>
+              Paste a YouTube URL or search for a song above
+            </p>
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 6,
+              background: 'rgba(124,106,255,0.08)',
+              border: '1px solid rgba(124,106,255,0.2)',
+              borderRadius: 20, padding: '6px 14px',
+              fontSize: '0.75rem', color: 'var(--accent)',
+              marginTop: 4, cursor: 'pointer',
+              animation: 'bounce 1.5s ease-in-out infinite',
+            }}
+              onClick={() => document.querySelector('.add-url-input')?.focus()}
+            >
+              <svg viewBox="0 0 24 24" fill="currentColor" width="13" height="13"><path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/></svg>
+              Add first song
+            </div>
           </li>
         )}
         {queue.map((song, i) => (
