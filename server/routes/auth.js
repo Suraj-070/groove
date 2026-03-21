@@ -1,41 +1,12 @@
 const express        = require('express')
 const router         = express.Router()
 const passport       = require('passport')
-const DiscordStrategy = require('passport-discord').Strategy
 const GoogleStrategy  = require('passport-google-oauth20').Strategy
-
-// Patch http/https to add browser-like headers for all Discord requests
-// Fixes Cloudflare 1015 error on Render.com
-const https = require('https')
-const _httpsRequest = https.request.bind(https)
-https.request = (options, callback) => {
-  if (typeof options === 'object' && options.hostname?.includes('discord.com')) {
-    options.headers = options.headers || {}
-    options.headers['User-Agent'] = 'GrooveApp/1.0 (Music Sync App)'
-  }
-  return _httpsRequest(options, callback)
-}
 const { randomUUID } = require('crypto')
 
 const FRONTEND = process.env.FRONTEND_URL || 'http://localhost:5173'
 
 // ── Passport strategies ───────────────────────────────────
-passport.use(new DiscordStrategy({
-  clientID:     process.env.DISCORD_CLIENT_ID,
-  clientSecret: process.env.DISCORD_CLIENT_SECRET,
-  callbackURL:  process.env.CALLBACK_URL,
-  scope: ['identify']
-}, (accessToken, refreshToken, profile, done) => {
-  done(null, {
-    id: `discord_${profile.id}`,
-    username: profile.username,
-    avatar: profile.avatar
-      ? `https://cdn.discordapp.com/avatars/${profile.id}/${profile.avatar}.png`
-      : `https://cdn.discordapp.com/embed/avatars/${parseInt(profile.id) % 5}.png`,
-    provider: 'discord'
-  })
-}))
-
 if (process.env.GOOGLE_CLIENT_ID) {
   passport.use(new GoogleStrategy({
     clientID:     process.env.GOOGLE_CLIENT_ID,

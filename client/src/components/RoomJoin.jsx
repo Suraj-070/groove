@@ -26,92 +26,26 @@ const GrooveLogo = () => (
   </svg>
 )
 
-// Error messages per type
-const ERROR_CONFIG = {
-  rate_limit: {
-    icon: '🔌',
-    title: 'Discord login is blocked',
-    body: "Cloudflare is blocking Discord OAuth from our server's IP. This is a known Render.com issue — it won't fix itself by waiting.",
-    tip: '✅ Use Google login or Guest mode instead — they work perfectly',
-    canRetry: false,
-  },
-  denied: {
-    icon: '🚫',
-    title: 'Login cancelled',
-    body: 'You cancelled the Discord authorization. Click below to try again.',
-    tip: null,
-    canRetry: true,
-  },
-  config: {
-    icon: '⚙️',
-    title: 'Discord not configured',
-    body: 'The Discord app credentials are misconfigured on the server. Please contact the admin.',
-    tip: null,
-    canRetry: false,
-  },
-  generic: {
-    icon: '⚠️',
-    title: 'Login failed',
-    body: 'Something went wrong connecting to Discord. Please try again in a moment.',
-    tip: null,
-    canRetry: true,
-  },
-}
-
-function AuthErrorBanner({ type, onDismiss, onRetry }) {
-  const cfg = ERROR_CONFIG[type] || ERROR_CONFIG.generic
-  return (
-    <div className="rj-auth-error">
-      <div className="rj-auth-error-icon">{cfg.icon}</div>
-      <div className="rj-auth-error-body">
-        <p className="rj-auth-error-title">{cfg.title}</p>
-        <p className="rj-auth-error-sub">{cfg.body}</p>
-        {cfg.tip && <p className="rj-auth-error-tip">{cfg.tip}</p>}
-        <div className="rj-auth-error-actions">
-          <button className="rj-auth-error-dismiss" onClick={onDismiss}>Dismiss</button>
-          {cfg.canRetry && (
-            <button className="rj-auth-error-retry" onClick={onRetry}>
-              Try again with Discord
-            </button>
-          )}
-        </div>
-      </div>
-    </div>
-  )
-}
+const GoogleIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24">
+    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+  </svg>
+)
 
 export default function RoomJoin({ onJoin, user, onGuestLogin }) {
-  const [roomId, setRoomId] = useState(() =>
-    sessionStorage.getItem('groove_invite_room') || ''
-  )
+  const [roomId, setRoomId]         = useState(() => sessionStorage.getItem('groove_invite_room') || '')
   const [guestName, setGuestName]   = useState('')
-  const [showGuest, setShowGuest]   = useState(false)
   const [guestError, setGuestError] = useState('')
+  const [view, setView]             = useState('login') // 'login' | 'guest'
 
-  // Detect auth error from redirect URL on mount
-  const [loginError, setLoginError] = useState(() => {
-    const p = new URLSearchParams(window.location.search)
-    if (p.get('error') !== 'auth_failed') return null
-    window.history.replaceState({}, '', '/')
-    const reason = p.get('reason') || ''
-    if (reason === 'rate_limit' || reason.includes('1015')) return 'rate_limit'
-    if (reason === 'denied' || reason.includes('access_denied')) return 'denied'
-    if (reason === 'config' || reason.includes('invalid_client')) return 'config'
-    return 'generic'
-  })
-
-  const handleDiscordLogin = () => {
-    setLoginError(null)
-    window.location.href = `${BACKEND}/auth/discord`
-  }
-
-  const handleGoogleLogin = () => {
-    window.location.href = `${BACKEND}/auth/google`
-  }
+  const handleGoogleLogin = () => { window.location.href = `${BACKEND}/auth/google` }
 
   const handleGuestSubmit = () => {
     const name = guestName.trim()
-    if (!name)         { setGuestError('Please enter a username'); return }
+    if (!name)            { setGuestError('Please enter a username'); return }
     if (name.length < 2)  { setGuestError('Must be at least 2 characters'); return }
     if (name.length > 20) { setGuestError('Max 20 characters'); return }
     onGuestLogin({ username: name })
@@ -123,11 +57,10 @@ export default function RoomJoin({ onJoin, user, onGuestLogin }) {
   }
 
   const handleCreate = () => {
-    const generated = Math.random().toString(36).substring(2, 8).toUpperCase()
-    onJoin({ roomId: generated })
+    onJoin({ roomId: Math.random().toString(36).substring(2, 8).toUpperCase() })
   }
 
-  // ── Not logged in ─────────────────────────────────────────
+  // Not logged in
   if (!user) {
     return (
       <div className="room-join">
@@ -139,48 +72,27 @@ export default function RoomJoin({ onJoin, user, onGuestLogin }) {
           </h1>
           <p className="join-sub">Listen to music in sync with your friends</p>
 
-          {/* Auth error banner — shows when redirected back after failed login */}
-          {loginError && (
-            <AuthErrorBanner
-              type={loginError}
-              onDismiss={() => setLoginError(null)}
-              onRetry={handleDiscordLogin}
-            />
-          )}
-
-          {!showGuest ? (
-            <>
-              <button className="discord-login-btn" onClick={handleDiscordLogin}>
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057c.003.022.015.04.03.05a19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03z"/>
-                </svg>
-                Continue with Discord
-              </button>
-
+          {view === 'login' ? (
+            <div className="join-form">
               <button className="google-login-btn" onClick={handleGoogleLogin}>
-                <svg width="20" height="20" viewBox="0 0 24 24">
-                  <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                  <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                  <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-                  <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-                </svg>
+                <GoogleIcon />
                 Continue with Google
               </button>
-
               <div className="divider"><span>or</span></div>
-
-              <button className="guest-login-btn" onClick={() => setShowGuest(true)}>
-                👤 Continue as Guest
+              <button className="guest-login-btn" onClick={() => setView('guest')}>
+                <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18">
+                  <path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/>
+                </svg>
+                Continue as Guest
               </button>
-
-              <p className="join-note">Guest accounts don't save your library</p>
-            </>
+              <p className="join-note">Guest accounts don't save your library or history</p>
+            </div>
           ) : (
             <div className="guest-form">
-              <p className="guest-form-title">Choose a username</p>
+              <p className="guest-form-title">Choose your display name</p>
               <input
                 type="text"
-                placeholder="Your display name..."
+                placeholder="e.g. DreamCatcher..."
                 value={guestName}
                 onChange={(e) => { setGuestName(e.target.value); setGuestError('') }}
                 onKeyDown={(e) => e.key === 'Enter' && handleGuestSubmit()}
@@ -188,12 +100,8 @@ export default function RoomJoin({ onJoin, user, onGuestLogin }) {
                 autoFocus
               />
               {guestError && <p className="guest-error">{guestError}</p>}
-              <button className="btn-primary" onClick={handleGuestSubmit}>
-                Join as Guest
-              </button>
-              <button className="btn-back" onClick={() => { setShowGuest(false); setGuestError('') }}>
-                ← Back to login
-              </button>
+              <button className="btn-primary" onClick={handleGuestSubmit}>Enter Groove →</button>
+              <button className="btn-back" onClick={() => { setView('login'); setGuestError('') }}>← Back</button>
             </div>
           )}
         </div>
@@ -201,12 +109,8 @@ export default function RoomJoin({ onJoin, user, onGuestLogin }) {
     )
   }
 
-  // ── Logged in — show room join ────────────────────────────
-  const providerLabel = user.isGuest
-    ? '👤 Guest'
-    : user.provider === 'google'
-    ? '🔵 via Google'
-    : '🎮 via Discord'
+  // Logged in — room join
+  const providerLabel = user.isGuest ? '👤 Guest' : '🔵 via Google'
 
   return (
     <div className="room-join">
@@ -218,13 +122,10 @@ export default function RoomJoin({ onJoin, user, onGuestLogin }) {
         </h1>
 
         <div className="discord-user">
-          {user.avatar ? (
-            <img src={user.avatar} alt="" className="discord-avatar" />
-          ) : (
-            <div className="discord-avatar-placeholder">
-              {user.username?.slice(0, 2).toUpperCase()}
-            </div>
-          )}
+          {user.avatar
+            ? <img src={user.avatar} alt="" className="discord-avatar" />
+            : <div className="discord-avatar-placeholder">{user.username?.slice(0, 2).toUpperCase()}</div>
+          }
           <div>
             <p className="discord-name">{user.username}</p>
             <p className="discord-sub">{providerLabel}</p>
@@ -240,7 +141,7 @@ export default function RoomJoin({ onJoin, user, onGuestLogin }) {
             onKeyDown={(e) => e.key === 'Enter' && handleJoin()}
             maxLength={10}
           />
-          <button className="btn-primary" onClick={handleJoin}>
+          <button className="btn-primary" onClick={handleJoin} disabled={!roomId.trim()}>
             Join Room
           </button>
           <div className="divider"><span>or</span></div>
