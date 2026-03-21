@@ -461,12 +461,14 @@ function App() {
   }, [])
 
   // ── Auto-rejoin on reload + invite room handling ──────────
+  // Key is user-specific so different accounts don't share saved rooms
+  const roomStorageKey = user ? `groove_roomId_${user.id}` : null
+
   useEffect(() => {
     if (!user || IS_DISCORD) return
     if (roomId) return
-    // Check invite link first, then saved room
     const inviteRoom = sessionStorage.getItem('groove_invite_room')
-    const savedRoom  = localStorage.getItem('groove_roomId')
+    const savedRoom  = roomStorageKey ? localStorage.getItem(roomStorageKey) : null
     const targetRoom = inviteRoom || savedRoom
     if (!targetRoom) return
     if (inviteRoom) sessionStorage.removeItem('groove_invite_room')
@@ -491,7 +493,7 @@ function App() {
 
   const handleJoin = ({ roomId }) => {
     setRoomId(roomId)
-    localStorage.setItem('groove_roomId', roomId)
+    if (roomStorageKey) localStorage.setItem(roomStorageKey, roomId)
     if (!socket.connected) socket.connect()
     socket.emit('join-room', { roomId, username: user.username, avatar: user.avatar, discordId: user.id })
   }
@@ -501,7 +503,7 @@ function App() {
   const confirmLeaveRoom = () => {
     setShowLeaveConfirm(false)
     socket.emit('leave-room', { roomId, username: user?.username })
-    localStorage.removeItem('groove_roomId')
+    if (roomStorageKey) localStorage.removeItem(roomStorageKey)
     setRoomId(null)
     setQueue([])
     setCurrentIndex(0)
@@ -609,7 +611,7 @@ function App() {
 
   const handleLogout = async () => {
     await fetch(`${BACKEND}/auth/logout`, { credentials: 'include' })
-    localStorage.removeItem('groove_roomId')
+    if (roomStorageKey) localStorage.removeItem(roomStorageKey)
     setUser(null)
     setRoomId(null)
   }
