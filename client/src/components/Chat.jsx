@@ -158,10 +158,15 @@ const ContextMenu = memo(({ isSelf, onReact, onReply, onCopy, onEdit, onDelete, 
       <>
         <div className="ig-ctx-overlay" onClick={() => setShowFullEmoji(false)} />
         <div style={{
-          position: 'fixed', bottom: 0, left: 0, right: 0,
+          position: 'fixed',
+          bottom: 0,
+          left: '50%',
+          transform: 'translateX(-50%)',
+          width: 352,
           zIndex: 1052,
           background: '#0e0c1a',
           borderRadius: '20px 20px 0 0',
+          overflow: 'hidden',
         }}>
           {/* Header */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px 8px' }}>
@@ -171,14 +176,11 @@ const ContextMenu = memo(({ isSelf, onReact, onReply, onCopy, onEdit, onDelete, 
               ✕
             </button>
           </div>
-          {/* Picker — emoji-mart controls its own width, we just give it height */}
-          <div style={{ display: 'flex', justifyContent: 'center' }}>
-            <EmojiPicker
-              onSelect={(e) => { onReact(e); onClose() }}
-              onClose={() => setShowFullEmoji(false)}
-              height={pickerH}
-            />
-          </div>
+          <EmojiPicker
+            onSelect={(e) => { onReact(e); onClose() }}
+            onClose={() => setShowFullEmoji(false)}
+            height={pickerH}
+          />
         </div>
       </>
     )
@@ -939,7 +941,7 @@ export default function Chat({
             <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg>
           </div>
           <div className="dc-header-text">
-            <span className="dc-header-name">room-chat</span>
+            <span className="dc-header-name">Room Chat</span>
             {currentSong && !searchOpen && (
               <span className="dc-header-np">
                 <svg width="8" height="8" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6z"/></svg>
