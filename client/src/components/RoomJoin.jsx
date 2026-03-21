@@ -29,10 +29,10 @@ const GrooveLogo = () => (
 // Error messages per type
 const ERROR_CONFIG = {
   rate_limit: {
-    icon: '⏳',
-    title: 'Discord is temporarily unavailable',
-    body: "Discord's servers are rate-limiting login attempts from our server. This fixes itself automatically — please wait 15–30 minutes before trying again.",
-    tip: '💡 You can still join as a guest while waiting',
+    icon: '🔌',
+    title: 'Discord login is blocked',
+    body: "Cloudflare is blocking Discord OAuth from our server's IP. This is a known Render.com issue — it won't fix itself by waiting.",
+    tip: '✅ Use Google login or Guest mode instead — they work perfectly',
     canRetry: false,
   },
   denied: {

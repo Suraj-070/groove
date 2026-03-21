@@ -3,6 +3,18 @@ const router         = express.Router()
 const passport       = require('passport')
 const DiscordStrategy = require('passport-discord').Strategy
 const GoogleStrategy  = require('passport-google-oauth20').Strategy
+
+// Patch http/https to add browser-like headers for all Discord requests
+// Fixes Cloudflare 1015 error on Render.com
+const https = require('https')
+const _httpsRequest = https.request.bind(https)
+https.request = (options, callback) => {
+  if (typeof options === 'object' && options.hostname?.includes('discord.com')) {
+    options.headers = options.headers || {}
+    options.headers['User-Agent'] = 'GrooveApp/1.0 (Music Sync App)'
+  }
+  return _httpsRequest(options, callback)
+}
 const { randomUUID } = require('crypto')
 
 const FRONTEND = process.env.FRONTEND_URL || 'http://localhost:5173'
