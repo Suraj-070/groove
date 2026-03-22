@@ -26,8 +26,10 @@ const FRONTEND = process.env.FRONTEND_URL || 'http://localhost:5173'
 
 // ── Email transporter ─────────────────────────────────────
 function getTransporter() {
-  // Resend.com — most reliable, works on all hosting (free 100 emails/day)
+  // Resend.com — only reliable option on Render (SMTP ports are blocked)
+  // Get free API key at resend.com → add RESEND_API_KEY to Render env vars
   if (process.env.RESEND_API_KEY) {
+    console.log('[Email] Using Resend transporter')
     return nodemailer.createTransport({
       host:   'smtp.resend.com',
       port:   465,
@@ -35,24 +37,8 @@ function getTransporter() {
       auth: { user: 'resend', pass: process.env.RESEND_API_KEY },
     })
   }
-  // Gmail via port 465 (SSL) — more reliable than 587 on Render
-  if (process.env.GMAIL_USER) {
-    return nodemailer.createTransport({
-      host:   'smtp.gmail.com',
-      port:   465,
-      secure: true,   // SSL on 465, not STARTTLS on 587
-      auth: { user: process.env.GMAIL_USER, pass: process.env.GMAIL_PASS },
-    })
-  }
-  // Custom SMTP
-  if (process.env.EMAIL_HOST) {
-    return nodemailer.createTransport({
-      host:   process.env.EMAIL_HOST,
-      port:   parseInt(process.env.EMAIL_PORT || '465'),
-      secure: process.env.EMAIL_SECURE !== 'false',
-      auth:   { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS },
-    })
-  }
+  // NOTE: Gmail/SMTP not used — Render blocks all SMTP ports on free tier
+  console.log('[Email] No RESEND_API_KEY set — email disabled')
   return null
 }
 
