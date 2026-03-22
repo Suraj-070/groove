@@ -187,13 +187,15 @@ const RoomSession = mongoose.models.RoomSession || mongoose.model('RoomSession',
 
 // ── Email Auth Models ─────────────────────────────────────
 const userSchema = new mongoose.Schema({
-  email:        { type: String, required: true, unique: true, lowercase: true, trim: true },
-  username:     { type: String, required: true, trim: true },
-  passwordHash: { type: String, default: null },
-  avatar:       { type: String, default: null },
-  provider:     { type: String, default: 'email' },
-  verified:     { type: Boolean, default: false },
-  createdAt:    { type: Date, default: Date.now },
+  email:           { type: String, required: true, unique: true, lowercase: true, trim: true },
+  username:        { type: String, required: true, trim: true },
+  passwordHash:    { type: String, default: null },
+  avatar:          { type: String, default: null },
+  provider:        { type: String, default: 'email' },
+  linkedProviders: { type: [String], default: [] }, // ['google', 'email', 'magic']
+  googleId:        { type: String, default: null },
+  verified:        { type: Boolean, default: false },
+  createdAt:       { type: Date, default: Date.now },
 })
 const User = mongoose.models.User || mongoose.model('User', userSchema)
 

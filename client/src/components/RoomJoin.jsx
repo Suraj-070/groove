@@ -186,18 +186,44 @@ export default function RoomJoin({ onJoin, user, onGuestLogin }) {
     setLoading(true); setError('')
     try {
       const u = await apiPost('/auth/email/register', { email, password, username })
-      onGuestLogin(u)
-    } catch (e) { setError(e.message) }
+      if (u.linked) {
+        // Password was added to existing Google/magic account — show brief success
+        setSuccess('Password added to your existing account!')
+        setTimeout(() => onGuestLogin(u), 800)
+      } else {
+        onGuestLogin(u)
+      }
+    } catch (e) {
+      setError(e.message)
+      // Server says account exists with password — redirect to login
+      if (e.message.includes('Sign in instead')) {
+        setTimeout(() => go('login'), 1200)
+      }
+    }
     finally { setLoading(false) }
   }
 
+  const [loginHint, setLoginHint] = useState('')
+
   const handleLogin = async () => {
     if (!email.trim() || !password) return setError('Email and password are required')
-    setLoading(true); setError('')
+    setLoading(true); setError(''); setLoginHint('')
     try {
       const u = await apiPost('/auth/email/login', { email, password })
       onGuestLogin(u)
-    } catch (e) { setError(e.message) }
+    } catch (e) {
+      setError(e.message)
+      // Server told us which method to use
+      try {
+        const res = await fetch(`${BACKEND}/auth/email/login`, {
+          method: 'POST', credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password }),
+        })
+        const data = await res.json()
+        if (data.hint) setLoginHint(data.hint)
+      } catch {}
+    }
     finally { setLoading(false) }
   }
 
@@ -334,7 +360,20 @@ export default function RoomJoin({ onJoin, user, onGuestLogin }) {
       <p className="join-sub" style={{ marginBottom: 18 }}>Sign in to your account</p>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
         <ErrMsg msg={error} />
-        <Field label="Email" type="email" value={email} onChange={setEmail} placeholder="you@example.com" />
+        {/* Smart hint — redirect to correct method */}
+        {loginHint === 'google' && (
+          <button onClick={() => window.location.href = `${BACKEND}/auth/google`}
+            style={{ padding: '11px', background: 'rgba(66,133,244,0.1)', border: '1px solid rgba(66,133,244,0.3)', borderRadius: 10, color: '#7ab3ff', fontFamily: 'inherit', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer' }}>
+            → Sign in with Google instead
+          </button>
+        )}
+        {loginHint === 'magic' && (
+          <button onClick={() => go('magic')}
+            style={{ padding: '11px', background: 'rgba(255,184,106,0.1)', border: '1px solid rgba(255,184,106,0.25)', borderRadius: 10, color: '#ffd080', fontFamily: 'inherit', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer' }}>
+            → Send me a magic link instead
+          </button>
+        )}
+        <Field label="Email" type="email" value={email} onChange={v => { setEmail(v); setLoginHint('') }} placeholder="you@example.com" />
         <Field label="Password" type="password" value={password} onChange={setPassword} placeholder="Your password" onEnter={handleLogin} />
         <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
           <LinkBtn onClick={() => go('forgot')}>Forgot password?</LinkBtn>
@@ -355,6 +394,7 @@ export default function RoomJoin({ onJoin, user, onGuestLogin }) {
       <p className="join-sub" style={{ marginBottom: 18 }}>Create your Groove account</p>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
         <ErrMsg msg={error} />
+        <OkMsg msg={success} />
         <Field label="Username" value={username} onChange={setUsername} placeholder="Your display name" />
         <Field label="Email" type="email" value={email} onChange={setEmail} placeholder="you@example.com" />
         <Field label="Password" type="password" value={password} onChange={setPassword} placeholder="Min 6 characters" />

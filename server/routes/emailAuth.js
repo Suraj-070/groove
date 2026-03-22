@@ -106,13 +106,14 @@ function welcomeEmail(username) {
 }
 
 // ── Helpers ───────────────────────────────────────────────
-function makeUserSession(user) {
+function makeSession(user) {
   return {
-    id:       `email_${user._id}`,
-    username: user.username,
-    avatar:   user.avatar,
-    email:    user.email,
-    provider: 'email',
+    id:        `email_${user._id}`,
+    username:  user.username,
+    avatar:    user.avatar,
+    email:     user.email,
+    provider:  user.linkedProviders?.includes('google') ? 'google' : 'email',
+    providers: user.linkedProviders || [],
   }
 }
 
@@ -145,24 +146,47 @@ router.post('/auth/email/register', async (req, res) => {
     if (username.trim().length > 24)
       return res.status(400).json({ error: 'Username must be under 24 characters' })
 
-    // Check if email already exists
-    const existing = await User.findOne({ email: email.toLowerCase() })
-    if (existing) return res.status(409).json({ error: 'An account with this email already exists' })
+    const emailLower = email.toLowerCase()
+    const existing = await User.findOne({ email: emailLower })
 
+    if (existing) {
+      if (existing.passwordHash) {
+        // Already has a password — just tell them to log in
+        return res.status(409).json({
+          error: 'An account with this email already exists. Sign in instead.',
+          hint: 'login'
+        })
+      }
+
+      // Account exists (Google/magic) but no password yet — ADD password to it
+      // This links email auth to their existing account seamlessly
+      existing.passwordHash = await bcrypt.hash(password, 12)
+      if (username.trim() && !existing.username) existing.username = username.trim()
+      if (!existing.linkedProviders) existing.linkedProviders = []
+      if (!existing.linkedProviders.includes('email')) existing.linkedProviders.push('email')
+      await existing.save()
+
+      const sessionUser = makeSession(existing)
+      return req.login(sessionUser, (err) => {
+        if (err) return res.status(500).json({ error: 'Login failed' })
+        res.json({ ...sessionUser, linked: true, message: 'Password added to your existing account!' })
+      })
+    }
+
+    // Brand new account
     const passwordHash = await bcrypt.hash(password, 12)
-
     const user = await User.create({
-      email:    email.toLowerCase(),
-      username: username.trim(),
+      email:           emailLower,
+      username:        username.trim(),
       passwordHash,
-      provider: 'email',
-      verified: true, // skip email verification for now
+      provider:        'email',
+      linkedProviders: ['email'],
+      verified:        true,
     })
 
-    const sessionUser = makeUserSession(user)
+    const sessionUser = makeSession(user)
     req.login(sessionUser, (err) => {
       if (err) return res.status(500).json({ error: 'Login failed after registration' })
-      // Send welcome email (non-blocking)
       sendEmail({ to: user.email, subject: 'Welcome to Groove Together! 🎵', html: welcomeEmail(user.username) })
       res.json(sessionUser)
     })
@@ -183,13 +207,24 @@ router.post('/auth/email/login', async (req, res) => {
     const user = await User.findOne({ email: email.toLowerCase() })
     if (!user) return res.status(401).json({ error: 'No account found with this email' })
 
-    if (!user.passwordHash)
-      return res.status(401).json({ error: 'This account uses magic link sign in. Request a magic link instead.' })
+    if (!user.passwordHash) {
+      // Account exists but no password — tell them which method to use
+      const providers = user.linkedProviders || []
+      if (providers.includes('google'))
+        return res.status(401).json({ error: 'This account uses Google sign-in. Use "Continue with Google" instead.', hint: 'google' })
+      return res.status(401).json({ error: 'This account uses magic link. Request a magic link to sign in.', hint: 'magic' })
+    }
 
     const valid = await bcrypt.compare(password, user.passwordHash)
     if (!valid) return res.status(401).json({ error: 'Incorrect password' })
 
-    const sessionUser = makeUserSession(user)
+    // Link email provider if not already
+    if (!user.linkedProviders?.includes('email')) {
+      user.linkedProviders = [...(user.linkedProviders || []), 'email']
+      await user.save()
+    }
+
+    const sessionUser = makeSession(user)
     req.login(sessionUser, (err) => {
       if (err) return res.status(500).json({ error: 'Login failed' })
       res.json(sessionUser)
@@ -215,7 +250,7 @@ router.post('/auth/magic/send', async (req, res) => {
     if (!user) {
       // Auto-create account with email as username base
       const username = email.split('@')[0].replace(/[^a-zA-Z0-9_]/g, '').slice(0, 20) || 'Groover'
-      user = await User.create({ email: emailLower, username, provider: 'email', verified: true })
+      user = await User.create({ email: emailLower, username, provider: 'email', linkedProviders: ['magic'], verified: true })
     }
 
     // Delete any existing unused tokens for this email
@@ -266,11 +301,16 @@ router.post('/auth/magic/verify', async (req, res) => {
     record.used = true
     await record.save()
 
-    // Get user
+    // Get user and ensure magic is in linkedProviders
     const user = await User.findOne({ email: record.email })
     if (!user) return res.status(401).json({ error: 'Account not found' })
 
-    const sessionUser = makeUserSession(user)
+    if (!user.linkedProviders?.includes('magic')) {
+      user.linkedProviders = [...(user.linkedProviders || []), 'magic']
+      await user.save()
+    }
+
+    const sessionUser = makeSession(user)
     req.login(sessionUser, (err) => {
       if (err) return res.status(500).json({ error: 'Login failed' })
       res.json(sessionUser)
@@ -342,7 +382,7 @@ router.post('/auth/email/reset', async (req, res) => {
     )
     if (!user) return res.status(404).json({ error: 'Account not found' })
 
-    const sessionUser = makeUserSession(user)
+    const sessionUser = makeSession(user)
     req.login(sessionUser, (err) => {
       if (err) return res.status(500).json({ error: 'Login failed after reset' })
       res.json({ success: true, user: sessionUser })
