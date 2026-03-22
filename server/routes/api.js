@@ -1,6 +1,19 @@
 const express  = require('express')
 const router   = express.Router()
-const { SongDNA, UserProfile, ListenHistory, Moment, SharedSongs, PushSub, RoomSession } = require('../models')
+const { SongDNA, UserProfile, ListenHistory, Moment, SharedSongs, PushSub, RoomSession, User } = require('../models')
+
+// Normalize Google users to their email_ MongoDB id
+async function normalizeUserId(user) {
+  if (!user) return null
+  if (user.id?.startsWith('email_')) return user.id
+  if (user.id?.startsWith('google_') && user.email) {
+    try {
+      const dbUser = await User.findOne({ email: user.email })
+      if (dbUser) return `email_${dbUser._id}`
+    } catch {}
+  }
+  return user.id
+}
 const { enrichSong, flowScore, deriveCategory } = require('../services/music')
 const { sendPush, sendPushToRoom } = require('../services/push')
 const { requireAuth } = require('./auth')
@@ -100,7 +113,7 @@ router.post('/flow-scores', requireAuth, async (req, res) => {
 router.get('/taste-fingerprint', requireAuth, async (req, res) => {
   try {
     // Get user's listen history
-    const history = await ListenHistory.find({ userId: req.user.id })
+    const history = await ListenHistory.find({ userId: await normalizeUserId(req.user) })
       .sort({ listenedAt: -1 })
       .limit(100)
       .lean();
@@ -153,8 +166,8 @@ router.get('/taste-fingerprint', requireAuth, async (req, res) => {
 
 router.get('/profile/me', requireAuth, async (req, res) => {
   try {
-    const profile = await UserProfile.findOne({ userId: req.user.id }).lean();
-    res.json({ profile: profile || { userId: req.user.id, streak: 0, longestStreak: 0 } });
+    const profile = await UserProfile.findOne({ userId: await normalizeUserId(req.user) }).lean();
+    res.json({ profile: profile || { userId: await normalizeUserId(req.user), streak: 0, longestStreak: 0 } });
   } catch (e) { res.status(500).json({ error: 'Failed to load profile' }); }
 });
 
@@ -196,7 +209,7 @@ router.get('/time-machine', requireAuth, async (req, res) => {
       const dayEnd   = dayStart + 86400000;
       const sessions = await RoomSession.find({
         sessionStart: { $gte: dayStart, $lt: dayEnd },
-        'participants.userId': req.user.id,
+        'participants.userId': await normalizeUserId(req.user),
       }).lean();
       if (sessions.length > 0) {
         memories.push({
@@ -336,7 +349,7 @@ router.get('/radar', requireAuth, async (req, res) => {
 
   try {
     // 1. Get listen history
-    const history = await ListenHistory.find({ userId: req.user.id })
+    const history = await ListenHistory.find({ userId: await normalizeUserId(req.user) })
       .sort({ listenedAt: -1 }).limit(150).lean()
     if (history.length < 3) return res.json({ results: [], message: 'Listen to more songs to unlock Radar' })
 
@@ -595,7 +608,7 @@ router.get('/wrapped', requireAuth, async (req, res) => {
   try {
     const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
     const history = await ListenHistory.find({
-      userId: req.user.id, listenedAt: { $gt: weekAgo }
+      userId: await normalizeUserId(req.user), listenedAt: { $gt: weekAgo }
     }).sort({ listenedAt: -1 }).lean();
 
     if (history.length < 3) return res.json({ wrapped: null, message: 'Not enough data for this week yet' });
@@ -615,7 +628,7 @@ router.get('/wrapped', requireAuth, async (req, res) => {
 
     // Sessions this week
     const sessions = await RoomSession.find({
-      sessionStart: { $gt: weekAgo }, 'participants.userId': req.user.id
+      sessionStart: { $gt: weekAgo }, 'participants.userId': await normalizeUserId(req.user)
     }).lean();
     const totalMinutes = Math.round(history.length * 3.5); // estimate ~3.5min per song
     const uniqueRooms  = new Set(sessions.map(s=>s.roomId)).size;
@@ -625,7 +638,7 @@ router.get('/wrapped', requireAuth, async (req, res) => {
     }, {});
 
     // Profile for streak
-    const profile = await UserProfile.findOne({ userId: req.user.id }).lean();
+    const profile = await UserProfile.findOne({ userId: await normalizeUserId(req.user) }).lean();
 
     res.json({
       wrapped: {
@@ -654,13 +667,13 @@ router.get('/history', requireAuth, async (req, res) => {
   try {
     const page  = parseInt(req.query.page  || '1');
     const limit = parseInt(req.query.limit || '50');
-    const history = await ListenHistory.find({ userId: req.user.id })
+    const history = await ListenHistory.find({ userId: await normalizeUserId(req.user) })
       .sort({ listenedAt: -1 })
       .skip((page - 1) * limit)
       .limit(limit)
       .select('-_id -__v')
       .lean();
-    const total = await ListenHistory.countDocuments({ userId: req.user.id });
+    const total = await ListenHistory.countDocuments({ userId: await normalizeUserId(req.user) });
     console.log(`[History] GET userId="${req.user.id}" found=${total}`);
     res.json({ history, total, page, pages: Math.ceil(total / limit) });
   } catch (e) { res.status(500).json({ error: 'Failed to load history' }); }
@@ -668,7 +681,7 @@ router.get('/history', requireAuth, async (req, res) => {
 
 router.delete('/history', requireAuth, async (req, res) => {
   try {
-    await ListenHistory.deleteMany({ userId: req.user.id });
+    await ListenHistory.deleteMany({ userId: await normalizeUserId(req.user) });
     res.json({ success: true });
   } catch (e) { res.status(500).json({ error: 'Failed to clear history' }); }
 });
@@ -677,7 +690,7 @@ router.delete('/history', requireAuth, async (req, res) => {
 
 router.get('/moments', requireAuth, async (req, res) => {
   try {
-    const moments = await Moment.find({ userId: req.user.id })
+    const moments = await Moment.find({ userId: await normalizeUserId(req.user) })
       .sort({ stampedAt: -1 })
       .limit(200)
       .select('-_id -__v')
@@ -693,12 +706,12 @@ router.post('/moments', requireAuth, async (req, res) => {
   try {
     // Check duplicate — same song + within 10s of existing stamp
     const existing = await Moment.findOne({
-      userId: req.user.id,
+      userId: await normalizeUserId(req.user),
       videoId,
       timestamp: { $gte: Number(timestamp) - 10, $lte: Number(timestamp) + 10 }
     });
     if (existing) return res.status(409).json({ error: 'Already stamped this moment' });
-    await Moment.create({ userId: req.user.id, videoId, title, timestamp, roomId: roomId || '', note: note || '' });
+    await Moment.create({ userId: await normalizeUserId(req.user), videoId, title, timestamp, roomId: roomId || '', note: note || '' });
     console.log(`[Moment] ✅ saved for userId="${req.user.id}" title="${(title||'').slice(0,30)}" ts=${timestamp}`);
     res.json({ success: true });
   } catch (e) { res.status(500).json({ error: 'Failed to save moment' }); }
@@ -707,7 +720,7 @@ router.post('/moments', requireAuth, async (req, res) => {
 router.delete('/moments/:videoId', requireAuth, async (req, res) => {
   try {
     const { stampedAt } = req.query;
-    const query = { userId: req.user.id, videoId: req.params.videoId };
+    const query = { userId: await normalizeUserId(req.user), videoId: req.params.videoId };
     if (stampedAt) query.stampedAt = Number(stampedAt);
     await Moment.deleteMany(query);
     res.json({ success: true });
@@ -776,7 +789,7 @@ router.post('/push/subscribe', requireAuth, async (req, res) => {
     await PushSub.findOneAndUpdate(
       { endpoint: subscription.endpoint },
       {
-        userId: req.user.id,
+        userId: await normalizeUserId(req.user),
         endpoint: subscription.endpoint,
         keys: subscription.keys,
         prefs: prefs || {},
@@ -795,14 +808,14 @@ router.post('/push/subscribe', requireAuth, async (req, res) => {
 router.post('/push/unsubscribe', requireAuth, async (req, res) => {
   const { endpoint } = req.body;
   if (endpoint) await PushSub.deleteOne({ endpoint });
-  else await PushSub.deleteMany({ userId: req.user.id });
+  else await PushSub.deleteMany({ userId: await normalizeUserId(req.user) });
   res.json({ success: true });
 });
 
 // Update notification preferences
 router.patch('/push/prefs', requireAuth, async (req, res) => {
   const { prefs } = req.body;
-  await PushSub.updateMany({ userId: req.user.id }, { $set: { prefs } });
+  await PushSub.updateMany({ userId: await normalizeUserId(req.user) }, { $set: { prefs } });
   res.json({ success: true });
 });
 

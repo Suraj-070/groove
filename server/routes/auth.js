@@ -34,13 +34,14 @@ if (process.env.GOOGLE_CLIENT_ID) {
       const username = profile.displayName
 
       if (!email) {
-        // No email from Google — fall back to google-only ID
+        // No email from Google — use google_ prefix but mark as full user not guest
         return done(null, {
           id: `google_${profile.id}`,
           username,
           avatar,
           provider: 'google',
           providers: ['google'],
+          isGuest: false,  // explicitly not a guest
         })
       }
 
@@ -117,8 +118,9 @@ router.get('/auth/logout', (req, res) => {
 
 // ── Middleware ────────────────────────────────────────────
 function requireAuth(req, res, next) {
-  if (req.isAuthenticated() && !req.user?.isGuest) return next()
-  res.status(401).json({ error: 'Not authenticated' })
+  if (!req.isAuthenticated()) return res.status(401).json({ error: 'Not authenticated' })
+  if (req.user?.isGuest) return res.status(401).json({ error: 'Guests cannot use this feature. Please create an account.' })
+  return next()
 }
 
 module.exports = { router, requireAuth }

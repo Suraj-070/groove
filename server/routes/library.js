@@ -1,8 +1,25 @@
 const express   = require('express')
 const router    = express.Router()
 const { randomUUID } = require('crypto')
-const { Library, SharedSongs, ListenHistory } = require('../models')
+const { Library, SharedSongs, ListenHistory, User } = require('../models')
 const { requireAuth } = require('./auth')
+
+// Normalize userId — email users use email_<mongoId>, Google users use google_<googleId>
+// For Google users who also have a MongoDB account, use the email_ id for consistency
+async function normalizeUserId(user) {
+  if (!user) return null
+  // Already email_ format — consistent
+  if (user.id?.startsWith('email_')) return user.id
+  // Google user — check if they have a MongoDB account
+  if (user.id?.startsWith('google_') && user.email) {
+    try {
+      const dbUser = await User.findOne({ email: user.email })
+      if (dbUser) return `email_${dbUser._id}`
+    } catch {}
+  }
+  // Fall back to whatever id they have
+  return user.id
+}
 
 // In-memory fallback when no MongoDB
 const memLibraries = {}
@@ -19,7 +36,7 @@ async function getLibrary(userId) {
 // ─── LIBRARY API ──────────────────────────────────────────────
 router.get('/library', requireAuth, async (req, res) => {
   try {
-    const lib = await getLibrary(req.user.id);
+    const userId = await normalizeUserId(req.user); const lib = await getLibrary(userId);
     res.json({ categories: lib.categories });
   } catch (e) {
     console.error('GET /library error:', e);
@@ -34,13 +51,13 @@ router.post('/library/categories', requireAuth, async (req, res) => {
     const category = { id: randomUUID(), name: name.trim(), color: color || '#7c6aff', songs: [], createdAt: Date.now() };
 
     if (!process.env.MONGODB_URI) {
-      const lib = await getLibrary(req.user.id);
+      const userId = await normalizeUserId(req.user); const lib = await getLibrary(userId);
       lib.categories.push(category);
       return res.json(category);
     }
 
     await Library.findOneAndUpdate(
-      { userId: req.user.id },
+      { userId: await normalizeUserId(req.user) },
       { $push: { categories: category }, $set: { updatedAt: Date.now() } },
       { upsert: true }
     );
@@ -54,12 +71,12 @@ router.post('/library/categories', requireAuth, async (req, res) => {
 router.delete('/library/categories/:categoryId', requireAuth, async (req, res) => {
   try {
     if (!process.env.MONGODB_URI) {
-      const lib = await getLibrary(req.user.id);
+      const userId = await normalizeUserId(req.user); const lib = await getLibrary(userId);
       lib.categories = lib.categories.filter(c => c.id !== req.params.categoryId);
       return res.json({ success: true });
     }
     await Library.findOneAndUpdate(
-      { userId: req.user.id },
+      { userId: await normalizeUserId(req.user) },
       { $pull: { categories: { id: req.params.categoryId } }, $set: { updatedAt: Date.now() } }
     );
     res.json({ success: true });
@@ -73,7 +90,7 @@ router.post('/library/categories/:categoryId/songs', requireAuth, async (req, re
     const { videoId, title } = req.body;
     if (!videoId) return res.status(400).json({ error: 'videoId required' });
 
-    const lib = await getLibrary(req.user.id);
+    const userId = await normalizeUserId(req.user); const lib = await getLibrary(userId);
     const categories = lib.categories || [];
     const category = categories.find(c => c.id === req.params.categoryId);
     if (!category) return res.status(404).json({ error: 'Collection not found' });
@@ -88,7 +105,7 @@ router.post('/library/categories/:categoryId/songs', requireAuth, async (req, re
     }
 
     await Library.findOneAndUpdate(
-      { userId: req.user.id, 'categories.id': req.params.categoryId },
+      { userId: await normalizeUserId(req.user), 'categories.id': req.params.categoryId },
       { $push: { 'categories.$.songs': song }, $set: { updatedAt: Date.now() } }
     );
     res.json(song);
@@ -107,7 +124,7 @@ router.post('/library/categories/:categoryId/songs/batch', requireAuth, async (r
       return res.status(400).json({ error: 'songs array required' });
 
     const CRATE_SONG_LIMIT = 500;
-    const lib = await getLibrary(req.user.id);
+    const userId = await normalizeUserId(req.user); const lib = await getLibrary(userId);
     const category = (lib.categories || []).find(c => c.id === req.params.categoryId);
     if (!category) return res.status(404).json({ error: 'Collection not found' });
 
@@ -132,7 +149,7 @@ router.post('/library/categories/:categoryId/songs/batch', requireAuth, async (r
 
     if (toAdd.length > 0) {
       await Library.findOneAndUpdate(
-        { userId: req.user.id, 'categories.id': req.params.categoryId },
+        { userId: await normalizeUserId(req.user), 'categories.id': req.params.categoryId },
         { $push: { 'categories.$.songs': { $each: toAdd } }, $set: { updatedAt: Date.now() } }
       );
     }
@@ -146,14 +163,14 @@ router.post('/library/categories/:categoryId/songs/batch', requireAuth, async (r
 router.delete('/library/categories/:categoryId/songs/:videoId', requireAuth, async (req, res) => {
   try {
     if (!process.env.MONGODB_URI) {
-      const lib = await getLibrary(req.user.id);
+      const userId = await normalizeUserId(req.user); const lib = await getLibrary(userId);
       const category = lib.categories.find(c => c.id === req.params.categoryId);
       if (category) category.songs = category.songs.filter(s => s.videoId !== req.params.videoId);
       return res.json({ success: true });
     }
 
     await Library.findOneAndUpdate(
-      { userId: req.user.id, 'categories.id': req.params.categoryId },
+      { userId: await normalizeUserId(req.user), 'categories.id': req.params.categoryId },
       { $pull: { 'categories.$.songs': { videoId: req.params.videoId } }, $set: { updatedAt: Date.now() } }
     );
     res.json({ success: true });
