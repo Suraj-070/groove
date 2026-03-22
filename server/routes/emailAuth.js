@@ -63,10 +63,12 @@ async function sendEmail({ to, subject, html }) {
     return false
   }
   try {
-    await transporter.sendMail({
-      from: `"Groove Together" <${process.env.GMAIL_USER || process.env.EMAIL_USER || 'noreply@groove.app'}>`,
-      to, subject, html,
-    })
+    // Resend requires onboarding@resend.dev as from on free plan without custom domain
+    const from = process.env.RESEND_API_KEY
+      ? `"Groove Together" <onboarding@resend.dev>`
+      : `"Groove Together" <${process.env.GMAIL_USER || process.env.EMAIL_USER || 'noreply@groove.app'}>`
+
+    await transporter.sendMail({ from, to, subject, html })
     return true
   } catch (e) {
     console.error('[Email] Send failed:', e.message)
