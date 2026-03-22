@@ -4,18 +4,17 @@ const crypto     = require('crypto')
 const { User, MagicToken } = require('../models')
 
 // Safe require — these packages must be installed via npm install
-let bcrypt, nodemailer
+let bcrypt
 try {
-  bcrypt     = require('bcryptjs')
-  nodemailer = require('nodemailer')
+  bcrypt = require('bcryptjs')
 } catch (e) {
-  console.error('[EmailAuth] Missing packages — run: npm install bcryptjs nodemailer')
+  console.error('[EmailAuth] Missing bcryptjs — run: npm install bcryptjs')
   console.error('[EmailAuth] Error:', e.message)
 }
 
 // Guard — return friendly error if packages not installed
 function checkDeps(res) {
-  if (!bcrypt || !nodemailer) {
+  if (!bcrypt) {
     res.status(503).json({ error: 'Email auth not available yet. Please use Google or Guest login.' })
     return false
   }
@@ -25,42 +24,41 @@ function checkDeps(res) {
 const FRONTEND = process.env.FRONTEND_URL || 'http://localhost:5173'
 
 // ── Email transporter ─────────────────────────────────────
-function getTransporter() {
-  // Resend.com — only reliable option on Render (SMTP ports are blocked)
-  // Get free API key at resend.com → add RESEND_API_KEY to Render env vars
-  if (process.env.RESEND_API_KEY) {
-    console.log('[Email] Using Resend transporter')
-    return nodemailer.createTransport({
-      host:   'smtp.resend.com',
-      port:   465,
-      secure: true,
-      auth: { user: 'resend', pass: process.env.RESEND_API_KEY },
-    })
-  }
-  // NOTE: Gmail/SMTP not used — Render blocks all SMTP ports on free tier
-  console.log('[Email] No RESEND_API_KEY set — email disabled')
-  return null
-}
-
+// Use Resend HTTP API directly — no SMTP, no port issues, instant
 async function sendEmail({ to, subject, html }) {
-  const transporter = getTransporter()
-  if (!transporter) {
-    console.warn('[Email] No email provider configured — skipping send')
+  const key = process.env.RESEND_API_KEY
+  if (!key) {
+    console.warn('[Email] No RESEND_API_KEY — skipping send')
     return false
   }
   try {
-    // Resend requires onboarding@resend.dev as from on free plan without custom domain
-    const from = process.env.RESEND_API_KEY
-      ? `"Groove Together" <onboarding@resend.dev>`
-      : `"Groove Together" <${process.env.GMAIL_USER || process.env.EMAIL_USER || 'noreply@groove.app'}>`
-
-    await transporter.sendMail({ from, to, subject, html })
+    const res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${key}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from: 'Groove Together <onboarding@resend.dev>',
+        to: [to],
+        subject,
+        html,
+      }),
+    })
+    const data = await res.json()
+    if (!res.ok) {
+      console.error('[Email] Resend API error:', data)
+      return false
+    }
+    console.log('[Email] Sent via Resend HTTP API, id:', data.id)
     return true
   } catch (e) {
     console.error('[Email] Send failed:', e.message)
     return false
   }
 }
+
+function getTransporter() { return !!process.env.RESEND_API_KEY }
 
 // ── Email templates ───────────────────────────────────────
 function magicLinkEmail(link, username) {
@@ -285,7 +283,7 @@ router.post('/auth/magic/send', async (req, res) => {
     })
 
     const link = `${FRONTEND}/app?magic=${token}`
-    console.log(`[Magic] Sending to ${emailLower}, transporter: ${getTransporter() ? 'yes' : 'NO'}`)
+    console.log(`[Magic] Sending to ${emailLower}, RESEND_API_KEY: ${!!process.env.RESEND_API_KEY}`)
 
     const sent = await sendEmail({
       to: emailLower,
@@ -293,7 +291,7 @@ router.post('/auth/magic/send', async (req, res) => {
       html: magicLinkEmail(link, user.username),
     })
 
-    console.log(`[Magic] Email sent: ${sent}, GMAIL_USER set: ${!!process.env.GMAIL_USER}`)
+    console.log(`[Magic] Email sent: ${sent}`)
 
     if (!sent) {
       // Email not configured — return clickable link so user can still sign in
