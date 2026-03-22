@@ -1,9 +1,26 @@
 const express    = require('express')
 const router     = express.Router()
-const bcrypt     = require('bcryptjs')
 const crypto     = require('crypto')
-const nodemailer = require('nodemailer')
 const { User, MagicToken } = require('../models')
+
+// Safe require — these packages must be installed via npm install
+let bcrypt, nodemailer
+try {
+  bcrypt     = require('bcryptjs')
+  nodemailer = require('nodemailer')
+} catch (e) {
+  console.error('[EmailAuth] Missing packages — run: npm install bcryptjs nodemailer')
+  console.error('[EmailAuth] Error:', e.message)
+}
+
+// Guard — return friendly error if packages not installed
+function checkDeps(res) {
+  if (!bcrypt || !nodemailer) {
+    res.status(503).json({ error: 'Email auth not available yet. Please use Google or Guest login.' })
+    return false
+  }
+  return true
+}
 
 const FRONTEND = process.env.FRONTEND_URL || 'http://localhost:5173'
 
@@ -131,6 +148,7 @@ function validatePassword(password) {
 
 // REGISTER with email + password
 router.post('/auth/email/register', async (req, res) => {
+  if (!checkDeps(res)) return
   try {
     const { email, password, username } = req.body
 
@@ -198,6 +216,7 @@ router.post('/auth/email/register', async (req, res) => {
 
 // LOGIN with email + password
 router.post('/auth/email/login', async (req, res) => {
+  if (!checkDeps(res)) return
   try {
     const { email, password } = req.body
 
@@ -237,6 +256,7 @@ router.post('/auth/email/login', async (req, res) => {
 
 // SEND MAGIC LINK
 router.post('/auth/magic/send', async (req, res) => {
+  if (!checkDeps(res)) return
   try {
     const { email } = req.body
 
@@ -287,6 +307,7 @@ router.post('/auth/magic/send', async (req, res) => {
 
 // VERIFY MAGIC LINK TOKEN
 router.post('/auth/magic/verify', async (req, res) => {
+  if (!checkDeps(res)) return
   try {
     const { token } = req.body
     if (!token) return res.status(400).json({ error: 'Token required' })
@@ -323,6 +344,7 @@ router.post('/auth/magic/verify', async (req, res) => {
 
 // FORGOT PASSWORD — sends reset link
 router.post('/auth/email/forgot', async (req, res) => {
+  if (!checkDeps(res)) return
   try {
     const { email } = req.body
     if (!email || !validateEmail(email))
@@ -360,6 +382,7 @@ router.post('/auth/email/forgot', async (req, res) => {
 
 // RESET PASSWORD
 router.post('/auth/email/reset', async (req, res) => {
+  if (!checkDeps(res)) return
   try {
     const { token, password } = req.body
     if (!token || !password) return res.status(400).json({ error: 'Token and password required' })

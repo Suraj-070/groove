@@ -209,21 +209,19 @@ export default function RoomJoin({ onJoin, user, onGuestLogin }) {
     if (!email.trim() || !password) return setError('Email and password are required')
     setLoading(true); setError(''); setLoginHint('')
     try {
-      const u = await apiPost('/auth/email/login', { email, password })
-      onGuestLogin(u)
-    } catch (e) {
-      setError(e.message)
-      // Server told us which method to use
-      try {
-        const res = await fetch(`${BACKEND}/auth/email/login`, {
-          method: 'POST', credentials: 'include',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, password }),
-        })
-        const data = await res.json()
+      const res = await fetch(`${BACKEND}/auth/email/login`, {
+        method: 'POST', credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      })
+      const data = await res.json()
+      if (res.ok) {
+        onGuestLogin(data)
+      } else {
+        setError(data.error || 'Login failed')
         if (data.hint) setLoginHint(data.hint)
-      } catch {}
-    }
+      }
+    } catch (e) { setError('Connection failed. Please try again.') }
     finally { setLoading(false) }
   }
 
@@ -231,7 +229,21 @@ export default function RoomJoin({ onJoin, user, onGuestLogin }) {
     if (!email.trim()) return setError('Email is required')
     setLoading(true); setError('')
     try {
-      const data = await apiPost('/auth/magic/send', { email })
+      // 10 second timeout — prevents infinite loading if server hangs
+      const controller = new AbortController()
+      const timeout = setTimeout(() => controller.abort(), 10000)
+      const res = await fetch(`${BACKEND}/auth/magic/send`, {
+        method: 'POST', credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+        signal: controller.signal,
+      })
+      clearTimeout(timeout)
+      const data = await res.json()
+      if (!res.ok) {
+        setError(data.error || 'Failed to send magic link')
+        return
+      }
       if (data.devLink && !data.emailConfigured) {
         setMagicLink(data.devLink)
         setView('magic-sent')
@@ -242,7 +254,13 @@ export default function RoomJoin({ onJoin, user, onGuestLogin }) {
         setMagicLink('')
         setView('magic-sent')
       }
-    } catch (e) { setError(e.message) }
+    } catch (e) {
+      if (e.name === 'AbortError') {
+        setError('Request timed out. Check your connection and try again.')
+      } else {
+        setError(e.message || 'Failed to send magic link')
+      }
+    }
     finally { setLoading(false) }
   }
 
