@@ -528,8 +528,21 @@ function App() {
     socket.emit('join-room', { roomId: targetRoom, username: user.username, avatar: user.avatar, discordId: user.id })
   }, [user])
 
-  const handleGuestLogin = async ({ username }) => {
+  // Handles both guest login AND email register/login
+  // If userData already has an id (email auth) — set directly
+  // If only username passed — call /auth/guest
+  const handleGuestLogin = async (userData) => {
     try {
+      // Email/Google auth — userData already has full user object from server
+      if (userData?.id && userData?.provider !== undefined) {
+        setUser(userData)
+        if (userData.isGuest) {
+          sessionStorage.setItem('groove_guest', JSON.stringify(userData))
+        }
+        return
+      }
+      // Guest login — only username provided
+      const { username } = userData
       const res = await fetch(`${BACKEND}/auth/guest`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -537,13 +550,12 @@ function App() {
         body: JSON.stringify({ username })
       })
       if (res.ok) {
-        const userData = await res.json()
-        setUser(userData)
-        // Persist guest session so refresh doesn't log them out
-        sessionStorage.setItem('groove_guest', JSON.stringify(userData))
+        const guestData = await res.json()
+        setUser(guestData)
+        sessionStorage.setItem('groove_guest', JSON.stringify(guestData))
       }
     } catch (e) {
-      console.error('Guest login failed:', e)
+      console.error('Login failed:', e)
     }
   }
 
@@ -962,7 +974,7 @@ function App() {
                         <p className="pd-name">{user.username}</p>
                         {streakData?.streak > 0
                           ? <p className="pd-streak-line">🔥 {streakData.streak} day streak{streakData.longestStreak > streakData.streak ? ` · best ${streakData.longestStreak}` : ''}</p>
-                          : <p className="pd-tag">{IS_DISCORD ? 'Discord Activity' : user.provider === 'google' ? 'via Google' : 'via Discord'}</p>
+                          : <p className="pd-tag">{IS_DISCORD ? 'Discord Activity' : user.provider === 'google' ? 'via Google' : user.provider === 'email' ? 'via Email' : 'via Google'}</p>
                         }
                       </div>
                     </div>
