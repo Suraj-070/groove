@@ -132,6 +132,23 @@ function Or() {
   )
 }
 
+// Shell must be defined OUTSIDE RoomJoin — if defined inside it recreates
+// on every render causing inputs to unmount/remount and lose focus
+function Shell({ children }) {
+  return (
+    <div className="room-join">
+      <div className="join-card">
+        <div className="join-logo"><GrooveLogo /></div>
+        <h1 className="join-title">
+          <span className="join-title-big">GROOVE</span>
+          <span className="join-title-small">· together ·</span>
+        </h1>
+        {children}
+      </div>
+    </div>
+  )
+}
+
 export default function RoomJoin({ onJoin, user, onGuestLogin }) {
   const [roomId, setRoomId] = useState(() => sessionStorage.getItem('groove_invite_room') || '')
   const [view, setView]     = useState('home')
@@ -263,19 +280,7 @@ export default function RoomJoin({ onJoin, user, onGuestLogin }) {
     )
   }
 
-  // ── Shell ─────────────────────────────────────────────
-  const Shell = ({ children }) => (
-    <div className="room-join">
-      <div className="join-card">
-        <div className="join-logo"><GrooveLogo /></div>
-        <h1 className="join-title">
-          <span className="join-title-big">GROOVE</span>
-          <span className="join-title-small">· together ·</span>
-        </h1>
-        {children}
-      </div>
-    </div>
-  )
+
 
   // ── Magic link sent ───────────────────────────────────
   if (view === 'magic-sent') return (
