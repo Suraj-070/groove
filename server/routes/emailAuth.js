@@ -174,12 +174,14 @@ router.post('/auth/email/register', async (req, res) => {
       }
 
       // Account exists (Google/magic) but no password yet — ADD password to it
-      // This links email auth to their existing account seamlessly
+      // Keep existing Google avatar/username — don't overwrite with manual entry
       existing.passwordHash = await bcrypt.hash(password, 12)
+      // Only update username if they don't have one yet
       if (username.trim() && !existing.username) existing.username = username.trim()
       if (!existing.linkedProviders) existing.linkedProviders = []
       if (!existing.linkedProviders.includes('email')) existing.linkedProviders.push('email')
       await existing.save()
+      console.log(`[Auth] Added password to existing account: ${existing.email}, providers: ${existing.linkedProviders}`)
 
       const sessionUser = makeSession(existing)
       return req.login(sessionUser, (err) => {

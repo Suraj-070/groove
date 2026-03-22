@@ -54,8 +54,10 @@ if (process.env.GOOGLE_CLIENT_ID) {
           user.linkedProviders.push('google')
         }
         if (!user.googleId) user.googleId = profile.id
-        // Update avatar if they don't have one
-        if (!user.avatar && avatar) user.avatar = avatar
+        // Always sync latest Google avatar (it may have changed)
+        if (avatar) user.avatar = avatar
+        // Sync username from Google if not set manually
+        if (!user.username && username) user.username = username
         await user.save()
       } else {
         // New user — create account with Google

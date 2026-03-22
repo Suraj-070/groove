@@ -312,8 +312,12 @@ export default function RoomJoin({ onJoin, user, onGuestLogin }) {
 
   // ── Logged in ─────────────────────────────────────────
   if (user) {
-    const providerLabel = user.isGuest ? '👤 Guest'
-      : user.provider === 'google' ? '🔵 via Google'
+    const providerLabel = user.isGuest
+      ? '👤 Guest'
+      : user.providers?.includes('google') && user.providers?.includes('email')
+      ? '🔵 Google + ✉️ Email'
+      : user.providers?.includes('google') || user.provider === 'google'
+      ? '🔵 via Google'
       : '✉️ via Email'
 
     return (
