@@ -238,13 +238,12 @@ router.post('/auth/magic/send', async (req, res) => {
     })
 
     if (!sent) {
-      // Dev mode — return token in response for testing
-      if (process.env.NODE_ENV !== 'production') {
-        return res.json({ success: true, devToken: token, devLink: link })
-      }
+      // Email not configured — always return the token so user can still sign in
+      // They'll see a clickable link in the UI
+      return res.json({ success: true, devToken: token, devLink: link, emailConfigured: false })
     }
 
-    res.json({ success: true, message: 'Magic link sent! Check your email.' })
+    res.json({ success: true, message: 'Magic link sent! Check your email.', emailConfigured: true })
   } catch (e) {
     console.error('[Auth] Magic send error:', e.message)
     res.status(500).json({ error: 'Failed to send magic link. Please try again.' })

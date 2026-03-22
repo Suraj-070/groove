@@ -169,16 +169,23 @@ export default function RoomJoin({ onJoin, user, onGuestLogin }) {
     finally { setLoading(false) }
   }
 
+  const [magicLink, setMagicLink] = useState('')
+
   const handleMagicSend = async () => {
     if (!email.trim()) return setError('Email is required')
     setLoading(true); setError('')
     try {
       const data = await apiPost('/auth/magic/send', { email })
-      if (data.devLink) {
-        // Dev mode — auto verify
+      if (data.devLink && !data.emailConfigured) {
+        // Email not configured — show clickable link directly
+        setMagicLink(data.devLink)
+        setView('magic-sent')
+      } else if (data.devToken) {
+        // Dev mode auto-verify
         const userData = await apiPost('/auth/magic/verify', { token: data.devToken })
         onGuestLogin(userData)
       } else {
+        setMagicLink('')
         setView('magic-sent')
       }
     } catch (e) { setError(e.message) }
@@ -233,12 +240,28 @@ export default function RoomJoin({ onJoin, user, onGuestLogin }) {
     if (view === 'magic-sent') return (
       <Card>
         <div style={{ textAlign: 'center', padding: '8px 0' }}>
-          <div style={{ fontSize: '2.5rem', marginBottom: 12 }}>📬</div>
-          <p style={{ fontWeight: 700, color: '#fff', marginBottom: 8 }}>Check your inbox!</p>
-          <p style={{ fontSize: '0.85rem', color: 'rgba(255,255,255,0.4)', lineHeight: 1.6, marginBottom: 20 }}>
-            We sent a magic link to <strong style={{ color: '#c4b5fd' }}>{email}</strong>. Click it to sign in — it expires in 15 minutes.
-          </p>
-          <GhostBtn onClick={() => { reset('magic'); setEmail('') }}>← Try a different email</GhostBtn>
+          {magicLink ? (
+            <>
+              <div style={{ fontSize: '2.5rem', marginBottom: 12 }}>✨</div>
+              <p style={{ fontWeight: 700, color: '#fff', marginBottom: 8 }}>Your magic link is ready!</p>
+              <p style={{ fontSize: '0.82rem', color: 'rgba(255,255,255,0.4)', lineHeight: 1.6, marginBottom: 16 }}>
+                Email isn't configured yet — click the button below to sign in directly.
+              </p>
+              <a href={magicLink}
+                style={{ display: 'inline-block', padding: '13px 32px', background: 'linear-gradient(135deg,#7c6aff,#ff6a8a)', borderRadius: 12, color: '#fff', fontWeight: 700, fontSize: '0.95rem', textDecoration: 'none', marginBottom: 16 }}>
+                Sign In Now →
+              </a>
+            </>
+          ) : (
+            <>
+              <div style={{ fontSize: '2.5rem', marginBottom: 12 }}>📬</div>
+              <p style={{ fontWeight: 700, color: '#fff', marginBottom: 8 }}>Check your inbox!</p>
+              <p style={{ fontSize: '0.85rem', color: 'rgba(255,255,255,0.4)', lineHeight: 1.6, marginBottom: 20 }}>
+                We sent a magic link to <strong style={{ color: '#c4b5fd' }}>{email}</strong>. Click it to sign in — expires in 15 minutes.
+              </p>
+            </>
+          )}
+          <GhostBtn onClick={() => { reset('magic'); setEmail(''); setMagicLink('') }}>← Try a different email</GhostBtn>
         </div>
       </Card>
     )
