@@ -167,14 +167,24 @@ export default function RoomJoin({ onJoin, user, onGuestLogin }) {
   const go = (v) => { setError(''); setSuccess(''); setView(v) }
 
   const apiPost = async (path, body) => {
-    const res = await fetch(`${BACKEND}${path}`, {
-      method: 'POST', credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    })
-    const data = await res.json()
-    if (!res.ok) throw new Error(data.error || 'Something went wrong')
-    return data
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 30000)
+    try {
+      const res = await fetch(`${BACKEND}${path}`, {
+        method: 'POST', credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+        signal: controller.signal,
+      })
+      clearTimeout(timeout)
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Something went wrong')
+      return data
+    } catch (e) {
+      clearTimeout(timeout)
+      if (e.name === 'AbortError') throw new Error('Server is waking up — please wait 30 seconds and try again ☕')
+      throw e
+    }
   }
 
   const handleRegister = async () => {
@@ -228,10 +238,12 @@ export default function RoomJoin({ onJoin, user, onGuestLogin }) {
   const handleMagicSend = async () => {
     if (!email.trim()) return setError('Email is required')
     setLoading(true); setError('')
+    // Show waking message if slow (Render cold start)
+    const wakingTimer = setTimeout(() => setError('☕ Server is waking up, hang tight...'), 5000)
     try {
-      // 10 second timeout — prevents infinite loading if server hangs
+      // 30 second timeout — Render cold starts can take 20+ seconds
       const controller = new AbortController()
-      const timeout = setTimeout(() => controller.abort(), 10000)
+      const timeout = setTimeout(() => controller.abort(), 30000)
       const res = await fetch(`${BACKEND}/auth/magic/send`, {
         method: 'POST', credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
@@ -239,24 +251,36 @@ export default function RoomJoin({ onJoin, user, onGuestLogin }) {
         signal: controller.signal,
       })
       clearTimeout(timeout)
+      clearTimeout(wakingTimer)
       const data = await res.json()
       if (!res.ok) {
         setError(data.error || 'Failed to send magic link')
         return
       }
-      if (data.devLink && !data.emailConfigured) {
+      if (!data.emailConfigured && data.devLink) {
+        // Email not set up — show clickable link directly in UI
         setMagicLink(data.devLink)
         setView('magic-sent')
-      } else if (data.devToken) {
-        const u = await apiPost('/auth/magic/verify', { token: data.devToken })
-        onGuestLogin(u)
-      } else {
+      } else if (data.emailConfigured) {
+        // Real email sent — show "check inbox" screen
         setMagicLink('')
+        setView('magic-sent')
+      } else if (data.devToken) {
+        // Dev auto-verify fallback
+        try {
+          const u = await apiPost('/auth/magic/verify', { token: data.devToken })
+          onGuestLogin(u)
+        } catch {
+          setMagicLink(data.devLink || '')
+          setView('magic-sent')
+        }
+      } else {
         setView('magic-sent')
       }
     } catch (e) {
+      clearTimeout(wakingTimer)
       if (e.name === 'AbortError') {
-        setError('Request timed out. Check your connection and try again.')
+        setError('Server took too long — please try again ☕')
       } else {
         setError(e.message || 'Failed to send magic link')
       }

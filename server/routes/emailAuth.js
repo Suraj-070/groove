@@ -286,15 +286,19 @@ router.post('/auth/magic/send', async (req, res) => {
     })
 
     const link = `${FRONTEND}/app?magic=${token}`
+    console.log(`[Magic] Sending to ${emailLower}, transporter: ${getTransporter() ? 'yes' : 'NO'}`)
+
     const sent = await sendEmail({
       to: emailLower,
       subject: 'Your Groove sign-in link 🎵',
       html: magicLinkEmail(link, user.username),
     })
 
+    console.log(`[Magic] Email sent: ${sent}, GMAIL_USER set: ${!!process.env.GMAIL_USER}`)
+
     if (!sent) {
-      // Email not configured — always return the token so user can still sign in
-      // They'll see a clickable link in the UI
+      // Email not configured — return clickable link so user can still sign in
+      console.log(`[Magic] No email provider — returning devLink for: ${emailLower}`)
       return res.json({ success: true, devToken: token, devLink: link, emailConfigured: false })
     }
 
