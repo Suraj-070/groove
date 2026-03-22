@@ -155,7 +155,6 @@ export default function RoomJoin({ onJoin, user, onGuestLogin }) {
   const [loading, setLoading] = useState(false)
   const [error, setError]   = useState('')
   const [success, setSuccess] = useState('')
-  const [magicLink, setMagicLink] = useState('')
 
   // Form fields — all kept at parent level to prevent re-mount focus issues
   const [email, setEmail]         = useState('')
@@ -351,50 +350,9 @@ export default function RoomJoin({ onJoin, user, onGuestLogin }) {
 
 
   // ── Magic link sent ───────────────────────────────────
-  if (view === 'magic-sent') return (
-    <Shell>
-      <div style={{ textAlign: 'center', padding: '4px 0 8px' }}>
-        <div style={{ fontSize: '2.2rem', marginBottom: 10 }}>{magicLink ? '✨' : '📬'}</div>
-        <p style={{ fontWeight: 700, color: '#fff', marginBottom: 8, fontSize: '1rem' }}>
-          {magicLink ? 'Your link is ready!' : 'Check your inbox!'}
-        </p>
-        {magicLink ? (
-          <>
-            <p style={{ fontSize: '0.82rem', color: 'rgba(255,255,255,0.35)', lineHeight: 1.6, marginBottom: 18 }}>
-              Email isn't configured yet — click below to sign in directly.
-            </p>
-            <a href={magicLink} style={{ display: 'inline-block', padding: '12px 28px', background: 'linear-gradient(135deg,#7c6aff,#ff6a8a)', borderRadius: 10, color: '#fff', fontWeight: 700, fontSize: '0.92rem', textDecoration: 'none' }}>
-              Sign In Now →
-            </a>
-          </>
-        ) : (
-          <p style={{ fontSize: '0.82rem', color: 'rgba(255,255,255,0.35)', lineHeight: 1.6 }}>
-            We sent a magic link to <strong style={{ color: '#c4b5fd' }}>{email}</strong>.<br />
-            Click it to sign in — expires in 15 minutes.
-          </p>
-        )}
-        <div style={{ marginTop: 20 }}>
-          <BackBtn onClick={() => { go('magic'); setMagicLink('') }} />
-        </div>
-      </div>
-    </Shell>
-  )
 
-  // ── Magic link ────────────────────────────────────────
-  if (view === 'magic') return (
-    <Shell>
-      <p className="join-sub" style={{ marginBottom: 18 }}>We'll email you a sign-in link — no password needed.</p>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
-        <ErrMsg msg={error} />
-        <Field label="Email address" type="email" value={email} onChange={setEmail} placeholder="you@example.com" onEnter={handleMagicSend} />
-        <PBtn onClick={handleMagicSend} loading={loading}>Send Magic Link ✨</PBtn>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <BackBtn onClick={() => go('home')} />
-          <LinkBtn onClick={() => go('login')}>Use password instead</LinkBtn>
-        </div>
-      </div>
-    </Shell>
-  )
+
+
 
   // ── Login ─────────────────────────────────────────────
   if (view === 'login') return (
@@ -512,15 +470,7 @@ export default function RoomJoin({ onJoin, user, onGuestLogin }) {
             <span>Sign in with email</span>
             <span style={{ marginLeft: 'auto', color: 'rgba(255,255,255,0.2)', fontSize: '0.8rem' }}>›</span>
           </button>
-          <button onClick={() => go('magic')}
-            style={{ width: '100%', padding: '13px 16px', background: 'none', border: 'none', borderBottom: '1px solid rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.75)', fontFamily: 'inherit', fontSize: '0.88rem', fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10, transition: 'background 0.15s' }}
-            onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.04)'}
-            onMouseLeave={e => e.currentTarget.style.background = 'none'}
-          >
-            <span style={{ width: 28, height: 28, borderRadius: 8, background: 'rgba(255,184,106,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.85rem' }}>✨</span>
-            <span>Magic link — no password</span>
-            <span style={{ marginLeft: 'auto', color: 'rgba(255,255,255,0.2)', fontSize: '0.8rem' }}>›</span>
-          </button>
+
           <button onClick={() => go('register')}
             style={{ width: '100%', padding: '13px 16px', background: 'none', border: 'none', color: 'rgba(255,255,255,0.75)', fontFamily: 'inherit', fontSize: '0.88rem', fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10, transition: 'background 0.15s' }}
             onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.04)'}
