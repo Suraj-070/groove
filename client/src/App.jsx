@@ -20,6 +20,7 @@ import TasteFingerprint from './components/TasteFingerprint'
 import MyGroovePanel from './components/MyGroovePanel'
 import FloatingChatBubble from './components/FloatingChatBubble'
 import SettingsPanel from './components/SettingsPanel'
+import EditProfile from './components/EditProfile'
 import GrooveRadar from './components/GrooveRadar'
 import TimeMachine from './components/TimeMachine'
 import WeeklyWrapped from './components/WeeklyWrapped'
@@ -204,6 +205,7 @@ function App() {
   const [partyMode, setPartyMode] = useState(false)
   const [mobileTab, setMobileTab] = useState('player')
   const [profileOpen, setProfileOpen] = useState(false)
+  const [editProfileOpen, setEditProfileOpen] = useState(false)
   const profileRef = useRef(null)
   const [windowWidth, setWindowWidth] = useState(window.innerWidth)
   const touchStartY = useRef(null)
@@ -963,12 +965,15 @@ function App() {
 
                     {/* ── Identity ── */}
                     <div className="pd-identity">
-                      <div className="pd-avatar-wrap">
+                      <div className="pd-avatar-wrap" style={{ cursor: 'pointer', position: 'relative' }}
+                        onClick={() => { setEditProfileOpen(true); setProfileOpen(false) }}
+                        title="Edit profile">
                         {user.avatar
                           ? <img src={user.avatar} alt="" className="pd-avatar" />
                           : <div className="pd-avatar-placeholder">{user.username?.slice(0,2).toUpperCase()}</div>
                         }
                         <span className="pd-online-dot" />
+                        <div style={{ position: 'absolute', bottom: 0, right: 0, width: 18, height: 18, borderRadius: '50%', background: '#7c6aff', border: '2px solid #0e0c1a', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.6rem' }}>✏️</div>
                       </div>
                       <div className="pd-info">
                         <p className="pd-name">{user.username}</p>
@@ -1017,6 +1022,9 @@ function App() {
 
                     {/* ── Quick room actions ── */}
                     <div className="pd-quick-actions">
+                      <button className="pd-quick" onClick={() => { setEditProfileOpen(true); setProfileOpen(false) }} title="Edit Profile">
+                        <span>✏️</span><span>Edit Profile</span>
+                      </button>
                       <button className="pd-quick" onClick={() => { handleCopyInvite(); setProfileOpen(false) }} title="Invite">
                         <span>🔗</span><span>Invite</span>
                       </button>
@@ -1224,6 +1232,14 @@ function App() {
       />
       {showRecap && recap && (
         <SessionDNACard recap={recap} onClose={() => setShowRecap(false)} />
+      )}
+
+      {editProfileOpen && (
+        <EditProfile
+          user={user}
+          onClose={() => setEditProfileOpen(false)}
+          onUpdate={(updatedUser) => setUser(updatedUser)}
+        />
       )}
 
       {/* Leave Room Confirmation */}

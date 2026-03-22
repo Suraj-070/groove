@@ -419,4 +419,62 @@ router.post('/auth/email/reset', async (req, res) => {
   }
 })
 
+// ── Update profile (username + avatar) ───────────────────
+router.post('/auth/profile/update', async (req, res) => {
+  try {
+    if (!req.isAuthenticated() || req.user?.isGuest)
+      return res.status(401).json({ error: 'Must be logged in' })
+
+    const { username, avatar } = req.body
+    if (!username?.trim()) return res.status(400).json({ error: 'Username required' })
+    if (username.trim().length < 2) return res.status(400).json({ error: 'At least 2 characters' })
+    if (username.trim().length > 24) return res.status(400).json({ error: 'Max 24 characters' })
+
+    const update = { username: username.trim() }
+    if (avatar !== undefined) update.avatar = avatar || null
+
+    let user = null
+
+    if (req.user.id?.startsWith('email_')) {
+      // Email user — find by MongoDB _id
+      const mongoId = req.user.id.replace('email_', '')
+      user = await User.findByIdAndUpdate(mongoId, update, { new: true })
+
+    } else if (req.user.id?.startsWith('google_') || req.user.email) {
+      // Google user — find by email OR googleId
+      const email = req.user.email
+      const googleId = req.user.id?.replace('google_', '')
+
+      user = email
+        ? await User.findOneAndUpdate({ email }, update, { new: true })
+        : await User.findOneAndUpdate({ googleId }, update, { new: true })
+
+      if (!user && email) {
+        // Google user with no DB record yet — create one now
+        user = await User.create({
+          email,
+          username:        update.username,
+          avatar:          update.avatar ?? req.user.avatar,
+          provider:        'google',
+          linkedProviders: ['google'],
+          googleId,
+          verified:        true,
+        })
+      }
+    }
+
+    if (!user) return res.status(404).json({ error: 'User not found' })
+
+    // Build updated session
+    const sessionUser = makeSession(user)
+    req.login(sessionUser, (err) => {
+      if (err) return res.status(500).json({ error: 'Session update failed' })
+      res.json(sessionUser)
+    })
+  } catch (e) {
+    console.error('[Profile] Update error:', e.message)
+    res.status(500).json({ error: 'Failed to update profile' })
+  }
+})
+
 module.exports = router
