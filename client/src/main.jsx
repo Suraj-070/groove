@@ -8,9 +8,14 @@ import ErrorBoundary from './ErrorBoundary.jsx'
 // Simple path-based routing — no react-router needed
 const path = window.location.pathname
 
+// PWA standalone mode always goes straight to app
+const isPWA = window.matchMedia('(display-mode: standalone)').matches
+  || window.navigator.standalone === true
+
 // /app or /app/* → render the Groove app
+// PWA mode → always render the app directly
 // anything else (/ or unknown) → render landing page
-const isApp = path.startsWith('/app')
+const isApp = path.startsWith('/app') || isPWA
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
