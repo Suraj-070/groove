@@ -3839,21 +3839,23 @@ body {
     bottom: 0 !important;
     left: 0 !important;
     right: 0 !important;
-    height: 64px !important;
-    background: rgba(8, 8, 18, 0.97) !important;
-    backdrop-filter: blur(24px) !important;
-    -webkit-backdrop-filter: blur(24px) !important;
-    border-top: 1px solid rgba(255,255,255,0.07) !important;
+    height: 68px !important;
+    background: rgba(10, 8, 22, 0.88) !important;
+    backdrop-filter: blur(32px) saturate(180%) !important;
+    -webkit-backdrop-filter: blur(32px) saturate(180%) !important;
+    border-top: 1px solid rgba(255,255,255,0.06) !important;
     display: flex !important;
-    align-items: stretch !important;
+    align-items: center !important;
+    justify-content: space-around !important;
     z-index: 100 !important;
+    padding: 0 8px !important;
     padding-bottom: env(safe-area-inset-bottom) !important;
-    animation: navSlideUp 0.4s 0.15s cubic-bezier(0.34, 1.2, 0.64, 1) both;
+    animation: navSlideUp 0.35s cubic-bezier(0.34, 1.2, 0.64, 1) both;
   }
 
   @keyframes navSlideUp {
-    from { transform: translateY(100%); }
-    to   { transform: translateY(0); }
+    from { transform: translateY(100%); opacity: 0; }
+    to   { transform: translateY(0);    opacity: 1; }
   }
 
   .mobile-nav-btn {
@@ -3862,68 +3864,86 @@ body {
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 3px;
+    gap: 4px;
     background: none;
     border: none;
-    color: rgba(255,255,255,0.4);
+    color: rgba(255,255,255,0.38);
     cursor: pointer;
-    padding: 8px 4px;
+    padding: 6px 4px 8px;
     font-family: 'Outfit', sans-serif;
     -webkit-tap-highlight-color: transparent;
     position: relative;
     transition: color 0.2s ease;
-    min-height: 44px;
+    min-height: 48px;
+    border-radius: 14px;
   }
 
   .mobile-nav-btn.active {
-    color: var(--accent, #7c6aff);
+    color: #fff;
   }
 
   .mobile-nav-btn:active {
-    transform: scale(0.92);
-    transition: transform 0.1s ease;
+    transform: scale(0.88);
+    transition: transform 0.08s ease;
   }
 
-  .mobile-nav-btn .nav-icon {
-    font-size: 1.35rem;
-    line-height: 1;
-    transition: transform 0.2s cubic-bezier(0.34,1.3,0.64,1);
+  /* Icon wrapper — pill highlight on active */
+  .nav-icon-wrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 28px;
+    border-radius: 14px;
+    transition: background 0.25s ease, transform 0.25s cubic-bezier(0.34,1.3,0.64,1);
   }
 
-  .mobile-nav-btn.active .nav-icon {
-    transform: scale(1.15) translateY(-1px);
+  .mobile-nav-btn.active .nav-icon-wrap {
+    background: rgba(124, 106, 255, 0.22);
+    transform: translateY(-1px);
+  }
+
+  .mobile-nav-btn.active svg {
+    filter: drop-shadow(0 0 6px rgba(124,106,255,0.7));
+  }
+
+  .nav-avatar {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 1.5px solid rgba(255,255,255,0.2);
+  }
+
+  .mobile-nav-btn.active .nav-avatar {
+    border-color: var(--accent, #7c6aff);
+    box-shadow: 0 0 0 2px rgba(124,106,255,0.35);
   }
 
   .mobile-nav-btn .nav-label {
-    font-size: 0.58rem;
-    font-weight: 700;
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
+    font-size: 0.57rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
     line-height: 1;
+    transition: color 0.2s;
   }
 
-  /* Active indicator line */
-  .mobile-nav-btn.active::after {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 25%;
-    right: 25%;
-    height: 2px;
-    background: var(--accent, #7c6aff);
-    border-radius: 0 0 2px 2px;
+  .mobile-nav-btn.active .nav-label {
+    color: rgba(255,255,255,0.9);
   }
 
   /* Notification badge */
   .mobile-nav-btn .nav-badge {
     position: absolute;
-    top: 7px;
-    right: calc(50% - 16px);
-    width: 7px;
-    height: 7px;
+    top: 2px;
+    right: 4px;
+    width: 6px;
+    height: 6px;
     background: #ff6a8a;
     border-radius: 50%;
-    border: 2px solid rgba(8,8,18,0.97);
+    border: 1.5px solid rgba(10,8,22,0.9);
+    box-shadow: 0 0 6px rgba(255,106,138,0.6);
   }
 
   /* ── Mini Player ──────────────────────────────────────── */
@@ -4356,7 +4376,7 @@ body {
     height: 44px !important;
   }
 
-  .mobile-nav-btn .nav-icon { font-size: 1.2rem; }
+  .mobile-nav-btn .nav-icon-wrap svg { width: 20px; height: 20px; }
   .mobile-nav-btn .nav-label { font-size: 0.52rem; }
 }
 
@@ -11316,20 +11336,15 @@ body.chat-is-open .fcb-bubble { opacity: 0; pointer-events: none; }
     transition: transform 0.08s ease !important;
   }
 
-  /* ── 5. Nav tab switch — icon spring + indicator slide ───── */
+  /* ── 5. Nav tab switch — icon spring + pill ──────────────── */
   .mobile-nav-btn {
     transition: color 0.2s ease !important;
   }
-  .mobile-nav-btn .nav-icon {
-    transition: transform 0.3s cubic-bezier(0.34, 1.4, 0.64, 1) !important;
+  .mobile-nav-btn .nav-icon-wrap {
+    transition: background 0.25s ease, transform 0.3s cubic-bezier(0.34, 1.4, 0.64, 1) !important;
   }
-  .mobile-nav-btn.active .nav-icon {
-    transform: scale(1.2) translateY(-2px) !important;
-  }
-  .mobile-nav-btn::after {
-    transition: left 0.3s cubic-bezier(0.34, 1.2, 0.64, 1),
-                right 0.3s cubic-bezier(0.34, 1.2, 0.64, 1),
-                opacity 0.2s ease !important;
+  .mobile-nav-btn.active .nav-icon-wrap {
+    transform: translateY(-2px) !important;
   }
 
   /* ── 6. Queue sheet — spring open ───────────────────────── */

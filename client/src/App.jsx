@@ -1199,7 +1199,9 @@ function App() {
             className={`mobile-nav-btn ${mobileTab === 'player' && !libraryOpen && !chatOpen ? 'active' : ''}`}
             onClick={() => { setMobileTab('player'); setLibraryOpen(false); setChatOpen(false) }}
           >
-            <span className="nav-icon">🎵</span>
+            <span className="nav-icon-wrap">
+              <svg viewBox="0 0 24 24" fill="currentColor" width="22" height="22"><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6z"/></svg>
+            </span>
             <span className="nav-label">Player</span>
           </button>
 
@@ -1207,16 +1209,20 @@ function App() {
             className={`mobile-nav-btn ${mobileTab === 'queue' && !libraryOpen && !chatOpen ? 'active' : ''}`}
             onClick={() => { setLibraryOpen(false); setChatOpen(false); setMobileTab(t => t === 'queue' ? 'player' : 'queue') }}
           >
-            <span className="nav-icon">🎶</span>
+            <span className="nav-icon-wrap">
+              <svg viewBox="0 0 24 24" fill="currentColor" width="22" height="22"><path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/></svg>
+              {queue.length > 0 && <span className="nav-badge" />}
+            </span>
             <span className="nav-label">Queue</span>
-            {queue.length > 0 && <span className="nav-badge" />}
           </button>
 
           <button
             className={`mobile-nav-btn ${libraryOpen ? 'active' : ''}`}
             onClick={() => { setChatOpen(false); setMobileTab('player'); setLibraryOpen(p => !p) }}
           >
-            <span className="nav-icon">📚</span>
+            <span className="nav-icon-wrap">
+              <svg viewBox="0 0 24 24" fill="currentColor" width="22" height="22"><path d="M20 2H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-2 5h-3v5.5a2.5 2.5 0 0 1-5 0 2.5 2.5 0 0 1 2.5-2.5c.57 0 1.08.19 1.5.5V5h4v2zM4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6z"/></svg>
+            </span>
             <span className="nav-label">Library</span>
           </button>
 
@@ -1225,7 +1231,9 @@ function App() {
               className={`mobile-nav-btn ${videoOpen ? 'active' : ''}`}
               onClick={() => setVideoOpen(p => !p)}
             >
-              <span className="nav-icon">📺</span>
+              <span className="nav-icon-wrap">
+                <svg viewBox="0 0 24 24" fill="currentColor" width="22" height="22"><path d="M17 10.5V7a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-3.5l4 4v-11l-4 4z"/></svg>
+              </span>
               <span className="nav-label">Watch</span>
             </button>
           )}
@@ -1234,10 +1242,12 @@ function App() {
             className={`mobile-nav-btn ${profileOpen ? 'active' : ''}`}
             onClick={() => { setLibraryOpen(false); setChatOpen(false); setProfileOpen(p => !p) }}
           >
-            {user?.avatar
-              ? <img src={user.avatar} alt="" style={{ width: 24, height: 24, borderRadius: '50%', objectFit: 'cover' }} />
-              : <span className="nav-icon">👤</span>
-            }
+            <span className="nav-icon-wrap">
+              {user?.avatar
+                ? <img src={user.avatar} alt="" className="nav-avatar" />
+                : <svg viewBox="0 0 24 24" fill="currentColor" width="22" height="22"><path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/></svg>
+              }
+            </span>
             <span className="nav-label">Profile</span>
           </button>
         </nav>
