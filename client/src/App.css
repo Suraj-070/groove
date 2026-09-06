@@ -10153,7 +10153,7 @@ body.chat-is-open .fcb-bubble { opacity: 0; pointer-events: none; }
   background: #1a1730;
   border: 1px solid rgba(255,255,255,0.1);
   border-radius: 20px;
-  padding: 32px 28px;
+  padding: 28px 24px;
   max-width: 400px; width: 100%;
   text-align: center;
   box-shadow: 0 32px 80px rgba(0,0,0,0.6);
@@ -11787,3 +11787,107 @@ textarea {
   font-size: 0.6rem !important;
   font-weight: 600 !important;
 }
+
+/* ════════════════════════════════════════════════════════════
+   MICRO-INTERACTIONS & PREMIUM POLISH
+   ════════════════════════════════════════════════════════════ */
+
+/* Song item — smooth hover on desktop */
+.song-item {
+  transition: background 0.18s ease, border-color 0.18s ease !important;
+}
+.song-item:hover:not(.active) {
+  background: rgba(255,255,255,0.04) !important;
+}
+
+/* Play button — press feedback on mobile */
+.play-btn {
+  transition: transform 0.12s cubic-bezier(0.34,1.4,0.64,1), box-shadow 0.2s ease !important;
+}
+.play-btn:active {
+  transform: scale(0.88) !important;
+}
+
+/* Queue tab — animated underline */
+.queue-tab {
+  position: relative;
+  transition: color 0.18s ease !important;
+}
+.queue-tab::after {
+  content: '';
+  position: absolute;
+  bottom: -1px; left: 50%; right: 50%;
+  height: 2px;
+  background: var(--accent, #7c6aff);
+  border-radius: 2px;
+  transition: left 0.25s cubic-bezier(0.4,0,0.2,1), right 0.25s cubic-bezier(0.4,0,0.2,1);
+}
+.queue-tab.active::after {
+  left: 0; right: 0;
+}
+
+/* Tool buttons — consistent hover */
+.tool-btn {
+  transition: background 0.15s ease, color 0.15s ease, transform 0.12s ease !important;
+}
+.tool-btn:hover {
+  background: rgba(255,255,255,0.06) !important;
+}
+.tool-btn:active {
+  transform: scale(0.9) !important;
+}
+
+/* Auth error tip — flex layout */
+.auth-error-tip {
+  display: flex !important;
+  align-items: center !important;
+}
+
+/* Standardize modal padding */
+.modal-inner,
+[class*="modal"] > div,
+[class*="panel"] > div {
+  padding: 28px 24px;
+}
+
+/* Consistent player padding */
+.player {
+  padding: 24px !important;
+}
+
+/* Queue / Library header consistency */
+.queue-header,
+.library-header {
+  padding: 20px 20px 12px !important;
+}
+
+/* Progress bar — smooth */
+.progress-fill,
+.mini-player-progress-fill {
+  transition: width 0.4s linear !important;
+}
+
+/* Input focus — clean ring, no glow explosion */
+input:focus,
+textarea:focus {
+  box-shadow: 0 0 0 2px rgba(124,106,255,0.35) !important;
+  border-color: var(--accent, #7c6aff) !important;
+  outline: none !important;
+}
+
+/* Button base — kill blurry text */
+button {
+  -webkit-font-smoothing: antialiased !important;
+}
+
+/* Remove uppercase from section labels that have it baked in */
+.queue-tabs .queue-tab {
+  text-transform: none !important;
+  letter-spacing: 0 !important;
+  font-size: var(--text-sm) !important;
+  font-weight: 500 !important;
+}
+
+/* Hardcoded color → token cleanup for common patterns */
+.bpm-badge { color: var(--accent) !important; }
+.sync-badge { color: var(--muted) !important; }

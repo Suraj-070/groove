@@ -936,13 +936,18 @@ function App() {
             <span className="room-badge-dot" />
             <span>{roomId}</span>
             {isMobileView && isDJ && (
-              <span className="mobile-dj-badge">{djMode ? '👑' : '🎛'}</span>
+              <span className="mobile-dj-badge">
+                {djMode
+                  ? <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z"/></svg>
+                  : <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6z"/></svg>
+                }
+              </span>
             )}
           </div>
 
           {!isMobileView && isDJ && (
             <button className={`dj-toggle-btn ${djMode ? 'active' : ''}`} onClick={handleToggleDJMode}>
-              {djMode ? '👑 DJ' : '🎛 Free'}
+              {djMode ? 'DJ Mode' : 'Free Play'}
             </button>
           )}
           {!isMobileView && isDJ && (
@@ -960,7 +965,10 @@ function App() {
                 }
               }}
             >
-              {roomLocked ? '🔒 Locked' : '🔓 Lock'}
+              {roomLocked
+                ? <><svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14" style={{marginRight:4}}><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg>Locked</>
+                : <><svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14" style={{marginRight:4}}><path d="M12 1C8.676 1 6 3.676 6 7v1H4v14h16V8h-2V7c0-3.324-2.676-6-6-6zm0 2c2.276 0 4 1.724 4 4v1H8V7c0-2.276 1.724-4 4-4zm0 9c1.1 0 2 .9 2 2s-.9 2-2 2-2-.9-2-2 .9-2 2-2z"/></svg>Lock</>
+              }
             </button>
           )}
 
@@ -980,11 +988,15 @@ function App() {
                 </svg>
               </button>
             )}
-            <button className={`tool-btn ${libraryOpen ? 'active' : ''}`} onClick={() => setLibraryOpen(p => !p)} title="My Library">📚</button>
-            <button className="tool-btn" onClick={handleGetRecap} title="Session Recap">📊</button>
+            <button className={`tool-btn ${libraryOpen ? 'active' : ''}`} onClick={() => setLibraryOpen(p => !p)} title="My Library">
+              <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18"><path d="M20 2H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-2 5h-3v5.5a2.5 2.5 0 0 1-5 0 2.5 2.5 0 0 1 2.5-2.5c.57 0 1.08.19 1.5.5V5h4v2zM4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6z"/></svg>
+            </button>
+            <button className="tool-btn" onClick={handleGetRecap} title="Session Recap">
+              <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>
+            </button>
             <button className={`tool-btn ${chatOpen ? 'active' : ''}`} onClick={() => { setChatOpen(p => !p); setUnread(0) }} title="Room Chat">
               <span style={{position:'relative', display:'flex'}}>
-                💬
+                <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z"/></svg>
                 {unread > 0 && <span className="unread-badge">{unread}</span>}
               </span>
             </button>
@@ -1003,7 +1015,8 @@ function App() {
                 }
                 {streakData?.streak > 0 && (
                   <span className="streak-badge" title={`${streakData.streak} day streak`}>
-                    🔥{streakData.streak}
+                    <svg viewBox="0 0 24 24" fill="currentColor" width="11" height="11" style={{marginRight:2, color:'#ff6a8a'}}><path d="M13.5.67s.74 2.65.74 4.8c0 2.06-1.35 3.73-3.41 3.73-2.07 0-3.63-1.67-3.63-3.73l.03-.36C5.21 7.51 4 10.62 4 14c0 4.42 3.58 8 8 8s8-3.58 8-8C20 8.61 17.41 3.8 13.5.67z"/></svg>
+                    {streakData.streak}
                   </span>
                 )}
                 <span className="profile-chevron">{profileOpen ? '▲' : '▼'}</span>
@@ -1029,7 +1042,7 @@ function App() {
                       <div className="pd-info">
                         <p className="pd-name">{user.username}</p>
                         {streakData?.streak > 0
-                          ? <p className="pd-streak-line">🔥 {streakData.streak} day streak{streakData.longestStreak > streakData.streak ? ` · best ${streakData.longestStreak}` : ''}</p>
+                          ? <p className="pd-streak-line"><svg viewBox="0 0 24 24" fill="currentColor" width="12" height="12" style={{marginRight:4,color:'#ff6a8a',verticalAlign:'middle'}}><path d="M13.5.67s.74 2.65.74 4.8c0 2.06-1.35 3.73-3.41 3.73-2.07 0-3.63-1.67-3.63-3.73l.03-.36C5.21 7.51 4 10.62 4 14c0 4.42 3.58 8 8 8s8-3.58 8-8C20 8.61 17.41 3.8 13.5.67z"/></svg>{streakData.streak} day streak{streakData.longestStreak > streakData.streak ? ` · best ${streakData.longestStreak}` : ''}</p>
                           : <p className="pd-tag">{IS_DISCORD ? 'Discord Activity' : user.provider === 'google' ? 'via Google' : user.provider === 'email' ? 'via Email' : 'via Google'}</p>
                         }
                       </div>
@@ -1048,7 +1061,12 @@ function App() {
                       </div>
                       <div className="pd-room-stat-divider" />
                       <div className="pd-room-stat">
-                        <span className="pd-room-stat-val">{isDJ ? '👑' : '🎧'}</span>
+                        <span className="pd-room-stat-val">
+                          {isDJ
+                            ? <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18"><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6z"/></svg>
+                            : <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18"><path d="M12 3a9 9 0 1 0 0 18A9 9 0 0 0 12 3zm-1 14H9V7h2v10zm4 0h-2V7h2v10z"/></svg>
+                          }
+                        </span>
                         <span className="pd-room-stat-lbl">{isDJ ? 'DJ' : 'Listener'}</span>
                       </div>
                     </div>
@@ -1058,12 +1076,16 @@ function App() {
                     {/* ── Two big buttons ── */}
                     <div className="pd-big-btns">
                       <button className="pd-big-btn" onClick={() => { setMyGrooveOpen(true); setMyGrooveTab('radar'); setProfileOpen(false) }}>
-                        <span className="pd-big-btn-icon">📡</span>
+                        <span className="pd-big-btn-icon">
+                          <svg viewBox="0 0 24 24" fill="currentColor" width="22" height="22"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z"/></svg>
+                        </span>
                         <span className="pd-big-btn-label">My Groove</span>
                         <span className="pd-big-btn-sub">Radar · History · Stats</span>
                       </button>
                       <button className="pd-big-btn" onClick={() => { setSettingsOpen(true); setProfileOpen(false) }}>
-                        <span className="pd-big-btn-icon">⚙️</span>
+                        <span className="pd-big-btn-icon">
+                          <svg viewBox="0 0 24 24" fill="currentColor" width="22" height="22"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
+                        </span>
                         <span className="pd-big-btn-label">Settings</span>
                         <span className="pd-big-btn-sub">Theme · Radio · Notifs</span>
                       </button>
@@ -1074,13 +1096,16 @@ function App() {
                     {/* ── Quick room actions ── */}
                     <div className="pd-quick-actions">
                       <button className="pd-quick" onClick={() => { setEditProfileOpen(true); setProfileOpen(false) }} title="Edit Profile">
-                        <span>✏️</span><span>Edit Profile</span>
+                        <svg viewBox="0 0 24 24" fill="currentColor" width="15" height="15"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+                        <span>Edit Profile</span>
                       </button>
                       <button className="pd-quick" onClick={() => { handleCopyInvite(); setProfileOpen(false) }} title="Invite">
-                        <span>🔗</span><span>Invite</span>
+                        <svg viewBox="0 0 24 24" fill="currentColor" width="15" height="15"><path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"/></svg>
+                        <span>Invite</span>
                       </button>
                       <button className="pd-quick" onClick={() => { setLibraryOpen(true); setProfileOpen(false) }} title="Library">
-                        <span>📚</span><span>Library</span>
+                        <svg viewBox="0 0 24 24" fill="currentColor" width="15" height="15"><path d="M20 2H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-2 5h-3v5.5a2.5 2.5 0 0 1-5 0 2.5 2.5 0 0 1 2.5-2.5c.57 0 1.08.19 1.5.5V5h4v2zM4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6z"/></svg>
+                        <span>Library</span>
                       </button>
                       <button className="pd-quick" onClick={() => { handleGetRecap(); setProfileOpen(false) }} title="Recap">
                         <span>📊</span><span>Recap</span>
@@ -1328,7 +1353,14 @@ function App() {
               maxWidth: 340, width: '100%', textAlign: 'center',
             }}
           >
-            <div style={{ fontSize: '2rem', marginBottom: 8 }}>{setPasswordMode ? '🔐' : '🔒'}</div>
+            <div style={{ marginBottom: 12, display:'flex', justifyContent:'center' }}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="1.5" width="36" height="36">
+                {setPasswordMode
+                  ? <><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/><circle cx="12" cy="16" r="1" fill="var(--accent)"/></>
+                  : <><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/><circle cx="12" cy="16" r="1" fill="var(--accent)"/></>
+                }
+              </svg>
+            </div>
             <h3 style={{ margin: '0 0 6px', color: 'var(--text)' }}>{setPasswordMode ? 'Lock this room' : 'Room is locked'}</h3>
             <p style={{ margin: '0 0 16px', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
               {setPasswordMode ? 'Set a password — others must enter it to join' : 'Enter the room password to join'}
@@ -1557,7 +1589,10 @@ function App() {
                 : "Something went wrong with Discord. Please try again."}
             </p>
             {authError === 'rate_limit' && (
-              <div className="auth-error-tip">💡 You can join as a guest while waiting</div>
+              <div className="auth-error-tip">
+                <svg viewBox="0 0 24 24" fill="currentColor" width="13" height="13" style={{marginRight:5,flexShrink:0,opacity:0.7}}><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
+                You can join as a guest while waiting
+              </div>
             )}
             <div className="auth-error-actions">
               <button className="auth-error-btn auth-error-btn--secondary" onClick={() => setAuthError(null)}>Dismiss</button>
