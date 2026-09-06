@@ -3,14 +3,6 @@ import MarqueeText from './MarqueeText'
 
 const BACKEND = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'
 
-// Piped public instances (tried in order, first success wins)
-const PIPED_INSTANCES = [
-  'https://pipedapi.kavin.rocks',
-  'https://api.piped.yt',
-  'https://piped-api.garudalinux.org',
-]
-const INVIDIOUS_INSTANCE = 'https://invidious.io.lol'
-
 // Global beat energy bus — Visualizer writes here, BeatBorder reads it
 window.__grooveBeatEnergy = 0
 
@@ -43,36 +35,17 @@ function pointOnRoundRect(t, W, H, r) {
 
 // ── Fetch audio stream URL from Piped, fallback to Invidious ──
 async function fetchAudioStream(videoId) {
-  // Try Piped instances
-  for (const instance of PIPED_INSTANCES) {
-    try {
-      const res = await fetch(`${instance}/streams/${videoId}`, {
-        signal: AbortSignal.timeout(5000)
-      })
-      if (!res.ok) continue
-      const data = await res.json()
-      // Find best audio-only stream (opus preferred, then mp4a)
-      const streams = data.audioStreams || []
-      const opus = streams.find(s => s.mimeType?.includes('opus') && s.bitrate >= 128000)
-      const mp4a = streams.find(s => s.mimeType?.includes('mp4a'))
-      const best = opus || mp4a || streams[0]
-      if (best?.url) return { url: best.url, source: 'piped' }
-    } catch { continue }
-  }
-  // Fallback: Invidious
+  // All stream resolution happens server-side — no CORS issues
   try {
-    const res = await fetch(`${INVIDIOUS_INSTANCE}/api/v1/videos/${videoId}?fields=adaptiveFormats`, {
-      signal: AbortSignal.timeout(5000)
+    const res = await fetch(`${BACKEND}/audio-stream/${videoId}`, {
+      credentials: 'include',
+      signal: AbortSignal.timeout(10000),
     })
-    if (res.ok) {
-      const data = await res.json()
-      const formats = data.adaptiveFormats || []
-      const audio = formats.filter(f => f.type?.includes('audio'))
-        .sort((a, b) => (b.bitrate || 0) - (a.bitrate || 0))[0]
-      if (audio?.url) return { url: audio.url, source: 'invidious' }
-    }
-  } catch {}
-  return null
+    if (!res.ok) return null
+    const data = await res.json()
+    if (data?.url) return { url: data.url, source: data.source || 'piped' }
+    return null
+  } catch { return null }
 }
 
 // ── BPM fetch ──────────────────────────────────────────────

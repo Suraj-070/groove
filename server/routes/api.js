@@ -26,6 +26,47 @@ const PIPED_INSTANCES = [
   'https://piped-api.garudalinux.org',
 ];
 
+const INVIDIOUS_INSTANCES = [
+  'https://invidious.privacyredirect.com',
+  'https://inv.tux.pizza',
+  'https://invidious.nerdvpn.de',
+];
+
+// ─── Resolve audio stream URL server-side (no browser CORS) ──
+async function fetchAudioStreamServer(videoId) {
+  // 1. Try Piped instances
+  for (const instance of PIPED_INSTANCES) {
+    try {
+      const res = await fetch(`${instance}/streams/${videoId}`, {
+        signal: AbortSignal.timeout(6000),
+        headers: { 'Accept': 'application/json' }
+      });
+      if (!res.ok) continue;
+      const data = await res.json();
+      const streams = data.audioStreams || [];
+      const opus = streams.find(s => s.mimeType?.includes('opus') && s.bitrate >= 128000);
+      const mp4a = streams.find(s => s.mimeType?.includes('mp4a'));
+      const best = opus || mp4a || streams[0];
+      if (best?.url) return { url: best.url, source: 'piped' };
+    } catch { continue; }
+  }
+  // 2. Fallback: Invidious instances
+  for (const instance of INVIDIOUS_INSTANCES) {
+    try {
+      const res = await fetch(`${instance}/api/v1/videos/${videoId}?fields=adaptiveFormats`, {
+        signal: AbortSignal.timeout(6000),
+        headers: { 'Accept': 'application/json' }
+      });
+      if (!res.ok) continue;
+      const data = await res.json();
+      const formats = (data.adaptiveFormats || []).filter(f => f.type?.includes('audio'));
+      formats.sort((a, b) => (b.bitrate || 0) - (a.bitrate || 0));
+      if (formats[0]?.url) return { url: formats[0].url, source: 'invidious' };
+    } catch { continue; }
+  }
+  return null;
+}
+
 async function searchViaPiped(query, limit = 10) {
   for (const instance of PIPED_INSTANCES) {
     try {
@@ -89,6 +130,21 @@ router.get('/youtube/search', requireAuth, async (req, res) => {
 // ─── SONG DNA ENDPOINTS ──────────────────────────────────────
 
 // Enrich a single song (or batch)
+// ─── AUDIO STREAM PROXY — resolves Piped/Invidious server-side ─
+router.get('/audio-stream/:videoId', requireAuth, async (req, res) => {
+  const { videoId } = req.params;
+  if (!videoId || !/^[a-zA-Z0-9_-]{11}$/.test(videoId)) {
+    return res.status(400).json({ error: 'Invalid video ID' });
+  }
+  try {
+    const result = await fetchAudioStreamServer(videoId);
+    if (!result) return res.status(503).json({ error: 'No audio stream available' });
+    res.json(result);
+  } catch (e) {
+    res.status(500).json({ error: 'Stream resolution failed' });
+  }
+});
+
 router.post('/song-dna', requireAuth, async (req, res) => {
   const { songs } = req.body; // [{ videoId, title }]
   if (!Array.isArray(songs)) return res.status(400).json({ error: 'songs array required' });
