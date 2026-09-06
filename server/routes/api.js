@@ -177,21 +177,6 @@ router.get('/youtube/search', requireAuth, async (req, res) => {
 // ─── SONG DNA ENDPOINTS ──────────────────────────────────────
 
 // Enrich a single song (or batch)
-// ─── AUDIO STREAM PROXY — resolves Piped/Invidious server-side ─
-router.get('/audio-stream/:videoId', requireAuth, async (req, res) => {
-  const { videoId } = req.params;
-  if (!videoId || !/^[a-zA-Z0-9_-]{11}$/.test(videoId)) {
-    return res.status(400).json({ error: 'Invalid video ID' });
-  }
-  try {
-    const result = await fetchAudioStreamServer(videoId);
-    if (!result) return res.status(503).json({ error: 'No audio stream available' });
-    res.json(result);
-  } catch (e) {
-    res.status(500).json({ error: 'Stream resolution failed' });
-  }
-});
-
 router.post('/song-dna', requireAuth, async (req, res) => {
   const { songs } = req.body; // [{ videoId, title }]
   if (!Array.isArray(songs)) return res.status(400).json({ error: 'songs array required' });
