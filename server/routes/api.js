@@ -32,9 +32,56 @@ const INVIDIOUS_INSTANCES = [
   'https://invidious.nerdvpn.de',
 ];
 
+// ─── YouTube Innertube API — no key, works server-side ────────
+async function fetchAudioStreamYouTube(videoId) {
+  // Use YouTube's internal /youtubei/v1/player endpoint
+  // This is what youtube.com itself uses — no API key, no CORS on server
+  const body = {
+    videoId,
+    context: {
+      client: {
+        clientName: 'ANDROID',
+        clientVersion: '19.09.37',
+        androidSdkVersion: 30,
+        hl: 'en',
+        gl: 'US',
+        utcOffsetMinutes: 0,
+      },
+    },
+  };
+  try {
+    const res = await fetch('https://www.youtube.com/youtubei/v1/player?key=AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'User-Agent': 'com.google.android.youtube/19.09.37 (Linux; U; Android 11) gzip',
+        'X-YouTube-Client-Name': '3',
+        'X-YouTube-Client-Version': '19.09.37',
+        'Origin': 'https://www.youtube.com',
+      },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    const formats = data?.streamingData?.adaptiveFormats || [];
+    // Pick best audio-only: opus/webm preferred, then mp4a
+    const audioFormats = formats.filter(f => f.mimeType?.includes('audio'));
+    const opus = audioFormats.find(f => f.mimeType?.includes('opus'));
+    const mp4a = audioFormats.find(f => f.mimeType?.includes('mp4a'));
+    const best = opus || mp4a || audioFormats[0];
+    if (best?.url) return { url: best.url, source: 'youtube' };
+    return null;
+  } catch { return null; }
+}
+
 // ─── Resolve audio stream URL server-side (no browser CORS) ──
 async function fetchAudioStreamServer(videoId) {
-  // 1. Try Piped instances
+  // 1. Try YouTube Innertube (most reliable, no external dependency)
+  const ytResult = await fetchAudioStreamYouTube(videoId);
+  if (ytResult) return ytResult;
+
+  // 2. Try Piped instances as fallback
   for (const instance of PIPED_INSTANCES) {
     try {
       const res = await fetch(`${instance}/streams/${videoId}`, {
@@ -50,7 +97,7 @@ async function fetchAudioStreamServer(videoId) {
       if (best?.url) return { url: best.url, source: 'piped' };
     } catch { continue; }
   }
-  // 2. Fallback: Invidious instances
+  // 3. Try Invidious instances
   for (const instance of INVIDIOUS_INSTANCES) {
     try {
       const res = await fetch(`${instance}/api/v1/videos/${videoId}?fields=adaptiveFormats`, {
