@@ -19,18 +19,56 @@ const { sendPush, sendPushToRoom } = require('../services/push')
 const { requireAuth } = require('./auth')
 const { rooms, getRoom, updateStreak, recordListen, computeChemistry } = require('../services/room')
 
-// ─── YOUTUBE SEARCH ──────────────────────────────────────────
+// ─── PIPED instances for search (no API key needed) ──────────
+const PIPED_INSTANCES = [
+  'https://pipedapi.kavin.rocks',
+  'https://api.piped.yt',
+  'https://piped-api.garudalinux.org',
+];
+
+async function searchViaPiped(query, limit = 10) {
+  for (const instance of PIPED_INSTANCES) {
+    try {
+      const url = `${instance}/search?q=${encodeURIComponent(query)}&filter=music_songs`;
+      const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
+      if (!res.ok) continue;
+      const data = await res.json();
+      const items = (data.items || []).filter(i => i.type === 'stream').slice(0, limit);
+      if (items.length === 0) continue;
+      return items.map(item => ({
+        videoId: item.url?.replace('/watch?v=', '') || item.videoId,
+        title: item.title,
+        channel: item.uploaderName || item.channel || '',
+        thumbnail: item.thumbnail || `https://img.youtube.com/vi/${item.url?.replace('/watch?v=', '')}/mqdefault.jpg`,
+        duration: item.duration,
+      }));
+    } catch { continue; }
+  }
+  return null;
+}
+
+// ─── YOUTUBE SEARCH — Piped first, YouTube Data API fallback ─
 router.get('/youtube/search', requireAuth, async (req, res) => {
   const { q } = req.query;
   if (!q?.trim()) return res.status(400).json({ error: 'Query required' });
+
+  // Try Piped first (free, no key)
+  try {
+    const pipedResults = await searchViaPiped(q.trim());
+    if (pipedResults && pipedResults.length > 0) {
+      return res.json({ results: pipedResults, source: 'piped' });
+    }
+  } catch {}
+
+  // Fallback: YouTube Data API
   const apiKey = process.env.YOUTUBE_API_KEY;
-  if (!apiKey) return res.status(503).json({ error: 'Search not configured' });
+  if (!apiKey) return res.status(503).json({ error: 'Search unavailable — no API key configured' });
   try {
     const url = new URL('https://www.googleapis.com/youtube/v3/search');
     url.searchParams.set('part', 'snippet');
     url.searchParams.set('q', q.trim());
     url.searchParams.set('type', 'video');
-    url.searchParams.set('videoCategoryId', '10'); // Music category
+    url.searchParams.set('videoCategoryId', '10');
     url.searchParams.set('maxResults', '10');
     url.searchParams.set('key', apiKey);
     const response = await fetch(url.toString());
@@ -42,7 +80,7 @@ router.get('/youtube/search', requireAuth, async (req, res) => {
       channel: item.snippet.channelTitle,
       thumbnail: item.snippet.thumbnails?.medium?.url || item.snippet.thumbnails?.default?.url,
     }));
-    res.json({ results });
+    res.json({ results, source: 'youtube' });
   } catch (e) {
     res.status(500).json({ error: 'Search failed' });
   }

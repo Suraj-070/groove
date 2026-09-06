@@ -30,12 +30,20 @@ async function saveMessage(roomId, msg) {
 // ── Register all socket handlers ──────────────────────────
 module.exports = function registerSockets(io) {
   io.on('connection', (socket) => {
-  socket.on('join-room', async ({ roomId, username, avatar, discordId }) => {
+  socket.on('join-room', async ({ roomId, username, avatar, discordId, password }) => {
     socket.join(roomId);
     socket.roomId = roomId;
     socket.username = username;
     const room = await getRoom(roomId);
     const isFirstUser = Object.keys(room.users).length === 0;
+    // ── Room password check ──
+    if (!isFirstUser && room.password) {
+      if (room.password !== password) {
+        socket.emit('join-error', { code: 'wrong-password', message: 'Incorrect room password' });
+        socket.leave(roomId);
+        return;
+      }
+    }
     room.users[socket.id] = { id: socket.id, discordId, username, avatar, joinedAt: Date.now() };
     if (isFirstUser) {
       room.djId = socket.id;
@@ -307,7 +315,22 @@ module.exports = function registerSockets(io) {
     if (!room || !Array.isArray(newQueue)) return;
     room.queue = newQueue;
     await saveRoom(roomId);
-    io.to(roomId).emit('queue-updated', { queue: room.queue });
+    // Emit to ALL in room including sender so their UI reflects confirmed state
+    io.to(roomId).emit('queue-reordered', { queue: room.queue });
+  });
+
+  // Room password management (DJ/first user only)
+  socket.on('set-room-password', async ({ roomId, password }) => {
+    const room = await getRoom(roomId);
+    if (!room) return;
+    // Only the DJ can set/clear the password
+    if (room.djId && room.djId !== socket.id) {
+      socket.emit('room-error', { message: 'Only the DJ can set the room password' });
+      return;
+    }
+    room.password = password || null;
+    // Notify room of lock state change (don't broadcast the password itself)
+    io.to(roomId).emit('room-lock-changed', { locked: !!room.password });
   });
 
   // Per-song reactions

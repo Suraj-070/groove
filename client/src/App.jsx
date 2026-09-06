@@ -160,6 +160,9 @@ function App() {
   const [authError, setAuthError]       = useState(null)
   const [serverWaking, setServerWaking] = useState(false)
   const [roomId, setRoomId] = useState(null)
+  const [roomLocked, setRoomLocked] = useState(false)
+  const [showRoomPassword, setShowRoomPassword] = useState(false)
+  const [roomPasswordInput, setRoomPasswordInput] = useState('')
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false)
   const [queue, setQueue] = useState([])
   const [currentIndex, setCurrentIndex] = useState(0)
@@ -728,6 +731,13 @@ function App() {
       if (Array.isArray(chatHistory)) setChatHistory(chatHistory)
     })
     socket.on('queue-updated', ({ queue }) => setQueue(Array.isArray(queue) ? queue : []))
+    socket.on('queue-reordered', ({ queue }) => setQueue(Array.isArray(queue) ? queue : []))
+    socket.on('room-lock-changed', ({ locked }) => setRoomLocked(locked))
+    socket.on('join-error', ({ code }) => {
+      if (code === 'wrong-password') {
+        setShowRoomPassword(true)
+      }
+    })
     socket.on('load-song', ({ index, queue: updatedQueue }) => {
       if (updatedQueue) setQueue(Array.isArray(updatedQueue) ? updatedQueue : [])
       if (typeof index === 'number' && !isNaN(index)) setCurrentIndex(index)
@@ -773,6 +783,9 @@ function App() {
     return () => {
       socket.off('room-state')
       socket.off('queue-updated')
+      socket.off('queue-reordered')
+      socket.off('room-lock-changed')
+      socket.off('join-error')
       socket.off('load-song')
       socket.off('user-joined')
       socket.off('user-left')
@@ -910,6 +923,26 @@ function App() {
           {!isMobileView && isDJ && (
             <button className={`dj-toggle-btn ${djMode ? 'active' : ''}`} onClick={handleToggleDJMode}>
               {djMode ? '👑 DJ' : '🎛 Free'}
+            </button>
+          )}
+          {!isMobileView && isDJ && (
+            <button
+              className={`dj-toggle-btn ${roomLocked ? 'active' : ''}`}
+              title={roomLocked ? 'Room locked — click to unlock' : 'Lock room with password'}
+              onClick={() => {
+                if (roomLocked) {
+                  socket.emit('set-room-password', { roomId, password: null })
+                  setRoomLocked(false)
+                } else {
+                  const pw = prompt('Set room password (leave blank to cancel):')
+                  if (pw && pw.trim()) {
+                    socket.emit('set-room-password', { roomId, password: pw.trim() })
+                    setRoomLocked(true)
+                  }
+                }
+              }}
+            >
+              {roomLocked ? '🔒 Locked' : '🔓 Lock'}
             </button>
           )}
 
@@ -1243,6 +1276,70 @@ function App() {
       )}
 
       {/* Leave Room Confirmation */}
+      {/* Room password modal */}
+      {showRoomPassword && (
+        <div
+          onClick={() => setShowRoomPassword(false)}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 2100,
+            background: 'rgba(0,0,0,0.75)',
+            backdropFilter: 'blur(8px)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            padding: 20,
+          }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              background: 'linear-gradient(160deg, #0f0a1e, #0a0814)',
+              border: '1px solid rgba(124,106,255,0.3)',
+              borderRadius: 20, padding: '28px 24px',
+              maxWidth: 340, width: '100%', textAlign: 'center',
+            }}
+          >
+            <div style={{ fontSize: '2rem', marginBottom: 8 }}>🔒</div>
+            <h3 style={{ margin: '0 0 6px', color: 'var(--text)' }}>Room is locked</h3>
+            <p style={{ margin: '0 0 16px', color: 'var(--text-muted)', fontSize: '0.85rem' }}>Enter the room password to join</p>
+            <input
+              type="password"
+              placeholder="Room password..."
+              value={roomPasswordInput}
+              onChange={e => setRoomPasswordInput(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter') {
+                  socket.emit('join-room', { roomId, username: user.username, avatar: user.avatar, discordId: user.id, password: roomPasswordInput })
+                  setShowRoomPassword(false)
+                  setRoomPasswordInput('')
+                }
+              }}
+              autoFocus
+              style={{
+                width: '100%', boxSizing: 'border-box',
+                padding: '10px 14px', borderRadius: 10,
+                border: '1px solid rgba(124,106,255,0.3)',
+                background: 'rgba(124,106,255,0.08)',
+                color: 'var(--text)', fontSize: '0.95rem',
+                outline: 'none', marginBottom: 12,
+              }}
+            />
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button
+                onClick={() => { setShowRoomPassword(false); setRoomPasswordInput('') }}
+                style={{ flex: 1, padding: '10px', borderRadius: 10, border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer' }}
+              >Cancel</button>
+              <button
+                onClick={() => {
+                  socket.emit('join-room', { roomId, username: user.username, avatar: user.avatar, discordId: user.id, password: roomPasswordInput })
+                  setShowRoomPassword(false)
+                  setRoomPasswordInput('')
+                }}
+                style={{ flex: 1, padding: '10px', borderRadius: 10, border: 'none', background: 'var(--accent)', color: '#fff', cursor: 'pointer', fontWeight: 600 }}
+              >Join</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showLeaveConfirm && (
         <div
           onClick={() => setShowLeaveConfirm(false)}
