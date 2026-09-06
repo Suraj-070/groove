@@ -101,11 +101,12 @@ const SongItem = memo(forwardRef(function SongItem(
       onDragOver={e => onDragOver(e, index)}
       onDrop={e => onDrop(e, index)}
       onDragEnd={onDragEnd}
-
       onClick={() => onSelect(index)}
-      style={{ position: 'relative' }}
+      style={{ position: 'relative', touchAction: selectMode ? 'auto' : 'none' }}
     >
-      {!selectMode && <div className="drag-handle">⠿</div>}
+      {!selectMode && (
+        <div className="drag-handle">⠿</div>
+      )}
       {selectMode && (
         <div className={`song-check ${isSelected ? 'checked' : ''}`}>
           {isSelected && <svg viewBox="0 0 24 24" fill="currentColor" width="12" height="12"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>}
@@ -359,11 +360,14 @@ export default function Queue({
   }, [queue, currentIndex, socket, roomId, showToast])
 
   const handleDragStart = useCallback((e, index) => {
-    setDragIndex(index); e.dataTransfer.effectAllowed = 'move'
+    // Mouse drag
+    if (e.dataTransfer) { e.dataTransfer.effectAllowed = 'move' }
+    setDragIndex(index)
   }, [])
 
   const handleDragOver = useCallback((e, index) => {
-    e.preventDefault(); e.dataTransfer.dropEffect = 'move'
+    e.preventDefault()
+    if (e.dataTransfer) e.dataTransfer.dropEffect = 'move'
     if (lastDragOver.current !== index) {
       lastDragOver.current = index
       setDragOverIndex(index)
@@ -387,6 +391,56 @@ export default function Queue({
   const handleDragEnd = useCallback(() => {
     setDragIndex(null); setDragOverIndex(null); lastDragOver.current = -1
   }, [])
+
+  // ── Touch drag (mobile) ───────────────────────────────────
+  const touchDragIndex = useRef(null)
+  const songListRef = useRef(null)
+
+  const handleTouchMove = useCallback((e) => {
+    if (touchDragIndex.current === null) return
+    e.preventDefault()
+    const touch = e.touches[0]
+    const list = songListRef.current
+    if (!list) return
+    const items = list.querySelectorAll('.song-item')
+    let target = null
+    for (let i = 0; i < items.length; i++) {
+      const rect = items[i].getBoundingClientRect()
+      if (touch.clientY >= rect.top && touch.clientY <= rect.bottom) {
+        target = i; break
+      }
+    }
+    if (target !== null && lastDragOver.current !== target) {
+      lastDragOver.current = target
+      setDragOverIndex(target)
+    }
+  }, [])
+
+  const handleTouchEnd = useCallback((e) => {
+    const from = touchDragIndex.current
+    const to = lastDragOver.current
+    touchDragIndex.current = null
+    if (from === null || to === -1 || from === to) {
+      setDragIndex(null); setDragOverIndex(null); lastDragOver.current = -1; return
+    }
+    const newQ = [...queue]
+    const [moved] = newQ.splice(from, 1)
+    newQ.splice(to, 0, moved)
+    socket?.emit('reorder-queue', { roomId, queue: newQ })
+    setDragIndex(null); setDragOverIndex(null); lastDragOver.current = -1
+  }, [queue, socket, roomId])
+
+  // Attach touch listeners to list (passive: false so we can preventDefault)
+  useEffect(() => {
+    const list = songListRef.current
+    if (!list) return
+    list.addEventListener('touchmove', handleTouchMove, { passive: false })
+    list.addEventListener('touchend', handleTouchEnd)
+    return () => {
+      list.removeEventListener('touchmove', handleTouchMove)
+      list.removeEventListener('touchend', handleTouchEnd)
+    }
+  }, [handleTouchMove, handleTouchEnd])
 
 
   const handleSaveSelectedToLibrary = async () => {
@@ -548,7 +602,17 @@ export default function Queue({
         </div>
       )}
 
-      <ul className="song-list">
+      <ul className="song-list" ref={songListRef} onTouchStart={e => {
+        // Detect touch on drag handle → start touch drag
+        const handle = e.target.closest('.drag-handle')
+        if (!handle) return
+        const item = handle.closest('.song-item')
+        if (!item) return
+        const items = songListRef.current?.querySelectorAll('.song-item')
+        if (!items) return
+        const idx = Array.from(items).indexOf(item)
+        if (idx !== -1) { touchDragIndex.current = idx; setDragIndex(idx) }
+      }}>
         {queue.length === 0 && (
           <li className="empty" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '40px 20px', gap: 12 }}>
             <div style={{ fontSize: '2.5rem', animation: 'pulse 2s ease-in-out infinite' }}>🎧</div>

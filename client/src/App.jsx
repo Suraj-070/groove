@@ -126,29 +126,41 @@ function OfflineBanner() {
 }
 
 // ── Mobile Mini Player ────────────────────────────────────────
-function MiniPlayer({ title, videoId, isPlaying, onPlay, onPause, onSkip, onOpen }) {
+function MiniPlayer({ title, videoId, isPlaying, isLoading, progress, onPlay, onPause, onSkip, onOpen }) {
   if (!videoId) return null
+  const haptic = (ms = 8) => { try { navigator.vibrate?.(ms) } catch {} }
   return (
     <div className="mini-player" onClick={onOpen}>
-      <img
-        src={`https://img.youtube.com/vi/${videoId}/default.jpg`}
-        alt=""
-        className="mini-player-thumb"
-      />
-      <MarqueeText className="mini-player-title" as="p">{title || 'No song'}</MarqueeText>
-      <div className="mini-player-controls" onClick={e => e.stopPropagation()}>
-        <button
-          className="mini-ctrl-btn"
-          onClick={isPlaying ? onPause : onPlay}
-        >
-          {isPlaying
-            ? <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>
-            : <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20"><path d="M8 5v14l11-7z"/></svg>
-          }
-        </button>
-        <button className="mini-ctrl-btn" onClick={onSkip}>
-          <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20"><path d="M6 18l8.5-6L6 6v12zm2-8.14L11.03 12 8 14.14V9.86zM16 6h2v12h-2z"/></svg>
-        </button>
+      {/* Progress bar at top */}
+      <div className="mini-player-progress">
+        <div className="mini-player-progress-fill" style={{ width: `${progress || 0}%` }} />
+      </div>
+      <div className="mini-player-inner">
+        <div className="mini-player-thumb-wrap">
+          <img
+            src={`https://img.youtube.com/vi/${videoId}/default.jpg`}
+            alt=""
+            className="mini-player-thumb"
+          />
+          {isLoading && <div className="mini-player-loading" />}
+        </div>
+        <MarqueeText className="mini-player-title" as="p">{title || 'No song'}</MarqueeText>
+        <div className="mini-player-controls" onClick={e => e.stopPropagation()}>
+          <button
+            className="mini-ctrl-btn"
+            onClick={() => { haptic(); isPlaying ? onPause() : onPlay() }}
+          >
+            {isLoading
+              ? <span className="mini-loading-spinner" />
+              : isPlaying
+              ? <svg viewBox="0 0 24 24" fill="currentColor" width="22" height="22"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>
+              : <svg viewBox="0 0 24 24" fill="currentColor" width="22" height="22"><path d="M8 5v14l11-7z"/></svg>
+            }
+          </button>
+          <button className="mini-ctrl-btn" onClick={(e) => { e.stopPropagation(); haptic(); onSkip() }}>
+            <svg viewBox="0 0 24 24" fill="currentColor" width="22" height="22"><path d="M6 18l8.5-6L6 6v12zm2-8.14L11.03 12 8 14.14V9.86zM16 6h2v12h-2z"/></svg>
+          </button>
+        </div>
       </div>
     </div>
   )
@@ -162,6 +174,7 @@ function App() {
   const [roomId, setRoomId] = useState(null)
   const [roomLocked, setRoomLocked] = useState(false)
   const [showRoomPassword, setShowRoomPassword] = useState(false)
+  const [setPasswordMode, setSetPasswordMode] = useState(false)
   const [roomPasswordInput, setRoomPasswordInput] = useState('')
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false)
   const [queue, setQueue] = useState([])
@@ -202,9 +215,16 @@ function App() {
   const [showRecap, setShowRecap] = useState(false)
   const [libraryOpen, setLibraryOpen] = useState(false)
   const [isPlaying, setIsPlaying] = useState(false)
+  const [miniProgress, setMiniProgress] = useState(0)
+  const [miniLoading, setMiniLoading] = useState(false)
   const [queueCollapsed, setQueueCollapsed] = useState(false)
   const haptic = (ms = 10) => { try { navigator.vibrate?.(ms) } catch {} }
-  const showToast = (msg, duration = 3000) => { setToast(msg); setTimeout(() => setToast(null), duration) }
+  const toastTimerRef = useRef(null)
+  const showToast = useCallback((msg, duration = 3000) => {
+    clearTimeout(toastTimerRef.current)
+    setToast(msg)
+    toastTimerRef.current = setTimeout(() => setToast(null), duration)
+  }, [])
   const [partyMode, setPartyMode] = useState(false)
   const [mobileTab, setMobileTab] = useState('player')
   const [profileOpen, setProfileOpen] = useState(false)
@@ -934,11 +954,9 @@ function App() {
                   socket.emit('set-room-password', { roomId, password: null })
                   setRoomLocked(false)
                 } else {
-                  const pw = prompt('Set room password (leave blank to cancel):')
-                  if (pw && pw.trim()) {
-                    socket.emit('set-room-password', { roomId, password: pw.trim() })
-                    setRoomLocked(true)
-                  }
+                  setSetPasswordMode(true)
+                  setRoomPasswordInput('')
+                  setShowRoomPassword(true)
                 }
               }}
             >
@@ -1112,6 +1130,8 @@ function App() {
             initialTime={initialTime}
             initialPlaying={initialPlaying}
             onPlayStateChange={setIsPlaying}
+            onProgressChange={setMiniProgress}
+            onLoadingChange={setMiniLoading}
             externalVolume={volume}
             onVolumeChange={setVolume}
             loop={loop}
@@ -1136,19 +1156,18 @@ function App() {
 
         <div
           className={`right-panel ${!isMobileView && queueCollapsed ? 'collapsed' : ''} ${isMobileView && mobileTab === 'queue' ? 'mobile-open' : ''}`}
+          onTouchStart={isMobileView ? (e) => { touchStartY.current = e.touches[0].clientY } : undefined}
+          onTouchEnd={isMobileView ? (e) => {
+            if (touchStartY.current === null) return
+            const dy = e.changedTouches[0].clientY - touchStartY.current
+            // Only close if swipe is fast enough + downward + NOT on song list (avoid conflict with touch drag)
+            if (dy > 60 && !e.target.closest('.song-list')) setMobileTab('player')
+            touchStartY.current = null
+          } : undefined}
         >
-          {/* Swipe-down handle — touch only fires here, not on the song list */}
+          {/* Swipe-down pill indicator */}
           {isMobileView && (
-            <div
-              className="queue-swipe-handle"
-              onTouchStart={(e) => { touchStartY.current = e.touches[0].clientY }}
-              onTouchEnd={(e) => {
-                if (touchStartY.current === null) return
-                const dy = e.changedTouches[0].clientY - touchStartY.current
-                if (dy > 40) setMobileTab('player')
-                touchStartY.current = null
-              }}
-            />
+            <div className="queue-swipe-handle" />
           )}
           <Queue
             queue={queue}
@@ -1186,6 +1205,8 @@ function App() {
           title={currentSong.title}
           videoId={currentSong.videoId}
           isPlaying={isPlaying}
+          isLoading={miniLoading}
+          progress={miniProgress}
           onPlay={() => { const t = playerRef.current?.getCurrentTime?.() || 0; socket.emit('play', { roomId, time: t }); setIsPlaying(true) }}
           onPause={() => { const t = playerRef.current?.getCurrentTime?.() || 0; socket.emit('pause', { roomId, time: t }); setIsPlaying(false) }}
           onSkip={handleNext}
@@ -1197,7 +1218,7 @@ function App() {
         <nav className="mobile-bottom-nav">
           <button
             className={`mobile-nav-btn ${mobileTab === 'player' && !libraryOpen && !chatOpen ? 'active' : ''}`}
-            onClick={() => { setMobileTab('player'); setLibraryOpen(false); setChatOpen(false) }}
+            onClick={() => { haptic(6); setMobileTab('player'); setLibraryOpen(false); setChatOpen(false) }}
           >
             <span className="nav-icon-wrap">
               <svg viewBox="0 0 24 24" fill="currentColor" width="22" height="22"><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6z"/></svg>
@@ -1207,7 +1228,7 @@ function App() {
 
           <button
             className={`mobile-nav-btn ${mobileTab === 'queue' && !libraryOpen && !chatOpen ? 'active' : ''}`}
-            onClick={() => { setLibraryOpen(false); setChatOpen(false); setMobileTab(t => t === 'queue' ? 'player' : 'queue') }}
+            onClick={() => { haptic(6); setLibraryOpen(false); setChatOpen(false); setMobileTab(t => t === 'queue' ? 'player' : 'queue') }}
           >
             <span className="nav-icon-wrap">
               <svg viewBox="0 0 24 24" fill="currentColor" width="22" height="22"><path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/></svg>
@@ -1218,7 +1239,7 @@ function App() {
 
           <button
             className={`mobile-nav-btn ${libraryOpen ? 'active' : ''}`}
-            onClick={() => { setChatOpen(false); setMobileTab('player'); setLibraryOpen(p => !p) }}
+            onClick={() => { haptic(6); setChatOpen(false); setMobileTab('player'); setLibraryOpen(p => !p) }}
           >
             <span className="nav-icon-wrap">
               <svg viewBox="0 0 24 24" fill="currentColor" width="22" height="22"><path d="M20 2H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-2 5h-3v5.5a2.5 2.5 0 0 1-5 0 2.5 2.5 0 0 1 2.5-2.5c.57 0 1.08.19 1.5.5V5h4v2zM4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6z"/></svg>
@@ -1229,7 +1250,7 @@ function App() {
           {currentSong && (
             <button
               className={`mobile-nav-btn ${videoOpen ? 'active' : ''}`}
-              onClick={() => setVideoOpen(p => !p)}
+              onClick={() => { haptic(6); setVideoOpen(p => !p) }}
             >
               <span className="nav-icon-wrap">
                 <svg viewBox="0 0 24 24" fill="currentColor" width="22" height="22"><path d="M17 10.5V7a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-3.5l4 4v-11l-4 4z"/></svg>
@@ -1240,7 +1261,7 @@ function App() {
 
           <button
             className={`mobile-nav-btn ${profileOpen ? 'active' : ''}`}
-            onClick={() => { setLibraryOpen(false); setChatOpen(false); setProfileOpen(p => !p) }}
+            onClick={() => { haptic(6); setLibraryOpen(false); setChatOpen(false); setProfileOpen(p => !p) }}
           >
             <span className="nav-icon-wrap">
               {user?.avatar
@@ -1307,20 +1328,25 @@ function App() {
               maxWidth: 340, width: '100%', textAlign: 'center',
             }}
           >
-            <div style={{ fontSize: '2rem', marginBottom: 8 }}>🔒</div>
-            <h3 style={{ margin: '0 0 6px', color: 'var(--text)' }}>Room is locked</h3>
-            <p style={{ margin: '0 0 16px', color: 'var(--text-muted)', fontSize: '0.85rem' }}>Enter the room password to join</p>
+            <div style={{ fontSize: '2rem', marginBottom: 8 }}>{setPasswordMode ? '🔐' : '🔒'}</div>
+            <h3 style={{ margin: '0 0 6px', color: 'var(--text)' }}>{setPasswordMode ? 'Lock this room' : 'Room is locked'}</h3>
+            <p style={{ margin: '0 0 16px', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+              {setPasswordMode ? 'Set a password — others must enter it to join' : 'Enter the room password to join'}
+            </p>
             <input
               type="password"
-              placeholder="Room password..."
+              placeholder={setPasswordMode ? 'Choose a password...' : 'Room password...'}
               value={roomPasswordInput}
               onChange={e => setRoomPasswordInput(e.target.value)}
               onKeyDown={e => {
-                if (e.key === 'Enter') {
+                if (e.key !== 'Enter' || !roomPasswordInput.trim()) return
+                if (setPasswordMode) {
+                  socket.emit('set-room-password', { roomId, password: roomPasswordInput.trim() })
+                  setRoomLocked(true)
+                } else {
                   socket.emit('join-room', { roomId, username: user.username, avatar: user.avatar, discordId: user.id, password: roomPasswordInput })
-                  setShowRoomPassword(false)
-                  setRoomPasswordInput('')
                 }
+                setShowRoomPassword(false); setRoomPasswordInput(''); setSetPasswordMode(false)
               }}
               autoFocus
               style={{
@@ -1334,17 +1360,23 @@ function App() {
             />
             <div style={{ display: 'flex', gap: 8 }}>
               <button
-                onClick={() => { setShowRoomPassword(false); setRoomPasswordInput('') }}
+                onClick={() => { setShowRoomPassword(false); setRoomPasswordInput(''); setSetPasswordMode(false) }}
                 style={{ flex: 1, padding: '10px', borderRadius: 10, border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer' }}
               >Cancel</button>
               <button
+                disabled={!roomPasswordInput.trim()}
                 onClick={() => {
-                  socket.emit('join-room', { roomId, username: user.username, avatar: user.avatar, discordId: user.id, password: roomPasswordInput })
-                  setShowRoomPassword(false)
-                  setRoomPasswordInput('')
+                  if (!roomPasswordInput.trim()) return
+                  if (setPasswordMode) {
+                    socket.emit('set-room-password', { roomId, password: roomPasswordInput.trim() })
+                    setRoomLocked(true)
+                  } else {
+                    socket.emit('join-room', { roomId, username: user.username, avatar: user.avatar, discordId: user.id, password: roomPasswordInput })
+                  }
+                  setShowRoomPassword(false); setRoomPasswordInput(''); setSetPasswordMode(false)
                 }}
-                style={{ flex: 1, padding: '10px', borderRadius: 10, border: 'none', background: 'var(--accent)', color: '#fff', cursor: 'pointer', fontWeight: 600 }}
-              >Join</button>
+                style={{ flex: 1, padding: '10px', borderRadius: 10, border: 'none', background: 'var(--accent)', color: '#fff', cursor: 'pointer', fontWeight: 600, opacity: roomPasswordInput.trim() ? 1 : 0.5 }}
+              >{setPasswordMode ? 'Lock Room' : 'Join'}</button>
             </div>
           </div>
         </div>

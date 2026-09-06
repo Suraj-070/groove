@@ -262,13 +262,15 @@ function LyricsOverlay({ lyrics, currentTime, onClose }) {
 
 const SPEEDS = [0.75, 1, 1.25, 1.5, 2]
 
-export default function Player({ socket, roomId, videoId, title, onEnded, onSkip, onPrev, isDJ, djMode, initialTime, initialPlaying, onPlayStateChange, hasPrev, externalVolume, onVolumeChange, loop, onToggleLoop, onShuffle }) {
+export default function Player({ socket, roomId, videoId, title, onEnded, onSkip, onPrev, isDJ, djMode, initialTime, initialPlaying, onPlayStateChange, onProgressChange, onLoadingChange, hasPrev, externalVolume, onVolumeChange, loop, onToggleLoop, onShuffle }) {
   const audioRef        = useRef(null)
   const isSyncingRef    = useRef(false)
   const isPlayingRef    = useRef(false)
   const initialSyncDone = useRef(false)
   // Track all setTimeout IDs so we can clear them on unmount
   const timersRef       = useRef([])
+  const swipeStartX     = useRef(null)
+  const swipeStartY     = useRef(null)
 
   const [isPlaying, setIsPlaying]     = useState(false)
   const [currentTime, setCurrentTime] = useState(0)
@@ -316,6 +318,7 @@ export default function Player({ socket, roomId, videoId, title, onEnded, onSkip
   useEffect(() => {
     if (!videoId) { setIsReady(false); setStreamError(null); return }
     setIsLoading(true)
+    onLoadingChange?.(true)
     setIsReady(false)
     setStreamError(null)
     setStreamSource(null)
@@ -326,7 +329,7 @@ export default function Player({ socket, roomId, videoId, title, onEnded, onSkip
       if (cancelled) return
       if (!result) {
         setStreamError('Audio unavailable — skipping')
-        setIsLoading(false)
+        setIsLoading(false); onLoadingChange?.(false)
         safeTimeout(() => onEndedRef.current?.(), 2500)
         return
       }
@@ -348,7 +351,7 @@ export default function Player({ socket, roomId, videoId, title, onEnded, onSkip
     if (!audio) return
 
     const onCanPlay = () => {
-      setIsLoading(false)
+      setIsLoading(false); onLoadingChange?.(false)
       setIsReady(true)
       if (!initialSyncDone.current && initialTime && initialTime > 0) {
         initialSyncDone.current = true
@@ -361,11 +364,14 @@ export default function Player({ socket, roomId, videoId, title, onEnded, onSkip
         onPlayStateChange?.(true)
       }
     }
-    const onTimeUpdate = () => setCurrentTime(audio.currentTime)
+    const onTimeUpdate = () => {
+      setCurrentTime(audio.currentTime)
+      if (audio.duration) onProgressChange?.((audio.currentTime / audio.duration) * 100)
+    }
     const onDurationChange = () => setDuration(audio.duration || 0)
     const onEnded = () => onEndedRef.current?.()
     const onError = () => {
-      setIsLoading(false)
+      setIsLoading(false); onLoadingChange?.(false)
       setStreamError('Playback error — skipping')
       safeTimeout(() => onEndedRef.current?.(), 2500)
     }
@@ -583,7 +589,7 @@ export default function Player({ socket, roomId, videoId, title, onEnded, onSkip
       {!IS_MOBILE && <BeatBorder isPlaying={isPlaying} bpm={bpm || 120} />}
 
       {/* Hidden audio element — Piped stream */}
-      <audio ref={audioRef} preload="auto" crossOrigin="anonymous" style={{ display: 'none' }} />
+      <audio ref={audioRef} preload="auto" style={{ display: 'none' }} />
 
       {djMode && (
         <div className={`dj-badge ${isDJ ? 'is-dj' : 'not-dj'}`}>
@@ -591,7 +597,20 @@ export default function Player({ socket, roomId, videoId, title, onEnded, onSkip
         </div>
       )}
 
-      <div className={`player-art${videoId ? ' song-changing' : ''}`} key={videoId}>
+      <div
+        className={`player-art${videoId ? ' song-changing' : ''}`}
+        key={videoId}
+        onTouchStart={e => { swipeStartX.current = e.touches[0].clientX; swipeStartY.current = e.touches[0].clientY }}
+        onTouchEnd={e => {
+          if (swipeStartX.current === null) return
+          const dx = e.changedTouches[0].clientX - swipeStartX.current
+          const dy = Math.abs(e.changedTouches[0].clientY - swipeStartY.current)
+          swipeStartX.current = null; swipeStartY.current = null
+          if (dy > 40) return // vertical swipe — ignore
+          if (dx < -60) { onSkip?.() }       // swipe left → next
+          else if (dx > 60 && hasPrev) { onPrev?.() } // swipe right → prev
+        }}
+      >
         {videoId
           ? <img src={`https://img.youtube.com/vi/${videoId}/hqdefault.jpg`} alt="thumbnail" className="art-img" />
           : <div className="art-placeholder"><span>🎵</span></div>}

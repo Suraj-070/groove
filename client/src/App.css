@@ -656,7 +656,7 @@ body {
 /* ── Emoji picker ────────────────────────────────────────── */
 .chat-emoji-wrap {
   position: absolute;
-  bottom: 64px;
+  bottom: 68px;
   left: 8px;
   z-index: 300;
   border-radius: 14px;
@@ -3719,7 +3719,7 @@ body {
   /* ── Right panel — bottom sheet queue ─────────────────── */
   .right-panel {
     position: fixed !important;
-    bottom: 64px !important;
+    bottom: 68px !important;
     left: 0 !important;
     right: 0 !important;
     width: 100% !important;
@@ -3948,11 +3948,11 @@ body {
 
   /* ── Mini Player ──────────────────────────────────────── */
   .mini-player {
-    bottom: 64px !important;
+    bottom: 68px !important;
     left: 0 !important;
     right: 0 !important;
     border-radius: 0 !important;
-    padding: 10px 16px !important;
+    padding: 6px 14px 6px !important;
     border-top: 1px solid rgba(255,255,255,0.07) !important;
     background: rgba(14, 14, 26, 0.97) !important;
     backdrop-filter: blur(20px) !important;
@@ -3971,7 +3971,7 @@ body {
     top: 0 !important;
     left: 0 !important;
     right: 0 !important;
-    bottom: 64px !important;
+    bottom: 68px !important;
     width: 100vw !important;
     height: calc(100dvh - 64px) !important;
     max-height: calc(100dvh - 64px) !important;
@@ -4001,7 +4001,7 @@ body {
   /* Library fullscreen sits between header and bottom nav */
   .library-fullscreen {
     top: 52px !important;
-    bottom: 64px !important;
+    bottom: 68px !important;
     border-radius: 0 !important;
     z-index: 80 !important;
     animation: libSlideUp 0.32s cubic-bezier(0.34,1.1,0.64,1) both !important;
@@ -4433,7 +4433,15 @@ body {
   }
 
   /* Disable hover on drag handle — pointless on touch */
-  .drag-handle { display: none !important; }
+  .drag-handle {
+    display: flex !important;
+    opacity: 0.5 !important;
+    font-size: 1.2rem !important;
+    padding: 0 8px !important;
+    min-width: 32px !important;
+    justify-content: center !important;
+    cursor: grab !important;
+  }
 }
 
 /* ═══════════════════════════════════════════════════════
@@ -5383,7 +5391,7 @@ h1, h2, h3 {
 /* ── Mobile Mini Player ─────────────────────────────────── */
 .mini-player {
   position: fixed;
-  bottom: 64px; /* above the mobile nav bar */
+  bottom: 68px; /* above the mobile nav bar */
   left: 0; right: 0;
   z-index: 500;
   background: rgba(16, 16, 28, 0.96);
@@ -5915,7 +5923,7 @@ h1, h2, h3 {
     position: fixed !important;
     left: 0 !important;
     right: 0 !important;
-    bottom: 64px !important;
+    bottom: 68px !important;
     top: auto !important;
     width: 100% !important;
     height: auto !important;
@@ -8700,7 +8708,7 @@ body.chat-is-open .fcb-bubble { opacity: 0; pointer-events: none; }
 }
 @media (max-width: 768px) {
   .lc-library {
-    bottom: 64px !important;
+    bottom: 68px !important;
     height: calc(100dvh - 64px) !important;
   }
 }
@@ -9197,7 +9205,7 @@ body.chat-is-open .fcb-bubble { opacity: 0; pointer-events: none; }
   /* Single source of truth for all mobile overlays bottom position */
   .lc-library,
   .mg-panel,
-  .settings-modal { bottom: 64px !important; }
+  .settings-modal { bottom: 68px !important; }
 }
 
 /* ── Library desktop advanced extras ───────────────────── */
@@ -11560,4 +11568,101 @@ body.chat-is-open .fcb-bubble { opacity: 0; pointer-events: none; }
   bottom: 6px; right: 8px;
   font-size: 0.7rem;
   opacity: 0.6;
+}
+
+/* ── Mini player upgrades ─────────────────────────────────── */
+.mini-player-progress {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: rgba(255,255,255,0.08);
+  z-index: 2;
+}
+.mini-player-progress-fill {
+  height: 100%;
+  background: var(--accent, #7c6aff);
+  border-radius: 0 2px 2px 0;
+  transition: width 0.5s linear;
+}
+.mini-player-inner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+}
+.mini-player-thumb-wrap {
+  position: relative;
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+}
+.mini-player-loading {
+  position: absolute;
+  inset: 0;
+  border-radius: 6px;
+  background: rgba(124,106,255,0.2);
+  animation: shimmer 1.2s ease-in-out infinite;
+}
+@keyframes shimmer {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; }
+}
+.mini-loading-spinner {
+  display: inline-block;
+  width: 16px; height: 16px;
+  border: 2px solid rgba(255,255,255,0.2);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ── Mobile tab content transition ───────────────────────── */
+.mobile-tab-content {
+  animation: tabFadeIn 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+}
+@keyframes tabFadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Lyrics fade in ───────────────────────────────────────── */
+.lyrics-overlay {
+  animation: lyricsFadeIn 0.25s ease;
+}
+@keyframes lyricsFadeIn {
+  from { opacity: 0; transform: scale(0.97); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+/* ── Stream error state ──────────────────────────────────── */
+.player-sub.stream-error {
+  color: #ff6a8a;
+  font-weight: 600;
+}
+
+/* ── Fix mini player bottom for new 68px nav ─────────────── */
+@media (max-width: 768px) {
+  .mini-player {
+    bottom: 68px !important;
+    position: relative;
+  }
+  .mini-player-inner {
+    display: flex;
+    align-items: center;
+  }
+}
+
+/* ── Touch drag visual feedback ──────────────────────────── */
+.song-item.dragging {
+  opacity: 0.35 !important;
+  background: rgba(124,106,255,0.06) !important;
+  transform: scale(0.98);
+  transition: transform 0.1s ease, opacity 0.1s ease !important;
+}
+.song-item.drag-over {
+  border-top: 2px solid var(--accent, #7c6aff) !important;
+  background: rgba(124, 106, 255, 0.1) !important;
 }
