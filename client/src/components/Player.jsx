@@ -76,24 +76,20 @@ async function fetchAudioStream(videoId) {
 }
 
 // ── BPM fetch ──────────────────────────────────────────────
-async function fetchBPM(title) {
-  if (!title) return null
+async function fetchBPM(videoId, title) {
+  if (!videoId && !title) return null
   try {
-    const query = encodeURIComponent(title.replace(/\(.*?\)|\[.*?\]/g, '').trim().slice(0, 60))
-    const mbRes = await fetch(
-      `https://musicbrainz.org/ws/2/recording/?query=${query}&limit=3&fmt=json`,
-      { headers: { 'Accept': 'application/json', 'User-Agent': 'GrooveTogether/1.0' } }
-    )
-    if (!mbRes.ok) return null
-    const mbData = await mbRes.json()
-    const recording = mbData?.recordings?.[0]
-    if (!recording?.id) return null
-    const abRes = await fetch(`https://acousticbrainz.org/${recording.id}/low-level`)
-    if (!abRes.ok) return null
-    const abData = await abRes.json()
-    const bpm = abData?.rhythm?.bpm
-    if (bpm && bpm > 40 && bpm < 220) return Math.round(bpm)
-    return null
+    const res = await fetch(`${BACKEND}/song-dna`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ songs: [{ videoId: videoId || '', title: title || '' }] }),
+      signal: AbortSignal.timeout(6000),
+    })
+    if (!res.ok) return null
+    const data = await res.json()
+    const dna = data?.dna?.[0]
+    return dna?.bpm || null
   } catch { return null }
 }
 
@@ -494,14 +490,14 @@ export default function Player({ socket, roomId, videoId, title, onEnded, onSkip
 
   // ── BPM fetch ──────────────────────────────────────────
   useEffect(() => {
-    if (!title) { setBpm(null); return }
+    if (!videoId && !title) { setBpm(null); return }
     setBpmLoading(true); setBpm(null)
     let cancelled = false
-    fetchBPM(title).then(result => {
+    fetchBPM(videoId, title).then(result => {
       if (!cancelled) { setBpm(result); setBpmLoading(false) }
     })
     return () => { cancelled = true }
-  }, [title])
+  }, [videoId, title])
 
   // ── Lyrics fetch ───────────────────────────────────────
   useEffect(() => {
