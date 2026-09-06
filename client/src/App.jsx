@@ -1423,7 +1423,7 @@ function App() {
 
             {/* Title */}
             <h2 style={{
-              fontFamily: "'Unbounded', sans-serif",
+              fontFamily: "'Syne', sans-serif",
               fontSize: '1.1rem', fontWeight: 800,
               color: '#fff', margin: '0 0 8px',
             }}>
@@ -1457,7 +1457,7 @@ function App() {
                   background: 'rgba(255,255,255,0.06)',
                   border: '1px solid rgba(255,255,255,0.1)',
                   borderRadius: 14, color: 'rgba(255,255,255,0.6)',
-                  fontFamily: "'Outfit', sans-serif",
+                  fontFamily: "'Plus Jakarta Sans', sans-serif",
                   fontSize: '0.92rem', fontWeight: 600,
                   cursor: 'pointer', transition: 'all 0.15s',
                 }}
@@ -1473,7 +1473,7 @@ function App() {
                   background: 'linear-gradient(135deg, #ff6a8a, #ff2d78)',
                   border: 'none',
                   borderRadius: 14, color: '#fff',
-                  fontFamily: "'Outfit', sans-serif",
+                  fontFamily: "'Plus Jakarta Sans', sans-serif",
                   fontSize: '0.92rem', fontWeight: 700,
                   cursor: 'pointer', transition: 'all 0.15s',
                   boxShadow: '0 4px 20px rgba(255,45,120,0.35)',
