@@ -60,10 +60,18 @@ const NowPlayingBox = memo(function NowPlayingBox({ queue, currentIndex, onPrev,
         </p>
       </div>
       <div className="now-playing-nav">
-        <button onClick={onPrev} disabled={currentIndex === 0}>⏮ Prev</button>
-        <button className={`npb-icon-btn ${loop ? 'active' : ''}`} onClick={onToggleLoop}>🔁</button>
-        <button className="npb-icon-btn" onClick={onShuffle}>🔀</button>
-        <button onClick={onNext} disabled={currentIndex >= queue.length - 1}>Next ⏭</button>
+        <button className="npb-nav-btn" onClick={onPrev} disabled={currentIndex === 0} title="Previous">
+          <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/></svg>
+        </button>
+        <button className={`npb-icon-btn ${loop ? 'active' : ''}`} onClick={onToggleLoop} title="Loop">
+          <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z"/></svg>
+        </button>
+        <button className="npb-icon-btn" onClick={onShuffle} title="Shuffle">
+          <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M10.59 9.17 5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4h-5.5zm.33 9.41-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z"/></svg>
+        </button>
+        <button className="npb-nav-btn" onClick={onNext} disabled={currentIndex >= queue.length - 1} title="Next">
+          <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M6 18l8.5-6L6 6v12zm2-8.14L11.03 12 8 14.14V9.86zM16 6h2v12h-2z"/></svg>
+        </button>
       </div>
     </div>
   )
@@ -115,7 +123,7 @@ const SongItem = memo(forwardRef(function SongItem(
 
       <div className="song-thumb">
         <img
-          src={`https://img.youtube.com/vi/${song.videoId}/default.jpg`}
+          src={`https://img.youtube.com/vi/${song.videoId}/mqdefault.jpg`}
           alt=""
           loading="lazy"
           decoding="async"
@@ -218,7 +226,7 @@ export default function Queue({
   useEffect(() => {
     if (!socket) return
     const handler = ({ title, addedBy }) => {
-      if (addedBy !== username) showToast(`🎵 ${addedBy} added "${title}"`)
+      if (addedBy !== username) showToast(`${addedBy} added "${title}"`)
     }
     socket.on('song-added-notify', handler)
     return () => socket.off('song-added-notify', handler)
@@ -259,7 +267,7 @@ export default function Queue({
       // Single batch emit — one DB write, one broadcast instead of N
       socket.emit('add-songs-batch', { roomId, songs: data.songs, addedBy: username })
       setLastImported({ songs: data.songs, count: data.total })
-      showToast(`🎵 ${data.total} songs queued!`)
+      showToast(`${data.total} songs queued`)
       setSharedUrl(''); setImportProgress(null)
     } catch {
       setError('Failed to import playlist'); setImportProgress(null)
@@ -356,7 +364,7 @@ export default function Queue({
       [after[i], after[j]] = [after[j], after[i]]
     }
     socket?.emit('reorder-queue', { roomId, queue: [...before, ...after] })
-    showToast('🔀 Queue shuffled!')
+    showToast('Queue shuffled')
   }, [queue, currentIndex, socket, roomId, showToast])
 
   const handleDragStart = useCallback((e, index) => {
@@ -511,7 +519,7 @@ export default function Queue({
       {sharedUrl && tab !== 'search' && (
         <div className="url-hint">
           {isValidSong && <span className="url-hint-good">✓ Valid YouTube video</span>}
-          {isValidPlaylist && <span className="url-hint-playlist">📋 Playlist detected — switch to Import tab</span>}
+          {isValidPlaylist && <span className="url-hint-playlist">Playlist detected — switch to Import tab</span>}
           {!isValidSong && !isValidPlaylist && sharedUrl.length > 5 && <span className="url-hint-bad">✗ Not a valid YouTube URL</span>}
         </div>
       )}
@@ -535,9 +543,16 @@ export default function Queue({
           </div>
 
           {searching && (
-            <div className="yt-search-loading">
-              <span className="loading-spinner" />
-              <span>Searching…</span>
+            <div className="search-skeleton">
+              {[1,2,3,4].map(n => (
+                <div key={n} className="search-skeleton-item">
+                  <div className="skeleton-thumb" />
+                  <div className="skeleton-text">
+                    <div className="skeleton-line skeleton-line-long" />
+                    <div className="skeleton-line skeleton-line-short" />
+                  </div>
+                </div>
+              ))}
             </div>
           )}
 
@@ -582,21 +597,21 @@ export default function Queue({
 
       {lastImported && (
         <div className="save-library-banner">
-          <span>✅ {lastImported.count} songs added!</span>
+          <span>{lastImported.count} songs added</span>
           <button className="save-library-btn" onClick={handleSaveToLibrary} disabled={savingLibrary}>
             {savingLibrary ? <span className="loading-spinner" /> : '📚 Save to Library'}
           </button>
         </div>
       )}
-      {saveSuccess && <div className="save-library-banner success">✅ Saved to your library!</div>}
+      {saveSuccess && <div className="save-library-banner success">Saved to your library</div>}
 
       {selectMode && queue.length > 0 && (
         <div className="queue-toolbar">
-          <button className="toolbar-btn" onClick={selectAll}>{selected.size === queue.length ? '☑ Deselect All' : '☐ Select All'}</button>
+          <button className="toolbar-btn" onClick={selectAll}>{selected.size === queue.length ? 'Deselect All' : 'Select All'}</button>
           {selected.size > 0 && (
             <>
-              <button className="toolbar-btn danger" onClick={removeSelected}>🗑 Remove {selected.size}</button>
-              <button className="toolbar-btn save" onClick={handleSaveSelectedToLibrary} disabled={savingLibrary}>📚 Save {selected.size}</button>
+              <button className="toolbar-btn danger" onClick={removeSelected}>Remove {selected.size}</button>
+              <button className="toolbar-btn save" onClick={handleSaveSelectedToLibrary} disabled={savingLibrary}>Save {selected.size}</button>
             </>
           )}
         </div>
@@ -614,26 +629,12 @@ export default function Queue({
         if (idx !== -1) { touchDragIndex.current = idx; setDragIndex(idx) }
       }}>
         {queue.length === 0 && (
-          <li className="empty" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '40px 20px', gap: 12 }}>
-            <div style={{ fontSize: '2.5rem', animation: 'pulse 2s ease-in-out infinite' }}>🎧</div>
-            <p style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--text)', margin: 0 }}>Queue is empty</p>
-            <p className="empty-sub" style={{ margin: 0, textAlign: 'center', lineHeight: 1.5 }}>
-              Paste a YouTube URL or search for a song above
-            </p>
-            <div style={{
-              display: 'flex', alignItems: 'center', gap: 6,
-              background: 'rgba(124,106,255,0.08)',
-              border: '1px solid rgba(124,106,255,0.2)',
-              borderRadius: 20, padding: '6px 14px',
-              fontSize: '0.75rem', color: 'var(--accent)',
-              marginTop: 4, cursor: 'pointer',
-              animation: 'bounce 1.5s ease-in-out infinite',
-            }}
-              onClick={() => document.querySelector('.add-url-input')?.focus()}
-            >
-              <svg viewBox="0 0 24 24" fill="currentColor" width="13" height="13"><path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/></svg>
-              Add first song
+          <li className="queue-empty">
+            <div className="queue-empty-icon">
+              <svg viewBox="0 0 24 24" fill="currentColor" width="28" height="28"><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6z"/></svg>
             </div>
+            <p className="queue-empty-title">Queue is empty</p>
+            <p className="queue-empty-sub">Search for a song or paste a YouTube URL to get started</p>
           </li>
         )}
         {queue.map((song, i) => (

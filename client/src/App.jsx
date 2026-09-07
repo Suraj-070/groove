@@ -120,7 +120,7 @@ function OfflineBanner() {
   if (!offline) return null
   return (
     <div className="offline-banner">
-      <span>⚠️ You're offline — music may stop syncing</span>
+      <span style={{display:"flex",alignItems:"center",gap:6}}><svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg>You're offline — music may stop syncing</span>
     </div>
   )
 }
@@ -782,7 +782,7 @@ function App() {
     })
     socket.on('dj-transferred', ({ fromUsername, toUsername, toSocketId }) => {
       // Show system message in chat
-      socket.emit('chat-system-local', { text: `👑 ${fromUsername} passed the crown to ${toUsername}` })
+      socket.emit('chat-system-local', { text: `${fromUsername} is now the DJ` })
     })
     socket.on('recap-data', (data) => {
       if (!data) return
@@ -1037,7 +1037,7 @@ function App() {
                           : <div className="pd-avatar-placeholder">{user.username?.slice(0,2).toUpperCase()}</div>
                         }
                         <span className="pd-online-dot" />
-                        <div style={{ position: 'absolute', bottom: 0, right: 0, width: 18, height: 18, borderRadius: '50%', background: '#7c6aff', border: '2px solid #0e0c1a', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.6rem' }}>✏️</div>
+                        <div style={{ position: 'absolute', bottom: 0, right: 0, width: 18, height: 18, borderRadius: '50%', background: '#7c6aff', border: '2px solid #0e0c1a', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><svg viewBox="0 0 24 24" fill="currentColor" width="10" height="10"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg></div>
                       </div>
                       <div className="pd-info">
                         <p className="pd-name">{user.username}</p>
@@ -1108,10 +1108,10 @@ function App() {
                         <span>Library</span>
                       </button>
                       <button className="pd-quick" onClick={() => { handleGetRecap(); setProfileOpen(false) }} title="Recap">
-                        <span>📊</span><span>Recap</span>
+                        <span style={{display:"flex",alignItems:"center"}}><svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg></span><span>Recap</span>
                       </button>
                       <button className="pd-quick" onClick={() => { setHistoryOpen(true); setProfileOpen(false) }} title="History">
-                        <span>🕐</span><span>History</span>
+                        <span style={{display:"flex",alignItems:"center"}}><svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zm4.24 16L11 13.37V7h1.5v5.75l4.74 2.82-1.01 1.43z"/></svg></span><span>History</span>
                       </button>
                     </div>
 
@@ -1571,7 +1571,7 @@ function App() {
         <div className="auth-error-overlay" onClick={() => setAuthError(null)}>
           <div className="auth-error-modal" onClick={e => e.stopPropagation()}>
             <div className="auth-error-icon">
-              {authError === 'rate_limit' ? '⏳' : authError === 'denied' ? '🚫' : '⚠️'}
+              {authError === 'rate_limit' ? '<svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18"><path d="M15 1H9v2h6V1zm-4 13h2V8h-2v6zm8.03-6.61-1.42-1.42c-.43-.43-.99-.65-1.55-.64L14 7.39c.57.01 1.12.24 1.54.66l1.42 1.42c.43.43.65.99.64 1.55l2.02-2.02c.01-.56-.21-1.13-.63-1.61zM12 4c-4.97 0-9 4.03-9 9s4.03 9 9 9 9-4.03 9-9-4.03-9-9-9zm0 16c-3.87 0-7-3.13-7-7s3.13-7 7-7 7 3.13 7 7-3.13 7-7 7z"/></svg>' : authError === 'denied' ? '<svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 5h2v6h-2V7zm1 10c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1z"/></svg>' : '<svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg>'}
             </div>
             <h3 className="auth-error-title">
               {authError === 'rate_limit' ? 'Discord is busy right now'

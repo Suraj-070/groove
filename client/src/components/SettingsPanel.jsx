@@ -129,7 +129,7 @@ export default function SettingsPanel({
             <Toggle
               checked={pushEnabled}
               onChange={onTogglePush}
-              label={pushLoading ? 'Updating…' : pushEnabled ? 'Push notifications ON 🔔' : 'Push notifications OFF 🔕'}
+              label={pushLoading ? 'Updating…' : pushEnabled ? 'Push notifications on' : 'Push notifications off'}
               sub="Songs added, chat messages, DJ crown"
             />
           </div>

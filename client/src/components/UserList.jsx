@@ -23,7 +23,7 @@ export default function UserList({ users: rawUsers = [], currentUser, djId, isDJ
 
   const Avatar = ({ user, size = 34 }) => (
     <div style={{ position: 'relative', flexShrink: 0 }}>
-      {user.id === djId && <span style={{ position: 'absolute', top: -10, left: '50%', transform: 'translateX(-50%)', fontSize: '0.7rem', zIndex: 1 }}>👑</span>}
+      {user.id === djId && <span style={{ position: 'absolute', top: -8, left: '50%', transform: 'translateX(-50%)', zIndex: 1, color: '#ffb86a', display:'flex', alignItems:'center' }}><svg viewBox="0 0 24 24" fill="currentColor" width="10" height="10"><path d="M5 16L3 5l5.5 5L12 4l3.5 6L21 5l-2 11H5zm2 2h10v2H7v-2z"/></svg></span>}
       {user.avatar
         ? <img src={user.avatar} alt={user.username} style={{ width: size, height: size, borderRadius: '50%', objectFit: 'cover', outline: user.id === currentUser ? `2px solid ${getColor(user.id)}` : 'none', outlineOffset: 2 }} />
         : <div style={{ width: size, height: size, borderRadius: '50%', background: getColor(user.id), display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: size * 0.28, fontWeight: 800, color: 'rgba(0,0,0,0.7)', outline: user.id === currentUser ? `2px solid ${getColor(user.id)}` : 'none', outlineOffset: 2 }}>
@@ -95,7 +95,7 @@ export default function UserList({ users: rawUsers = [], currentUser, djId, isDJ
                 <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexWrap: 'wrap', marginBottom: 2 }}>
                   <span style={{ fontSize: '0.88rem', fontWeight: 700, color: '#fff' }}>{user.username}</span>
                   {isYou && <span style={{ fontSize: '0.58rem', background: `${color}22`, color, border: `1px solid ${color}44`, borderRadius: 10, padding: '1px 7px', fontWeight: 700 }}>You</span>}
-                  {isDJUser && <span style={{ fontSize: '0.58rem', background: 'rgba(255,184,106,0.12)', color: '#ffb86a', border: '1px solid rgba(255,184,106,0.3)', borderRadius: 10, padding: '1px 7px', fontWeight: 700 }}>👑 DJ</span>}
+                  {isDJUser && <span style={{ fontSize: '0.58rem', background: 'rgba(255,184,106,0.12)', color: '#ffb86a', border: '1px solid rgba(255,184,106,0.3)', borderRadius: 10, padding: '2px 7px', fontWeight: 700, display:'inline-flex', alignItems:'center', gap:3 }}><svg viewBox="0 0 24 24" fill="currentColor" width="10" height="10"><path d="M5 16L3 5l5.5 5L12 4l3.5 6L21 5l-2 11H5zm2 2h10v2H7v-2z"/></svg> DJ</span>}
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                   <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#00c974', display: 'inline-block', flexShrink: 0 }} />
@@ -108,7 +108,7 @@ export default function UserList({ users: rawUsers = [], currentUser, djId, isDJ
                   style={{ background: 'rgba(255,184,106,0.08)', border: '1px solid rgba(255,184,106,0.2)', borderRadius: 8, color: '#ffb86a', fontSize: '0.68rem', fontWeight: 700, padding: '5px 10px', cursor: 'pointer', flexShrink: 0, fontFamily: 'inherit', transition: 'background 0.15s' }}
                   onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,184,106,0.18)'}
                   onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,184,106,0.08)'}
-                >👑</button>
+                ><svg viewBox="0 0 24 24" fill="currentColor" width="12" height="12"><path d="M5 16L3 5l5.5 5L12 4l3.5 6L21 5l-2 11H5zm2 2h10v2H7v-2z"/></svg></button>
               )}
             </div>
           )
@@ -122,11 +122,11 @@ export default function UserList({ users: rawUsers = [], currentUser, djId, isDJ
         return (
           <div style={{ padding: '14px 16px', borderTop: '1px solid rgba(255,255,255,0.06)', background: 'rgba(255,184,106,0.05)', flexShrink: 0 }}>
             <p style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.5)', margin: '0 0 10px', textAlign: 'center' }}>
-              Pass 👑 crown to <strong style={{ color: '#fff' }}>{user.username}</strong>?
+              Pass DJ to <strong style={{ color: '#fff' }}>{user.username}</strong>?
             </p>
             <div style={{ display: 'flex', gap: 8 }}>
               <button onClick={() => setConfirmId(null)} style={{ flex: 1, padding: '9px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, color: 'rgba(255,255,255,0.6)', cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.82rem', fontWeight: 600 }}>Cancel</button>
-              <button onClick={() => { onTransferDJ?.(user.id); setConfirmId(null); setShowPanel(false) }} style={{ flex: 1, padding: '9px', background: 'linear-gradient(135deg,#ffb86a,#ff8c00)', border: 'none', borderRadius: 10, color: '#fff', cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.82rem', fontWeight: 700 }}>👑 Crown</button>
+              <button onClick={() => { onTransferDJ?.(user.id); setConfirmId(null); setShowPanel(false) }} style={{ flex: 1, padding: '9px', background: 'linear-gradient(135deg,#ffb86a,#ff8c00)', border: 'none', borderRadius: 10, color: '#fff', cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.82rem', fontWeight: 700 }}>Make DJ</button>
             </div>
           </div>
         )
@@ -147,7 +147,7 @@ export default function UserList({ users: rawUsers = [], currentUser, djId, isDJ
         <div className="user-avatars">
           {users.slice(0, 6).map(user => (
             <div key={user.id} style={{ position: 'relative' }}>
-              {user.id === djId && <span style={{ position: 'absolute', top: -10, left: '50%', transform: 'translateX(-50%)', fontSize: '0.7rem', zIndex: 1 }}>👑</span>}
+              {user.id === djId && <span style={{ position: 'absolute', top: -8, left: '50%', transform: 'translateX(-50%)', zIndex: 1, color: '#ffb86a', display:'flex', alignItems:'center' }}><svg viewBox="0 0 24 24" fill="currentColor" width="10" height="10"><path d="M5 16L3 5l5.5 5L12 4l3.5 6L21 5l-2 11H5zm2 2h10v2H7v-2z"/></svg></span>}
               <Avatar user={user} size={34} />
             </div>
           ))}
