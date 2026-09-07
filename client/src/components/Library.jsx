@@ -86,7 +86,9 @@ function CrateCard({ crate, colorIdx, onClick, onPlay, onShuffle, onDelete, onSh
             <div className="lc-thumb-overlay" />
           </div>
         ) : (
-          <div className="lc-thumb-empty">🎵</div>
+          <div className="lc-thumb-empty">
+          <svg viewBox="0 0 24 24" fill="currentColor" width="28" height="28" style={{opacity:0.3}}><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6z"/></svg>
+        </div>
         )}
         {/* Name + count overlaid on image bottom — desktop */}
         <div className="lc-card-header-info">
@@ -137,7 +139,7 @@ function NewCrateModal({ onCreate, onCancel }) {
       <div className="lc-modal" onClick={e => e.stopPropagation()}>
         <div className="lc-modal-header">
           <p className="lc-modal-title">New Collection</p>
-          <button className="lc-modal-close" onClick={onCancel}>✕</button>
+          <button className="lc-modal-close" onClick={onCancel}><svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg></button>
         </div>
 
         <div className="lc-modal-body">
@@ -152,7 +154,7 @@ function NewCrateModal({ onCreate, onCancel }) {
           <input className="lc-modal-input" placeholder="e.g. Late Night Drives"
             value={name} onChange={e => setName(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && name.trim() && onCreate(`${mood} ${name.trim()}`, colorIdx)}
-            autoFocus />
+          />
 
           <p className="lc-modal-label">Color</p>
           <div className="lc-color-row">
@@ -193,7 +195,8 @@ function CrateDetail({ crate, colorIdx, onBack, onAddSong, onAddSongsBatch, onDe
 
   const accent = getAccent(colorIdx)
   const gradient = getGradient(colorIdx)
-  const showToast = msg => { setToast(msg); setTimeout(() => setToast(''), 2500) }
+  const toastTimer = useRef(null)
+  const showToast = msg => { clearTimeout(toastTimer.current); setToast(msg); toastTimer.current = setTimeout(() => setToast(''), 2500) }
 
   const { categories } = useCategories(crate.songs || [])
   const [activeFilter, setActiveFilter] = useState('All')
@@ -253,7 +256,7 @@ function CrateDetail({ crate, colorIdx, onBack, onAddSong, onAddSongsBatch, onDe
     try {
       const { url } = await createShareLink(songs)
       await navigator.clipboard.writeText(url)
-      showToast(`🔗 Link copied! (${songs.length} songs)`)
+      showToast(`Link copied (${songs.length} songs)`)
       setSelectMode(false); setSelectedIds(new Set())
     } catch { showToast('Failed to create link') } finally { setSharing(false) }
   }
@@ -307,7 +310,7 @@ function CrateDetail({ crate, colorIdx, onBack, onAddSong, onAddSongsBatch, onDe
                   else setSelectedIds(new Set(filtered.map(s => s.videoId)))
                 }}>{selectedIds.size === filtered.length ? 'Deselect all' : 'Select all'}</button>
                 <button className="lc-share-btn" onClick={handleShare} disabled={!selectedIds.size || sharing}>
-                  {sharing ? 'Sharing…' : `🔗 Share ${selectedIds.size || ''}`}
+                  {sharing ? 'Sharing…' : `Share${selectedIds.size ? ' '+selectedIds.size : ''}`}
                 </button>
               </div>
             </div>
@@ -367,7 +370,7 @@ function CrateDetail({ crate, colorIdx, onBack, onAddSong, onAddSongsBatch, onDe
                     : <span className="lc-song-num">{i + 1}</span>
                   }
                   <div className="lc-song-thumb">
-                    <img src={`https://img.youtube.com/vi/${song.videoId}/default.jpg`} alt="" loading="lazy" />
+                    <img src={`https://img.youtube.com/vi/${song.videoId}/mqdefault.jpg`} alt="" loading="lazy" />
                     {isNowPlaying && !selectMode && <div className="lc-song-playing"><div className="bars"><span/><span/><span/></div></div>}
                   </div>
                   <div className="lc-song-info">
@@ -381,8 +384,12 @@ function CrateDetail({ crate, colorIdx, onBack, onAddSong, onAddSongsBatch, onDe
                   </div>
                   {!selectMode && (
                     <div className="lc-song-actions">
-                      <button onClick={() => onPlaySong(song)} title="Add to queue">+ Queue</button>
-                      <button onClick={() => onDeleteSong(crate.id, song.videoId)} title="Remove">×</button>
+                      <button className="lc-song-action-btn" onClick={() => onPlaySong(song)} title="Add to queue">
+                      <svg viewBox="0 0 24 24" fill="currentColor" width="13" height="13"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+                    </button>
+                      <button className="lc-song-action-btn lc-song-action-btn--danger" onClick={() => onDeleteSong(crate.id, song.videoId)} title="Remove">
+                      <svg viewBox="0 0 24 24" fill="currentColor" width="13" height="13"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+                    </button>
                     </div>
                   )}
                 </li>
@@ -436,7 +443,8 @@ export default function Library({ isOpen, onClose, socket, roomId, username, onA
   const [showNew, setShowNew] = useState(false)
   const [toast, setToast] = useState('')
 
-  const showToast = msg => { setToast(msg); setTimeout(() => setToast(''), 2500) }
+  const toastTimer = useRef(null)
+  const showToast = msg => { clearTimeout(toastTimer.current); setToast(msg); toastTimer.current = setTimeout(() => setToast(''), 2500) }
 
   useEffect(() => { if (isOpen) refetch() }, [isOpen])
   if (!isOpen) return null
@@ -503,10 +511,10 @@ export default function Library({ isOpen, onClose, socket, roomId, username, onA
           {loading ? (
             <div className="lc-loading"><div className="lc-spinner" /><p>Loading...</p></div>
           ) : authError ? (
-            <div className="lc-empty"><div className="lc-empty-icon">🔒</div><h2>Sign in to use Library</h2></div>
+            <div className="lc-empty"><div className="lc-empty-icon"><svg viewBox="0 0 24 24" fill="currentColor" width="32" height="32"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg></div><h2>Sign in to use Library</h2></div>
           ) : categories.length === 0 ? (
             <div className="lc-empty">
-              <div className="lc-empty-icon">📦</div>
+              <div className="lc-empty-icon"><svg viewBox="0 0 24 24" fill="currentColor" width="32" height="32"><path d="M20 6h-2.18c.07-.44.18-.88.18-1.34C18 2.54 15.93.5 13.41.5c-1.29 0-2.49.56-3.41 1.46C9.08 1.06 7.88.5 6.59.5 4.07.5 2 2.54 2 4.66c0 .46.11.9.18 1.34H0v14h24V6h-4zM13.41 2.5c1.03 0 1.59.62 1.59 2.16C15 6.17 14.38 6.5 13 6.5H9.72c.14-.26.22-.56.28-.86v-.14c.17-.97.72-3 3.41-3zM4 4.66C4 3.63 4.97 2.5 6.59 2.5c2.69 0 3.24 2.03 3.41 3v.14c.06.3.14.6.28.86H7C5.62 6.5 4 5.83 4 4.66zM2 18V8h9v10H2zm11 0V8h9v10h-9z"/></svg></div>
               <h2>No collections yet</h2>
               <p>Create your first collection to organize your music</p>
               <button className="lc-new-btn" onClick={() => setShowNew(true)}>Create collection</button>
@@ -529,7 +537,7 @@ export default function Library({ isOpen, onClose, socket, roomId, username, onA
                     try {
                       const { url } = await createShareLink(songs)
                       await navigator.clipboard.writeText(url)
-                      showToast(`🔗 Link copied! (${songs.length} songs)`)
+                      showToast(`Link copied (${songs.length} songs)`)
                     } catch { showToast('Failed to create share link') }
                   }}
                 />

@@ -13696,3 +13696,209 @@ input[type="radio"] {
     z-index: 1;
   }
 }
+
+/* ════════════════════════════════════════════════════════════
+   SETTINGS + LIBRARY MOBILE POLISH
+   ════════════════════════════════════════════════════════════ */
+
+/* ── Settings drag pill ──────────────────────────────────── */
+.settings-drag-pill {
+  width: 36px; height: 4px;
+  border-radius: 99px;
+  background: rgba(255,255,255,0.15);
+  margin: 10px auto 0;
+  flex-shrink: 0;
+}
+
+/* ── Settings action buttons ─────────────────────────────── */
+.settings-action-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-family: var(--font-body);
+  cursor: pointer;
+  transition: background 0.15s ease;
+  text-align: left;
+  margin-bottom: 6px;
+}
+.settings-action-btn:hover { background: rgba(255,255,255,0.06); }
+.settings-action-btn:active { transform: scale(0.98); }
+.settings-action-icon {
+  width: 32px; height: 32px;
+  border-radius: 8px;
+  background: rgba(255,255,255,0.06);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  color: var(--muted);
+}
+.settings-install-btn .settings-action-icon { background: rgba(124,106,255,0.12); color: var(--accent); }
+.settings-action-text { flex: 1; }
+.settings-action-title { font-size: var(--text-base); font-weight: 500; margin: 0; }
+.settings-action-sub { font-size: var(--text-xs); color: var(--muted); margin: 2px 0 0; }
+.settings-action-arrow { color: rgba(255,255,255,0.2); flex-shrink: 0; }
+
+/* ── Library — mobile song action buttons ────────────────── */
+.lc-song-action-btn {
+  width: 30px; height: 30px;
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(255,255,255,0.04);
+  color: var(--muted);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+  flex-shrink: 0;
+}
+.lc-song-action-btn:hover { background: rgba(255,255,255,0.08); color: var(--text); }
+.lc-song-action-btn--danger:hover { background: rgba(255,106,138,0.1); color: var(--accent2); border-color: rgba(255,106,138,0.2); }
+.lc-song-action-btn:active { transform: scale(0.88); }
+
+/* ── Library detail — mobile: stack add panel below songs ── */
+@media (max-width: 768px) {
+  .lc-detail {
+    display: flex !important;
+    flex-direction: column !important;
+    height: 100% !important;
+    overflow: hidden !important;
+  }
+  .lc-detail-body {
+    flex-direction: column !important;
+    overflow: hidden !important;
+    flex: 1 !important;
+  }
+  .lc-detail-left {
+    flex: 1 !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    scrollbar-width: none !important;
+  }
+  .lc-detail-left::-webkit-scrollbar { display: none !important; }
+  /* Add panel — collapse to a bottom bar on mobile */
+  .lc-detail-right {
+    flex-shrink: 0 !important;
+    border-top: 1px solid rgba(255,255,255,0.07) !important;
+    background: rgba(10,8,20,0.97) !important;
+    padding: 10px 14px 14px !important;
+  }
+  .lc-add-panel {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    gap: 8px !important;
+  }
+  .lc-add-title { display: none !important; }
+  .lc-add-tabs { display: none !important; }
+  .lc-add-stats { display: none !important; }
+  .lc-add-input {
+    flex: 1 !important;
+    margin: 0 !important;
+    font-size: 16px !important;
+  }
+  .lc-add-btn {
+    flex-shrink: 0 !important;
+    width: auto !important;
+    padding: 10px 16px !important;
+    white-space: nowrap !important;
+  }
+  .lc-add-error {
+    position: absolute !important;
+    bottom: 100% !important;
+    left: 0 !important; right: 0 !important;
+    padding: 8px 14px !important;
+    background: rgba(255,80,100,0.1) !important;
+    border-top: 1px solid rgba(255,80,100,0.2) !important;
+    font-size: var(--text-xs) !important;
+    color: #ffb0bc !important;
+    margin: 0 !important;
+  }
+
+  /* Song thumbs — bigger on mobile */
+  .lc-song-thumb {
+    width: 44px !important;
+    height: 44px !important;
+    border-radius: 8px !important;
+    overflow: hidden !important;
+    flex-shrink: 0 !important;
+  }
+  .lc-song-thumb img {
+    width: 100% !important; height: 100% !important;
+    object-fit: cover !important;
+  }
+  
+  /* Song action buttons — bigger hit target */
+  .lc-song-action-btn {
+    width: 34px !important; height: 34px !important;
+  }
+  
+  /* Library grid — 2 columns on mobile */
+  .lc-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 10px !important;
+    padding: 12px !important;
+  }
+  
+  /* Library header — compact */
+  .lc-header {
+    padding: 12px 14px !important;
+    gap: 10px !important;
+  }
+  .lc-back {
+    font-size: var(--text-xs) !important;
+    gap: 4px !important;
+  }
+  .lc-title {
+    font-size: var(--text-lg) !important;
+  }
+  .lc-subtitle {
+    font-size: var(--text-xs) !important;
+  }
+}
+
+/* ── Library empty state icon ────────────────────────────── */
+.lc-empty-icon {
+  width: 64px; height: 64px;
+  border-radius: 18px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  display: flex; align-items: center; justify-content: center;
+  color: rgba(255,255,255,0.2);
+  margin: 0 auto 16px;
+}
+
+/* ── Settings panel mobile — full bottom sheet ───────────── */
+@media (max-width: 768px) {
+  .settings-modal {
+    padding-top: 4px !important;
+  }
+  .panel-header {
+    padding: 14px 16px 10px !important;
+  }
+  /* Bigger touch targets for toggle */
+  .settings-toggle {
+    width: 48px !important;
+    height: 28px !important;
+    flex-shrink: 0 !important;
+  }
+  .settings-toggle-thumb {
+    width: 22px !important;
+    height: 22px !important;
+  }
+  .settings-toggle.on .settings-toggle-thumb {
+    transform: translateX(20px) !important;
+  }
+  /* Theme buttons — larger dots */
+  .settings-theme-btn {
+    padding: 10px 12px !important;
+    gap: 8px !important;
+  }
+  .settings-theme-dot {
+    width: 16px !important; height: 16px !important;
+  }
+}
+
