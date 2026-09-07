@@ -183,6 +183,8 @@ export default function Player({ socket, roomId, videoId, title, onEnded, onSkip
   const timersRef     = useRef([])
   const swipeStartX   = useRef(null)
   const swipeStartY   = useRef(null)
+  const silentAudioRef = useRef(null)  // iOS background audio keepalive
+  const wakeLockRef    = useRef(null)  // Screen wake lock
 
   const [isPlaying, setIsPlaying]   = useState(false)
   const [currentTime, setCurrentTime] = useState(0)
@@ -318,6 +320,58 @@ export default function Player({ socket, roomId, videoId, title, onEnded, onSkip
 
   useEffect(() => { isPlayingRef.current = isPlaying }, [isPlaying])
 
+  // ── iOS background audio keepalive ─────────────────────
+  // iOS WebKit kills web audio when screen locks UNLESS a native <audio>
+  // element is actively playing. We play a silent looping file to keep
+  // the audio session alive, letting YouTube IFrame continue in background.
+  useEffect(() => {
+    if (!silentAudioRef.current) {
+      const audio = new Audio('/silence.mp3')
+      audio.loop = true
+      audio.volume = 0.001  // near-silent but not zero (zero can be skipped)
+      audio.setAttribute('playsinline', '')
+      audio.setAttribute('webkit-playsinline', '')
+      silentAudioRef.current = audio
+    }
+    const audio = silentAudioRef.current
+    if (isPlaying) {
+      audio.play().catch(() => {})  // requires prior user gesture — fine, user pressed play
+    } else {
+      audio.pause()
+    }
+  }, [isPlaying])
+
+  // ── Screen wake lock — prevent screen dim while playing ─
+  useEffect(() => {
+    if (!('wakeLock' in navigator)) return
+    const acquire = async () => {
+      try {
+        wakeLockRef.current = await navigator.wakeLock.request('screen')
+      } catch {}
+    }
+    const release = () => {
+      wakeLockRef.current?.release?.()
+      wakeLockRef.current = null
+    }
+    if (isPlaying) acquire()
+    else release()
+    // Re-acquire on visibility change (iOS releases lock when tab hides)
+    const onVisibility = () => { if (!document.hidden && isPlaying) acquire() }
+    document.addEventListener('visibilitychange', onVisibility)
+    return () => {
+      release()
+      document.removeEventListener('visibilitychange', onVisibility)
+    }
+  }, [isPlaying])
+
+  // Cleanup silent audio on unmount
+  useEffect(() => {
+    return () => {
+      silentAudioRef.current?.pause()
+      silentAudioRef.current = null
+    }
+  }, [])
+
   // ── Volume ─────────────────────────────────────────────
   useEffect(() => {
     playerInst.current?.setVolume?.(volume)
@@ -329,8 +383,9 @@ export default function Player({ socket, roomId, videoId, title, onEnded, onSkip
     navigator.mediaSession.metadata = new window.MediaMetadata({
       title: title || 'Groove Together', artist: 'Groove Together', album: 'Room ' + (roomId || ''),
       artwork: videoId ? [
-        { src: `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`, sizes: '320x180', type: 'image/jpeg' },
+        { src: `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`, sizes: '1280x720', type: 'image/jpeg' },
         { src: `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`, sizes: '480x360', type: 'image/jpeg' },
+        { src: `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`, sizes: '320x180', type: 'image/jpeg' },
       ] : [],
     })
   }, [title, videoId, roomId])
@@ -554,7 +609,15 @@ export default function Player({ socket, roomId, videoId, title, onEnded, onSkip
         </div>
       )}
 
-      <div className="sync-badge"><span className="sync-dot" />{isLocked ? 'Listening' : 'Synced'}</div>
+      <div className="sync-badge">
+        <span className="sync-dot" />
+        {isLocked ? 'Listening' : 'Synced'}
+        {isPlaying && (
+          <span className="bg-audio-indicator" title="Background audio active">
+            <svg viewBox="0 0 24 24" fill="currentColor" width="10" height="10"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3A4.5 4.5 0 0 0 14 7.97v8.05c1.48-.73 2.5-2.25 2.5-4.02z"/></svg>
+          </span>
+        )}
+      </div>
     </div>
   )
 }

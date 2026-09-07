@@ -13340,3 +13340,17 @@ input[type="radio"] {
   }
 }
 
+
+/* ── Background audio indicator ──────────────────────────── */
+.bg-audio-indicator {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 4px;
+  opacity: 0.5;
+  color: var(--accent3);
+  animation: bgAudioPulse 2.5s ease-in-out infinite;
+}
+@keyframes bgAudioPulse {
+  0%, 100% { opacity: 0.3; }
+  50%       { opacity: 0.8; }
+}
