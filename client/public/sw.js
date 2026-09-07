@@ -1,4 +1,4 @@
-const CACHE_NAME = 'groove-v5'
+const CACHE_NAME = 'groove-v6'
 
 const STATIC_ASSETS = [
   '/',
@@ -85,4 +85,11 @@ self.addEventListener('notificationclick', (event) => {
   event.waitUntil(
     clients.openWindow('/')
   )
+})
+
+// Force update when main app requests it
+self.addEventListener('message', (event) => {
+  if (event.data === 'SKIP_WAITING') {
+    self.skipWaiting()
+  }
 })

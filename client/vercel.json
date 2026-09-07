@@ -2,6 +2,6 @@
   "rewrites": [
     { "source": "/app", "destination": "/index.html" },
     { "source": "/app/(.*)", "destination": "/index.html" },
-    { "source": "/(.*)", "destination": "/index.html" }
+    { "source": "/((?!assets|icons|sw\\.js|manifest\\.json|silence\\.mp3|favicon|logo|apple-touch).*)", "destination": "/index.html" }
   ]
 }
