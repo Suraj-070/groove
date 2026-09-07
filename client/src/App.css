@@ -11923,6 +11923,8 @@ button {
     height: 100dvh !important;
     overflow: hidden !important;
     background: #060410 !important;
+    isolation: isolate !important;
+    position: relative !important;
   }
 
   /* ── 2. HEADER — ultra-thin, only essentials ────────────── */
@@ -13590,7 +13592,7 @@ input[type="radio"] {
 .player-bg {
   position: fixed;
   inset: 0;
-  z-index: 0;
+  z-index: -1;
   pointer-events: none;
   overflow: hidden;
   transition: opacity 0.8s ease;
@@ -13600,7 +13602,7 @@ input[type="radio"] {
   inset: -20%;
   width: 140%; height: 140%;
   object-fit: cover;
-  filter: blur(60px) saturate(1.4) brightness(0.25);
+  filter: blur(40px) saturate(1.3) brightness(0.22);
   transform: scale(1.1);
   transition: opacity 0.8s ease;
 }
@@ -13644,7 +13646,7 @@ input[type="radio"] {
 
 /* ── 4. App shell — z-index layering ─────────────────────── */
 @media (max-width: 768px) {
-  .player-bg { z-index: 0; }
+  .player-bg { z-index: -1; }
   .app-header { z-index: 60; position: relative; }
   .app-main { z-index: 1; position: relative; }
   .right-panel { z-index: 90; }
@@ -13670,3 +13672,27 @@ input[type="radio"] {
   .player::before { display: none !important; }
 }
 
+
+/* ── player-bg safety fixes ───────────────────────────────── */
+/* Ensure bg never intercepts touches even on older iOS */
+.player-bg, .player-bg * {
+  pointer-events: none !important;
+  user-select: none !important;
+}
+
+/* Left panel on player tab — subtle bottom gradient for readability */
+@media (max-width: 768px) {
+  .left-panel.player-tab-active {
+    background: transparent !important;
+  }
+  /* Make player controls readable over blurred art */
+  .left-panel.player-tab-active .player-progress,
+  .left-panel.player-tab-active .player-controls-wrap,
+  .left-panel.player-tab-active .player-action-row,
+  .left-panel.player-tab-active .sync-badge,
+  .left-panel.player-tab-active .volume-row,
+  .left-panel.player-tab-active .mobile-extra-controls {
+    position: relative;
+    z-index: 1;
+  }
+}
