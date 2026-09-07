@@ -879,6 +879,17 @@ function App() {
 
   return (
     <div className="app">
+      {/* Blurred album art background — mobile only */}
+      {isMobileView && currentSong?.videoId && (
+        <div className="player-bg">
+          <img
+            className="player-bg-img"
+            src={`https://img.youtube.com/vi/${currentSong.videoId}/hqdefault.jpg`}
+            alt=""
+          />
+          <div className="player-bg-overlay" />
+        </div>
+      )}
       <OfflineBanner />
       {reconnecting && (
         <div className="reconnecting-banner">
@@ -900,7 +911,7 @@ function App() {
         </div>
       )}
 
-      <header className="app-header">
+      <header className={`app-header${isMobileView && mobileTab === 'player' && !libraryOpen && !chatOpen ? ' header-player-mode' : ''}`}>
         <div className="logo">
           <svg width="32" height="32" viewBox="0 0 56 56" fill="none" xmlns="http://www.w3.org/2000/svg">
             <defs>
@@ -1136,7 +1147,7 @@ function App() {
       </header>
 
       <main className={`app-main ${queueCollapsed ? 'queue-collapsed' : ''}`}>
-        <div className="left-panel">
+        <div className={`left-panel${isMobileView && mobileTab === 'player' && !libraryOpen && !chatOpen ? ' player-tab-active' : ''}`}>
           <Player
             socket={socket}
             roomId={roomId}

@@ -1,68 +1,26 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState } from 'react'
 
 const BACKEND = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'
 
-const GrooveLogo = () => (
-  <svg width="48" height="48" viewBox="0 0 56 56" fill="none">
-    <defs>
-      <linearGradient id="rjg1" x1="0" y1="0" x2="56" y2="56" gradientUnits="userSpaceOnUse">
-        <stop offset="0%" stopColor="#7c6aff"/><stop offset="100%" stopColor="#ff6a8a"/>
-      </linearGradient>
-      <linearGradient id="rjg2" x1="0" y1="0" x2="56" y2="56" gradientUnits="userSpaceOnUse">
-        <stop offset="0%" stopColor="#fff" stopOpacity="0.95"/><stop offset="100%" stopColor="#e0daff"/>
-      </linearGradient>
-    </defs>
-    <circle cx="28" cy="28" r="28" fill="url(#rjg1)" opacity="0.15"/>
-    <circle cx="28" cy="28" r="22" fill="url(#rjg1)" opacity="0.2"/>
-    <path d="M14 22 Q10 28 14 34" stroke="url(#rjg1)" strokeWidth="2.5" strokeLinecap="round"/>
-    <path d="M42 22 Q46 28 42 34" stroke="url(#rjg1)" strokeWidth="2.5" strokeLinecap="round"/>
-    <path d="M24 36V22l12-3v14" stroke="url(#rjg2)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-    <circle cx="22" cy="36" r="3.5" fill="url(#rjg2)"/>
-    <circle cx="34" cy="33" r="3.5" fill="url(#rjg2)"/>
-  </svg>
-)
-
-// Input with NO autoFocus — prevents layout bounce
-function Field({ label, type = 'text', value, onChange, placeholder, onEnter, inputRef }) {
+// ── Tiny primitives — all styled via CSS classes ─────────
+function Input({ label, type = 'text', value, onChange, placeholder, onEnter, autoComplete }) {
   const [showPw, setShowPw] = useState(false)
-  const isPassword = type === 'password'
+  const isPw = type === 'password'
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-      {label && <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'rgba(255,255,255,0.45)', letterSpacing: '0.04em', textTransform: 'uppercase' }}>{label}</label>}
-      <div style={{ position: 'relative' }}>
+    <div className="rj-field">
+      {label && <label className="rj-label">{label}</label>}
+      <div className="rj-input-wrap">
         <input
-          ref={inputRef}
-          type={isPassword && showPw ? 'text' : type}
+          className="rj-input"
+          type={isPw && showPw ? 'text' : type}
           value={value}
+          autoComplete={autoComplete || (isPw ? 'current-password' : 'off')}
           onChange={e => onChange(e.target.value)}
           placeholder={placeholder}
           onKeyDown={e => e.key === 'Enter' && onEnter?.()}
-          style={{
-            width: '100%',
-            padding: isPassword ? '11px 40px 11px 13px' : '11px 13px',
-            background: 'rgba(255,255,255,0.05)',
-            border: '1px solid rgba(255,255,255,0.1)',
-            borderRadius: 10, color: '#fff',
-            fontFamily: 'inherit', fontSize: '0.9rem',
-            outline: 'none', transition: 'border-color 0.15s, box-shadow 0.15s',
-            boxSizing: 'border-box',
-          }}
-          onFocus={e => {
-            e.target.style.borderColor = 'rgba(124,106,255,0.55)'
-            e.target.style.boxShadow = '0 0 0 3px rgba(124,106,255,0.1)'
-          }}
-          onBlur={e => {
-            e.target.style.borderColor = 'rgba(255,255,255,0.1)'
-            e.target.style.boxShadow = 'none'
-          }}
         />
-        {isPassword && (
-          <button
-            type="button"
-            tabIndex={-1}
-            onClick={() => setShowPw(p => !p)}
-            style={{ position: 'absolute', right: 11, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.25)', fontSize: '0.75rem', padding: 0 }}
-          >
+        {isPw && (
+          <button type="button" tabIndex={-1} className="rj-pw-toggle" onClick={() => setShowPw(p => !p)}>
             {showPw ? 'Hide' : 'Show'}
           </button>
         )}
@@ -71,78 +29,68 @@ function Field({ label, type = 'text', value, onChange, placeholder, onEnter, in
   )
 }
 
-function ErrMsg({ msg }) {
-  if (!msg) return null
-  return <div style={{ background: 'rgba(255,80,100,0.1)', border: '1px solid rgba(255,80,100,0.2)', borderRadius: 8, padding: '9px 12px', fontSize: '0.82rem', color: '#ffb0bc', lineHeight: 1.4 }}>{msg}</div>
-}
-
-function OkMsg({ msg }) {
-  if (!msg) return null
-  return <div style={{ background: 'rgba(0,201,116,0.1)', border: '1px solid rgba(0,201,116,0.2)', borderRadius: 8, padding: '9px 12px', fontSize: '0.82rem', color: '#80e8c0', display: 'flex', alignItems: 'center', gap: 7 }}><span>✓</span>{msg}</div>
-}
-
-function PBtn({ children, onClick, loading, style = {} }) {
+function PrimaryBtn({ children, onClick, loading, disabled }) {
   return (
-    <button
-      onClick={onClick}
-      disabled={loading}
-      style={{
-        width: '100%', padding: '12px', border: 'none', borderRadius: 10,
-        background: 'linear-gradient(135deg,#7c6aff,#ff6a8a)',
-        color: '#fff', fontFamily: 'inherit', fontSize: '0.92rem', fontWeight: 700,
-        cursor: loading ? 'not-allowed' : 'pointer',
-        opacity: loading ? 0.7 : 1,
-        boxShadow: '0 4px 16px rgba(124,106,255,0.3)',
-        transition: 'opacity 0.15s, transform 0.15s',
-        ...style,
-      }}
-      onMouseEnter={e => { if (!loading) e.currentTarget.style.transform = 'translateY(-1px)' }}
-      onMouseLeave={e => { e.currentTarget.style.transform = '' }}
-    >
-      {loading ? '···' : children}
+    <button className="rj-btn-primary" onClick={onClick} disabled={loading || disabled}>
+      {loading ? <span className="rj-spinner" /> : children}
     </button>
   )
 }
 
-function BackBtn({ onClick }) {
-  return (
-    <button onClick={onClick} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.35)', fontSize: '0.8rem', cursor: 'pointer', fontFamily: 'inherit', padding: '2px 0', transition: 'color 0.15s' }}
-      onMouseEnter={e => e.currentTarget.style.color = '#fff'}
-      onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.35)'}
-    >← Back</button>
-  )
+function GhostBtn({ children, onClick }) {
+  return <button className="rj-btn-ghost" onClick={onClick}>{children}</button>
 }
 
-function LinkBtn({ children, onClick }) {
-  return (
-    <button onClick={onClick} style={{ background: 'none', border: 'none', color: 'rgba(124,106,255,0.8)', fontSize: '0.8rem', cursor: 'pointer', fontFamily: 'inherit', padding: '2px 0', transition: 'color 0.15s', textDecoration: 'underline', textDecorationColor: 'rgba(124,106,255,0.3)' }}
-      onMouseEnter={e => e.currentTarget.style.color = '#c4b5fd'}
-      onMouseLeave={e => e.currentTarget.style.color = 'rgba(124,106,255,0.8)'}
-    >{children}</button>
-  )
+function TextBtn({ children, onClick, accent }) {
+  return <button className={`rj-btn-text ${accent ? 'rj-btn-text--accent' : ''}`} onClick={onClick}>{children}</button>
 }
 
-function Or() {
+function Err({ msg }) {
+  if (!msg) return null
+  return <div className="rj-err">{msg}</div>
+}
+
+function Ok({ msg }) {
+  if (!msg) return null
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-      <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.07)' }} />
-      <span style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.2)' }}>or</span>
-      <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.07)' }} />
+    <div className="rj-ok">
+      <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/></svg>
+      {msg}
     </div>
   )
 }
 
-// Shell must be defined OUTSIDE RoomJoin — if defined inside it recreates
-// on every render causing inputs to unmount/remount and lose focus
+function Divider() {
+  return <div className="rj-divider"><span>or</span></div>
+}
+
+function Back({ onClick }) {
+  return (
+    <button className="rj-back" onClick={onClick}>
+      <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+      Back
+    </button>
+  )
+}
+
 function Shell({ children }) {
   return (
-    <div className="room-join">
-      <div className="join-card">
-        <div className="join-logo"><GrooveLogo /></div>
-        <h1 className="join-title">
-          <span className="join-title-big">GROOVE</span>
-          <span className="join-title-small">· together ·</span>
-        </h1>
+    <div className="rj-root">
+      <div className="rj-card">
+        {/* Logo mark */}
+        <div className="rj-brand">
+          <div className="rj-brand-icon">
+            <svg viewBox="0 0 32 32" fill="none" width="28" height="28">
+              <path d="M10 22V12l14-3.5V19" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              <circle cx="8" cy="22" r="3" fill="white" opacity="0.9"/>
+              <circle cx="22" cy="19" r="3" fill="white" opacity="0.9"/>
+            </svg>
+          </div>
+          <div className="rj-brand-text">
+            <span className="rj-brand-name">Groove</span>
+            <span className="rj-brand-sub">Together</span>
+          </div>
+        </div>
         {children}
       </div>
     </div>
@@ -150,38 +98,36 @@ function Shell({ children }) {
 }
 
 export default function RoomJoin({ onJoin, user, onGuestLogin }) {
-  const [roomId, setRoomId] = useState(() => sessionStorage.getItem('groove_invite_room') || '')
-  const [view, setView]     = useState('home')
-  const [loading, setLoading] = useState(false)
-  const [error, setError]   = useState('')
-  const [success, setSuccess] = useState('')
-
-  // Form fields — all kept at parent level to prevent re-mount focus issues
-  const [email, setEmail]         = useState('')
-  const [password, setPassword]   = useState('')
-  const [username, setUsername]   = useState('')
+  const [roomId, setRoomId]     = useState(() => sessionStorage.getItem('groove_invite_room') || '')
+  const [view, setView]         = useState('home')
+  const [loading, setLoading]   = useState(false)
+  const [error, setError]       = useState('')
+  const [success, setSuccess]   = useState('')
+  const [email, setEmail]       = useState('')
+  const [password, setPassword] = useState('')
+  const [username, setUsername] = useState('')
   const [confirmPw, setConfirmPw] = useState('')
   const [guestName, setGuestName] = useState('')
+  const [loginHint, setLoginHint] = useState('')
 
   const go = (v) => { setError(''); setSuccess(''); setView(v) }
 
-  const apiPost = async (path, body) => {
-    const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), 30000)
+  const post = async (path, body) => {
+    const ctrl = new AbortController()
+    const t = setTimeout(() => ctrl.abort(), 30000)
     try {
       const res = await fetch(`${BACKEND}${path}`, {
         method: 'POST', credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-        signal: controller.signal,
+        body: JSON.stringify(body), signal: ctrl.signal,
       })
-      clearTimeout(timeout)
+      clearTimeout(t)
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Something went wrong')
       return data
     } catch (e) {
-      clearTimeout(timeout)
-      if (e.name === 'AbortError') throw new Error('Server is waking up — please wait 30 seconds and try again ☕')
+      clearTimeout(t)
+      if (e.name === 'AbortError') throw new Error('Server is waking up — please wait and try again')
       throw e
     }
   }
@@ -194,28 +140,17 @@ export default function RoomJoin({ onJoin, user, onGuestLogin }) {
     if (password !== confirmPw) return setError('Passwords do not match')
     setLoading(true); setError('')
     try {
-      const u = await apiPost('/auth/email/register', { email, password, username })
-      if (u.linked) {
-        // Password was added to existing Google/magic account — show brief success
-        setSuccess('Password added to your existing account!')
-        setTimeout(() => onGuestLogin(u), 800)
-      } else {
-        onGuestLogin(u)
-      }
+      const u = await post('/auth/email/register', { email, password, username })
+      if (u.linked) { setSuccess('Password added!'); setTimeout(() => onGuestLogin(u), 600) }
+      else onGuestLogin(u)
     } catch (e) {
       setError(e.message)
-      // Server says account exists with password — redirect to login
-      if (e.message.includes('Sign in instead')) {
-        setTimeout(() => go('login'), 1200)
-      }
-    }
-    finally { setLoading(false) }
+      if (e.message.includes('Sign in instead')) setTimeout(() => go('login'), 1200)
+    } finally { setLoading(false) }
   }
 
-  const [loginHint, setLoginHint] = useState('')
-
   const handleLogin = async () => {
-    if (!email.trim() || !password) return setError('Email and password are required')
+    if (!email.trim() || !password) return setError('Email and password required')
     setLoading(true); setError(''); setLoginHint('')
     try {
       const res = await fetch(`${BACKEND}/auth/email/login`, {
@@ -224,169 +159,127 @@ export default function RoomJoin({ onJoin, user, onGuestLogin }) {
         body: JSON.stringify({ email, password }),
       })
       const data = await res.json()
-      if (res.ok) {
-        onGuestLogin(data)
-      } else {
-        setError(data.error || 'Login failed')
-        if (data.hint) setLoginHint(data.hint)
-      }
-    } catch (e) { setError('Connection failed. Please try again.') }
-    finally { setLoading(false) }
+      if (res.ok) onGuestLogin(data)
+      else { setError(data.error || 'Login failed'); if (data.hint) setLoginHint(data.hint) }
+    } catch { setError('Connection failed') } finally { setLoading(false) }
   }
 
   const handleMagicSend = async () => {
     if (!email.trim()) return setError('Email is required')
     setLoading(true); setError('')
-    // Show waking message if slow (Render cold start)
-    const wakingTimer = setTimeout(() => setError('☕ Server is waking up, hang tight...'), 5000)
+    const wakingTimer = setTimeout(() => setError('Server is waking up, hang tight…'), 5000)
     try {
-      // 30 second timeout — Render cold starts can take 20+ seconds
-      const controller = new AbortController()
-      const timeout = setTimeout(() => controller.abort(), 30000)
+      const ctrl = new AbortController()
+      const t = setTimeout(() => ctrl.abort(), 30000)
       const res = await fetch(`${BACKEND}/auth/magic/send`, {
         method: 'POST', credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
-        signal: controller.signal,
+        body: JSON.stringify({ email }), signal: ctrl.signal,
       })
-      clearTimeout(timeout)
-      clearTimeout(wakingTimer)
+      clearTimeout(t); clearTimeout(wakingTimer)
       const data = await res.json()
-      if (!res.ok) {
-        setError(data.error || 'Failed to send magic link')
-        return
-      }
-      if (!data.emailConfigured && data.devLink) {
-        // Email not set up — show clickable link directly in UI
-        setMagicLink(data.devLink)
-        setView('magic-sent')
-      } else if (data.emailConfigured) {
-        // Real email sent — show "check inbox" screen
-        setMagicLink('')
-        setView('magic-sent')
-      } else if (data.devToken) {
-        // Dev auto-verify fallback
-        try {
-          const u = await apiPost('/auth/magic/verify', { token: data.devToken })
-          onGuestLogin(u)
-        } catch {
-          setMagicLink(data.devLink || '')
-          setView('magic-sent')
-        }
-      } else {
-        setView('magic-sent')
-      }
+      if (!res.ok) { setError(data.error || 'Failed to send link'); return }
+      if (!data.emailConfigured && data.devLink) { setView('magic-sent') }
+      else if (data.emailConfigured) { setView('magic-sent') }
+      else if (data.devToken) {
+        try { const u = await post('/auth/magic/verify', { token: data.devToken }); onGuestLogin(u) }
+        catch { setView('magic-sent') }
+      } else setView('magic-sent')
     } catch (e) {
       clearTimeout(wakingTimer)
-      if (e.name === 'AbortError') {
-        setError('Server took too long — please try again ☕')
-      } else {
-        setError(e.message || 'Failed to send magic link')
-      }
-    }
-    finally { setLoading(false) }
+      setError(e.name === 'AbortError' ? 'Server took too long — please try again' : e.message)
+    } finally { setLoading(false) }
   }
 
   const handleForgot = async () => {
     if (!email.trim()) return setError('Email is required')
     setLoading(true); setError('')
-    try {
-      await apiPost('/auth/email/forgot', { email })
-      setSuccess('If an account exists, a reset link has been sent.')
-    } catch (e) { setError(e.message) }
-    finally { setLoading(false) }
+    try { await post('/auth/email/forgot', { email }); setSuccess('If that email exists, a reset link has been sent.') }
+    catch (e) { setError(e.message) } finally { setLoading(false) }
   }
 
   const handleGuestSubmit = () => {
     const name = guestName.trim()
-    if (!name) return setError('Please enter a username')
-    if (name.length < 2) return setError('Must be at least 2 characters')
+    if (!name) return setError('Enter a display name')
+    if (name.length < 2) return setError('At least 2 characters')
     if (name.length > 20) return setError('Max 20 characters')
     onGuestLogin({ username: name })
   }
 
-  const handleJoin = () => {
-    if (!roomId.trim()) return
-    onJoin({ roomId: roomId.toUpperCase().trim() })
-  }
+  const handleJoin = () => { if (roomId.trim()) onJoin({ roomId: roomId.toUpperCase().trim() }) }
 
-  // ── Logged in ─────────────────────────────────────────
+  // ── Logged in ──────────────────────────────────────────
   if (user) {
-    const providerLabel = user.isGuest
-      ? 'Guest'
-      : user.providers?.includes('google') && user.providers?.includes('email')
-      ? 'Google + Email'
-      : user.providers?.includes('google') || user.provider === 'google'
-      ? 'via Google'
-      : 'via Email'
-
     return (
-      <div className="room-join">
-        <div className="join-card">
-          <div className="join-logo"><GrooveLogo /></div>
-          <h1 className="join-title">
-            <span className="join-title-big">GROOVE</span>
-            <span className="join-title-small">· together ·</span>
-          </h1>
-          <div className="discord-user">
-            {user.avatar
-              ? <img src={user.avatar} alt="" className="discord-avatar" />
-              : <div className="discord-avatar-placeholder">{user.username?.slice(0, 2).toUpperCase()}</div>
-            }
-            <div>
-              <p className="discord-name">{user.username}</p>
-              <p className="discord-sub">{providerLabel}</p>
-            </div>
-          </div>
-          <div className="join-form">
-            <input type="text" placeholder="Room code (e.g. GROOVE1)"
-              value={roomId} onChange={e => setRoomId(e.target.value.toUpperCase())}
-              onKeyDown={e => e.key === 'Enter' && handleJoin()} maxLength={10} />
-            <button className="btn-primary" onClick={handleJoin} disabled={!roomId.trim()}>Join Room</button>
-            <div className="divider"><span>or</span></div>
-            <button className="btn-secondary" onClick={() => onJoin({ roomId: Math.random().toString(36).substring(2, 8).toUpperCase() })}>Create New Room</button>
+      <Shell>
+        <div className="rj-user-row">
+          {user.avatar
+            ? <img src={user.avatar} alt="" className="rj-user-avatar" />
+            : <div className="rj-user-avatar rj-user-avatar--placeholder">{user.username?.slice(0,2).toUpperCase()}</div>
+          }
+          <div className="rj-user-info">
+            <span className="rj-user-name">{user.username}</span>
+            <span className="rj-user-sub">{user.isGuest ? 'Guest' : user.providers?.includes('google') ? 'Google' : 'Email'}</span>
           </div>
         </div>
-      </div>
+        <div className="rj-stack">
+          <input
+            className="rj-input rj-input--room"
+            type="text"
+            placeholder="Room code"
+            value={roomId}
+            onChange={e => setRoomId(e.target.value.toUpperCase())}
+            onKeyDown={e => e.key === 'Enter' && handleJoin()}
+            maxLength={10}
+          />
+          <PrimaryBtn onClick={handleJoin} disabled={!roomId.trim()}>Join Room</PrimaryBtn>
+          <Divider />
+          <GhostBtn onClick={() => onJoin({ roomId: Math.random().toString(36).substring(2,8).toUpperCase() })}>
+            Create New Room
+          </GhostBtn>
+        </div>
+      </Shell>
     )
   }
 
-
-
-  // ── Magic link sent ───────────────────────────────────
-
-
-
+  // ── Magic sent ────────────────────────────────────────
+  if (view === 'magic-sent') return (
+    <Shell>
+      <div className="rj-magic-sent">
+        <div className="rj-magic-icon">
+          <svg viewBox="0 0 24 24" fill="currentColor" width="28" height="28"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4-8 5-8-5V6l8 5 8-5v2z"/></svg>
+        </div>
+        <p className="rj-magic-title">Check your inbox</p>
+        <p className="rj-magic-sub">We sent a sign-in link to <strong>{email}</strong></p>
+      </div>
+      <Back onClick={() => go('home')} />
+    </Shell>
+  )
 
   // ── Login ─────────────────────────────────────────────
   if (view === 'login') return (
     <Shell>
-      <p className="join-sub" style={{ marginBottom: 18 }}>Sign in to your account</p>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
-        <ErrMsg msg={error} />
-        {/* Smart hint — redirect to correct method */}
+      <p className="rj-page-title">Sign in</p>
+      <div className="rj-stack">
+        <Err msg={error} />
         {loginHint === 'google' && (
-          <button onClick={() => window.location.href = `${BACKEND}/auth/google`}
-            style={{ padding: '11px', background: 'rgba(66,133,244,0.1)', border: '1px solid rgba(66,133,244,0.3)', borderRadius: 10, color: '#7ab3ff', fontFamily: 'inherit', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer' }}>
-            → Sign in with Google instead
+          <button className="rj-hint-btn rj-hint-btn--google" onClick={() => window.location.href = `${BACKEND}/auth/google`}>
+            Sign in with Google instead
           </button>
         )}
         {loginHint === 'magic' && (
-          <button onClick={() => go('magic')}
-            style={{ padding: '11px', background: 'rgba(255,184,106,0.1)', border: '1px solid rgba(255,184,106,0.25)', borderRadius: 10, color: '#ffd080', fontFamily: 'inherit', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer' }}>
-            → Send me a magic link instead
+          <button className="rj-hint-btn" onClick={() => go('magic')}>
+            Send a magic link instead
           </button>
         )}
-        <Field label="Email" type="email" value={email} onChange={v => { setEmail(v); setLoginHint('') }} placeholder="you@example.com" />
-        <Field label="Password" type="password" value={password} onChange={setPassword} placeholder="Your password" onEnter={handleLogin} />
-        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-          <LinkBtn onClick={() => go('forgot')}>Forgot password?</LinkBtn>
-        </div>
-        <PBtn onClick={handleLogin} loading={loading}>Sign In</PBtn>
-        <Or />
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <BackBtn onClick={() => go('home')} />
-          <LinkBtn onClick={() => go('register')}>Create account</LinkBtn>
+        <Input label="Email" type="email" value={email} onChange={v => { setEmail(v); setLoginHint('') }} placeholder="you@example.com" autoComplete="email" />
+        <Input label="Password" type="password" value={password} onChange={setPassword} placeholder="Your password" onEnter={handleLogin} autoComplete="current-password" />
+        <div className="rj-row-end"><TextBtn accent onClick={() => go('forgot')}>Forgot password?</TextBtn></div>
+        <PrimaryBtn onClick={handleLogin} loading={loading}>Sign In</PrimaryBtn>
+        <Divider />
+        <div className="rj-row-between">
+          <Back onClick={() => go('home')} />
+          <TextBtn accent onClick={() => go('register')}>Create account</TextBtn>
         </div>
       </div>
     </Shell>
@@ -395,37 +288,35 @@ export default function RoomJoin({ onJoin, user, onGuestLogin }) {
   // ── Register ──────────────────────────────────────────
   if (view === 'register') return (
     <Shell>
-      <p className="join-sub" style={{ marginBottom: 18 }}>Create your Groove account</p>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
-        <ErrMsg msg={error} />
-        <OkMsg msg={success} />
-        <Field label="Username" value={username} onChange={setUsername} placeholder="Your display name" />
-        <Field label="Email" type="email" value={email} onChange={setEmail} placeholder="you@example.com" />
-        <Field label="Password" type="password" value={password} onChange={setPassword} placeholder="Min 6 characters" />
-        <Field label="Confirm password" type="password" value={confirmPw} onChange={setConfirmPw} placeholder="Repeat password" onEnter={handleRegister} />
-        <PBtn onClick={handleRegister} loading={loading}>Create Account</PBtn>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <BackBtn onClick={() => go('home')} />
-          <LinkBtn onClick={() => go('login')}>Already have an account?</LinkBtn>
+      <p className="rj-page-title">Create account</p>
+      <div className="rj-stack">
+        <Err msg={error} /><Ok msg={success} />
+        <Input label="Display name" value={username} onChange={setUsername} placeholder="How others see you" autoComplete="username" />
+        <Input label="Email" type="email" value={email} onChange={setEmail} placeholder="you@example.com" autoComplete="email" />
+        <Input label="Password" type="password" value={password} onChange={setPassword} placeholder="At least 6 characters" autoComplete="new-password" />
+        <Input label="Confirm password" type="password" value={confirmPw} onChange={setConfirmPw} placeholder="Same again" onEnter={handleRegister} autoComplete="new-password" />
+        <PrimaryBtn onClick={handleRegister} loading={loading}>Create Account</PrimaryBtn>
+        <div className="rj-row-between">
+          <Back onClick={() => go('home')} />
+          <TextBtn accent onClick={() => go('login')}>Sign in instead</TextBtn>
         </div>
       </div>
     </Shell>
   )
 
-  // ── Forgot password ───────────────────────────────────
+  // ── Forgot ────────────────────────────────────────────
   if (view === 'forgot') return (
     <Shell>
-      <p className="join-sub" style={{ marginBottom: 18 }}>Reset your password</p>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
-        <ErrMsg msg={error} />
-        <OkMsg msg={success} />
+      <p className="rj-page-title">Reset password</p>
+      <div className="rj-stack">
+        <Err msg={error} /><Ok msg={success} />
         {!success && (
           <>
-            <Field label="Email" type="email" value={email} onChange={setEmail} placeholder="you@example.com" onEnter={handleForgot} />
-            <PBtn onClick={handleForgot} loading={loading}>Send Reset Link</PBtn>
+            <Input label="Email" type="email" value={email} onChange={setEmail} placeholder="you@example.com" onEnter={handleForgot} autoComplete="email" />
+            <PrimaryBtn onClick={handleForgot} loading={loading}>Send Reset Link</PrimaryBtn>
           </>
         )}
-        <BackBtn onClick={() => go('login')} />
+        <Back onClick={() => go('login')} />
       </div>
     </Shell>
   )
@@ -433,25 +324,24 @@ export default function RoomJoin({ onJoin, user, onGuestLogin }) {
   // ── Guest ─────────────────────────────────────────────
   if (view === 'guest') return (
     <Shell>
-      <p className="join-sub" style={{ marginBottom: 18 }}>Choose your display name</p>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
-        <ErrMsg msg={error} />
-        <Field value={guestName} onChange={v => { setGuestName(v); setError('') }} placeholder="e.g. DreamCatcher..." onEnter={handleGuestSubmit} />
-        <PBtn onClick={handleGuestSubmit}>Enter Groove →</PBtn>
-        <BackBtn onClick={() => go('home')} />
-        <p style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.18)', textAlign: 'center' }}>Guest accounts don't save your library or history</p>
+      <p className="rj-page-title">Choose a name</p>
+      <div className="rj-stack">
+        <Err msg={error} />
+        <Input value={guestName} onChange={v => { setGuestName(v); setError('') }} placeholder="e.g. NightOwl, DreamCatcher…" onEnter={handleGuestSubmit} autoComplete="off" />
+        <PrimaryBtn onClick={handleGuestSubmit}>Enter Groove</PrimaryBtn>
+        <p className="rj-guest-note">Guest accounts don't save history or library</p>
+        <Back onClick={() => go('home')} />
       </div>
     </Shell>
   )
 
-  // ── Home ─────────────────────────────────────────────
+  // ── Home ──────────────────────────────────────────────
   return (
     <Shell>
-      <p className="join-sub">Listen to music in sync with your friends</p>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 8 }}>
-
+      <p className="rj-tagline">Listen together, in sync</p>
+      <div className="rj-stack">
         {/* Google */}
-        <button className="google-login-btn" onClick={() => window.location.href = `${BACKEND}/auth/google`}>
+        <button className="rj-oauth-btn" onClick={() => window.location.href = `${BACKEND}/auth/google`}>
           <svg width="18" height="18" viewBox="0 0 24 24">
             <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
             <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
@@ -461,36 +351,31 @@ export default function RoomJoin({ onJoin, user, onGuestLogin }) {
           Continue with Google
         </button>
 
-        <Or />
+        <Divider />
 
-        {/* Email tabs */}
-        <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 14, overflow: 'hidden' }}>
-          <button onClick={() => go('login')}
-            style={{ width: '100%', padding: '13px 16px', background: 'none', border: 'none', borderBottom: '1px solid rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.75)', fontFamily: 'inherit', fontSize: '0.88rem', fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10, transition: 'background 0.15s' }}
-            onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.04)'}
-            onMouseLeave={e => e.currentTarget.style.background = 'none'}
-          >
-            <span style={{ width: 28, height: 28, borderRadius: 8, background: 'rgba(124,106,255,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><svg viewBox='0 0 24 24' fill='currentColor' width='14' height='14' style={{color:'#c4b5fd'}}><path d='M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4-8 5-8-5V6l8 5 8-5v2z'/></svg></span>
-            <span>Sign in with email</span>
-            <span style={{ marginLeft: 'auto', color: 'rgba(255,255,255,0.2)', fontSize: '0.8rem' }}>›</span>
+        {/* Email options */}
+        <div className="rj-email-list">
+          <button className="rj-email-row" onClick={() => go('login')}>
+            <span className="rj-email-icon rj-email-icon--purple">
+              <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4-8 5-8-5V6l8 5 8-5v2z"/></svg>
+            </span>
+            <span className="rj-email-label">Sign in with email</span>
+            <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14" className="rj-chevron"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
           </button>
-
-          <button onClick={() => go('register')}
-            style={{ width: '100%', padding: '13px 16px', background: 'none', border: 'none', color: 'rgba(255,255,255,0.75)', fontFamily: 'inherit', fontSize: '0.88rem', fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10, transition: 'background 0.15s' }}
-            onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.04)'}
-            onMouseLeave={e => e.currentTarget.style.background = 'none'}
-          >
-            <span style={{ width: 28, height: 28, borderRadius: 8, background: 'rgba(0,201,116,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><svg viewBox='0 0 24 24' fill='currentColor' width='14' height='14' style={{color:'#6affb8'}}><path d='M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z'/></svg></span>
-            <span>Create account</span>
-            <span style={{ marginLeft: 'auto', color: 'rgba(255,255,255,0.2)', fontSize: '0.8rem' }}>›</span>
+          <button className="rj-email-row" onClick={() => go('register')}>
+            <span className="rj-email-icon rj-email-icon--green">
+              <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><path d="M15 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm-9-2V7H4v3H1v2h3v3h2v-3h3v-2H6zm9 4c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+            </span>
+            <span className="rj-email-label">Create account</span>
+            <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14" className="rj-chevron"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
           </button>
         </div>
 
-        <Or />
+        <Divider />
 
         {/* Guest */}
-        <button className="guest-login-btn" onClick={() => go('guest')}>
-          <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/></svg>
+        <button className="rj-guest-btn" onClick={() => go('guest')}>
+          <svg viewBox="0 0 24 24" fill="currentColor" width="15" height="15"><path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/></svg>
           Continue as Guest
         </button>
       </div>
