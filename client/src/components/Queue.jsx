@@ -535,7 +535,6 @@ export default function Queue({
               placeholder="Search for a song..."
               value={searchQuery}
               onChange={e => handleSearchInput(e.target.value)}
-              autoFocus
             />
             {searchQuery && (
               <button className="yt-search-clear" onClick={() => { setSearchQuery(''); setSearchResults([]) }}>×</button>

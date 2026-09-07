@@ -12998,3 +12998,345 @@ button {
 }
 .save-library-btn:hover { background: rgba(106,255,184,0.18); }
 
+
+/* ════════════════════════════════════════════════════════════
+   20-ISSUE MOBILE FIX PASS
+   ════════════════════════════════════════════════════════════ */
+
+/* ── Fix 1: Reconnecting banner ──────────────────────────── */
+.reconnecting-banner {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: var(--z-top);
+  background: var(--accent);
+  color: #fff;
+  text-align: center;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  padding: 8px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  animation: slideDown 0.3s ease;
+}
+@keyframes slideDown {
+  from { transform: translateY(-100%); }
+  to   { transform: translateY(0); }
+}
+.reconnecting-spinner {
+  width: 12px; height: 12px;
+  border-radius: 50%;
+  border: 2px solid rgba(255,255,255,0.4);
+  border-top-color: #fff;
+  animation: spin 0.8s linear infinite;
+  flex-shrink: 0;
+}
+
+/* ── Fix 2: touch-action: manipulation globally ──────────── */
+button, a, [role="button"],
+input[type="range"], input[type="checkbox"],
+input[type="radio"] {
+  touch-action: manipulation;
+}
+
+/* ── Fix 3: iOS input zoom prevention ───────────────────── */
+@media (max-width: 768px) {
+  input, textarea, select {
+    font-size: 16px !important;
+  }
+  /* But keep display font-size for non-interactive text via placeholder */
+  input::placeholder, textarea::placeholder {
+    font-size: 15px;
+  }
+}
+
+/* ── Fix 4: prefers-reduced-motion ──────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .marquee-inner {
+    animation: none !important;
+  }
+  .player-art {
+    transition: none !important;
+  }
+}
+
+/* ── Fix 5: will-change on animated panels ───────────────── */
+.right-panel,
+.dc-panel,
+.profile-dropdown--portal,
+.library-panel,
+.settings-modal {
+  will-change: transform;
+}
+
+/* ── Fix 6: Letter-spacing in px → em (mobile) ───────────── */
+@media (max-width: 768px) {
+  .join-title-big {
+    letter-spacing: 0.12em !important;
+  }
+  .join-title-small {
+    letter-spacing: 0.08em !important;
+    font-size: 0.7rem !important;
+  }
+  .logo-small,
+  .logo-text .logo-small {
+    letter-spacing: 0.06em !important;
+    font-size: 0.55rem !important;
+  }
+  .logo-big,
+  .logo-text .logo-big {
+    letter-spacing: 0.08em !important;
+  }
+}
+
+/* ── Fix 7: Minimum font sizes on mobile (11px floor) ────── */
+@media (max-width: 768px) {
+  .user-name,
+  .song-meta,
+  .nav-label,
+  .time-label,
+  .chat-ts,
+  .queue-empty-sub {
+    font-size: max(0.68rem, 11px) !important;
+  }
+}
+
+/* ── Fix 8: Sleep timer badge — mobile position ──────────── */
+@media (max-width: 768px) {
+  .sleep-timer-badge {
+    top: auto !important;
+    bottom: 84px !important;
+    right: 12px !important;
+    left: 12px !important;
+    justify-content: center !important;
+    border-radius: 12px !important;
+    font-size: 0.82rem !important;
+  }
+}
+.sleep-timer-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.sleep-timer-badge button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px; height: 24px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.08);
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  padding: 0;
+  transition: background 0.15s;
+}
+.sleep-timer-badge button:hover { background: rgba(255,255,255,0.15); }
+
+/* ── Fix 9: Chat — bottom sheet on mobile ────────────────── */
+@media (max-width: 768px) {
+  .dc-panel {
+    top: auto !important;
+    bottom: 68px !important;
+    left: 0 !important; right: 0 !important;
+    width: 100% !important;
+    height: 88dvh !important;
+    border-radius: 24px 24px 0 0 !important;
+    border: none !important;
+    border-top: 1px solid rgba(255,255,255,0.08) !important;
+    transform: translateY(110%) !important;
+    transition: transform 0.38s cubic-bezier(0.34,1.1,0.64,1) !important;
+    animation: none !important;
+  }
+  body.chat-is-open .dc-panel {
+    transform: translateY(0) !important;
+  }
+  /* Chat input — 16px to prevent iOS zoom */
+  .dc-input {
+    font-size: 16px !important;
+  }
+  /* Chat header — add drag pill */
+  .dc-header::before {
+    content: '';
+    position: absolute;
+    top: 8px; left: 50%;
+    transform: translateX(-50%);
+    width: 36px; height: 4px;
+    border-radius: 99px;
+    background: rgba(255,255,255,0.15);
+  }
+  .dc-header {
+    position: relative;
+    padding-top: 16px !important;
+    height: 56px !important;
+    min-height: 56px !important;
+  }
+}
+
+/* ── Fix 10: Video panel — full-screen on mobile ─────────── */
+@media (max-width: 768px) {
+  .video-panel {
+    position: fixed !important;
+    top: 0 !important; left: 0 !important;
+    right: 0 !important; bottom: 68px !important;
+    width: 100% !important;
+    height: auto !important;
+    min-width: unset !important;
+    border-radius: 0 !important;
+    border: none !important;
+    z-index: 150 !important;
+  }
+  .video-panel-iframe {
+    height: calc(100vw * 9 / 16) !important;
+  }
+  .video-panel-resize { display: none !important; }
+}
+
+/* ── Fix 11: Room badge — cleaner design ─────────────────── */
+@media (max-width: 768px) {
+  .room-badge {
+    background: transparent !important;
+    border: none !important;
+    padding: 0 !important;
+    gap: 5px !important;
+    font-size: 0.75rem !important;
+    font-weight: 500 !important;
+    color: rgba(255,255,255,0.45) !important;
+  }
+  .room-badge span:last-of-type {
+    /* Show only first 6 chars of room code */
+    font-variant: all-small-caps;
+    letter-spacing: 0.04em;
+  }
+}
+
+/* ── Fix 12: Listeners strip in queue sheet ──────────────── */
+.mobile-listeners-strip {
+  padding: 8px 12px 0 !important;
+  border-bottom: 1px solid rgba(255,255,255,0.05) !important;
+  flex-shrink: 0 !important;
+}
+.mobile-listeners-strip .user-list {
+  width: 100% !important;
+  background: transparent !important;
+  border: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+.mobile-listeners-strip .user-list-header { display: none !important; }
+.mobile-listeners-strip .user-list-inner {
+  display: flex !important;
+  flex-direction: row !important;
+  overflow-x: auto !important;
+  scrollbar-width: none !important;
+  gap: 8px !important;
+  padding: 4px 0 8px !important;
+}
+.mobile-listeners-strip .user-list-inner::-webkit-scrollbar { display: none !important; }
+.mobile-listeners-strip .user-item {
+  flex-direction: column !important;
+  align-items: center !important;
+  gap: 3px !important;
+  padding: 4px 8px !important;
+  flex-shrink: 0 !important;
+  background: transparent !important;
+  border-radius: 8px !important;
+}
+.mobile-listeners-strip .user-avatar,
+.mobile-listeners-strip .user-avatar-placeholder {
+  width: 26px !important; height: 26px !important;
+}
+.mobile-listeners-strip .user-name {
+  font-size: 0.6rem !important;
+  max-width: 44px !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+  color: rgba(255,255,255,0.4) !important;
+}
+
+/* ── Fix 13: Toast positioning — above mini player ───────── */
+@media (max-width: 768px) {
+  .general-toast {
+    bottom: 140px !important;
+  }
+  .streak-toast {
+    bottom: 140px !important;
+  }
+}
+
+/* ── Fix 14: -webkit-tap-highlight-color global ──────────── */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+/* Allow visible focus for keyboard users */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* ── Fix 15: Gradient restraint — primary btn solid ─────── */
+@media (max-width: 768px) {
+  .btn-primary {
+    background: var(--accent) !important;
+    box-shadow: none !important;
+  }
+  .btn-primary:active {
+    background: #6a59e0 !important;
+    transform: scale(0.97) !important;
+  }
+}
+
+/* ── Fix 16: Marquee — pause when hidden ─────────────────── */
+.marquee-wrap:not(.is-overflowing) .marquee-inner {
+  animation: none !important;
+}
+/* Start marquee after 1s delay so user sees title first */
+.marquee-wrap.is-overflowing .marquee-inner {
+  animation-delay: 1s !important;
+}
+
+/* ── Fix 17: General toast — backdrop blur, pill style ───── */
+.general-toast {
+  backdrop-filter: blur(20px) !important;
+  -webkit-backdrop-filter: blur(20px) !important;
+  background: rgba(14,12,26,0.92) !important;
+  border: 1px solid rgba(255,255,255,0.1) !important;
+}
+
+/* ── Fix 18: Header logo — hide tagline on small screens ─── */
+@media (max-width: 380px) {
+  .logo-small { display: none !important; }
+}
+
+/* ── Fix 19: Body momentum scroll for iOS ────────────────── */
+.song-list,
+.ig-messages-wrap,
+.left-panel,
+.library-inner,
+.settings-inner {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ── Fix 20: input font-size for chat on mobile ──────────── */
+@media (max-width: 768px) {
+  .join-form input,
+  .add-song input,
+  .yt-search-input,
+  .dc-input,
+  .lc-add-input,
+  input[type="text"],
+  input[type="password"],
+  input[type="email"],
+  input[type="search"] {
+    font-size: 16px !important;
+  }
+}
+

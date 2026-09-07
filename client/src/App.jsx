@@ -865,7 +865,7 @@ function App() {
           {IS_DISCORD
             ? 'Loading Activity...'
             : serverWaking
-            ? '☕ Server is waking up, hang tight...'
+            ? 'Server is waking up, hang tight…'
             : 'Checking session...'}
         </p>
       </div>
@@ -881,16 +881,9 @@ function App() {
     <div className="app">
       <OfflineBanner />
       {reconnecting && (
-        <div style={{
-          position: 'fixed', top: 0, left: 0, right: 0, zIndex: 9000,
-          background: 'linear-gradient(90deg, #7c6aff, #ff6a8a)',
-          color: '#fff', textAlign: 'center', fontSize: '0.8rem',
-          fontWeight: 600, padding: '8px 16px',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-          animation: 'slideDown 0.3s ease',
-        }}>
-          <div style={{ width: 12, height: 12, borderRadius: '50%', border: '2px solid rgba(255,255,255,0.5)', borderTopColor: '#fff', animation: 'spin 0.8s linear infinite' }} />
-          Reconnecting to server…
+        <div className="reconnecting-banner">
+          <div className="reconnecting-spinner" />
+          Reconnecting…
         </div>
       )}
       <Visualizer isPlaying={isPlaying} partyMode={partyMode} />
@@ -899,8 +892,11 @@ function App() {
       {/* Sleep timer badge */}
       {sleepTimer && (
         <div className="sleep-timer-badge">
-          😴 Stopping in {Math.ceil((sleepTimer.endsAt - Date.now()) / 60000)}m
-          <button onClick={handleCancelSleepTimer}>✕</button>
+          <svg viewBox="0 0 24 24" fill="currentColor" width="13" height="13" style={{flexShrink:0,opacity:0.7}}><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zm4.24 16L11 13.37V7h1.5v5.75l4.74 2.82-1.01 1.43z"/></svg>
+          Stopping in {Math.ceil((sleepTimer.endsAt - Date.now()) / 60000)}m
+          <button onClick={handleCancelSleepTimer}>
+            <svg viewBox="0 0 24 24" fill="currentColor" width="12" height="12"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+          </button>
         </div>
       )}
 
@@ -1169,7 +1165,10 @@ function App() {
             }}
             isVisible={!isMobileView || mobileTab === 'queue'}
           />
-          <UserList users={users} currentUser={socket.id} djId={djId} isDJ={isDJ} onTransferDJ={handleTransferDJ} />
+          {/* UserList — desktop only here; mobile shows it inside queue sheet */}
+          {!isMobileView && (
+            <UserList users={users} currentUser={socket.id} djId={djId} isDJ={isDJ} onTransferDJ={handleTransferDJ} />
+          )}
         </div>
 
         {isMobileView && (
@@ -1193,6 +1192,12 @@ function App() {
           {/* Swipe-down pill indicator */}
           {isMobileView && (
             <div className="queue-swipe-handle" />
+          )}
+          {/* Listeners strip — mobile only, inside queue sheet */}
+          {isMobileView && users.length > 0 && (
+            <div className="mobile-listeners-strip">
+              <UserList users={users} currentUser={socket.id} djId={djId} isDJ={isDJ} onTransferDJ={handleTransferDJ} />
+            </div>
           )}
           <Queue
             queue={queue}
@@ -1299,8 +1304,8 @@ function App() {
         </nav>
       )}
 
-      {/* Floating chat bubble — mobile + desktop */}
-      {user && (
+      {/* Floating chat bubble — desktop only, mobile uses bottom nav */}
+      {user && !isMobileView && (
         <FloatingChatBubble
           user={user}
           unread={unread}
@@ -1615,16 +1620,15 @@ function App() {
       {/* Streak toast */}
       {streakToast && (
         <div className={`streak-toast ${streakToast.type === 'milestone' ? 'streak-toast--milestone' : ''}`}>
-          {streakToast.type === 'milestone' && <span className="streak-toast-firework">🎉</span>}
-          {streakToast.type === 'milestone' && <span>{streakToast.streak} day streak milestone! 🔥</span>}
-          {streakToast.type === 'streak' && <span>🔥 {streakToast.streak} day streak! Keep it up</span>}
-          {streakToast.type === 'room-milestone' && <span>🔥 {streakToast.username} hit a {streakToast.streak} day streak!</span>}
+          {streakToast.type === 'milestone' && <span>{streakToast.streak} day streak milestone</span>}
+          {streakToast.type === 'streak' && <span>{streakToast.streak} day streak — keep it up</span>}
+          {streakToast.type === 'room-milestone' && <span>{streakToast.username} hit a {streakToast.streak} day streak</span>}
         </div>
       )}
 
       {/* Radio loading indicator */}
       {radioLoading && (
-        <div className="radio-loading-toast">📻 Finding songs for your vibe…</div>
+        <div className="radio-loading-toast">Finding songs for your vibe…</div>
       )}
       {historyOpen && (
         <HistoryPanel
