@@ -432,7 +432,7 @@ export default function Player({ socket, roomId, videoId, title, onEnded, onSkip
       )}
 
       <div
-        className={`player-art${videoId ? ' song-changing' : ''}`} key={videoId}
+        className={`player-art${videoId ? ' song-changing' : ''} ${isPlaying ? 'art-playing' : ''}`} key={videoId}
         onTouchStart={e => { swipeStartX.current = e.touches[0].clientX; swipeStartY.current = e.touches[0].clientY }}
         onTouchEnd={e => {
           if (swipeStartX.current === null) return

@@ -63,7 +63,7 @@ function Field({ label, type = 'text', value, onChange, placeholder, onEnter, in
             onClick={() => setShowPw(p => !p)}
             style={{ position: 'absolute', right: 11, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.25)', fontSize: '0.75rem', padding: 0 }}
           >
-            {showPw ? '🙈' : '👁'}
+            {showPw ? 'Hide' : 'Show'}
           </button>
         )}
       </div>
@@ -313,12 +313,12 @@ export default function RoomJoin({ onJoin, user, onGuestLogin }) {
   // ── Logged in ─────────────────────────────────────────
   if (user) {
     const providerLabel = user.isGuest
-      ? '👤 Guest'
+      ? 'Guest'
       : user.providers?.includes('google') && user.providers?.includes('email')
-      ? '🔵 Google + ✉️ Email'
+      ? 'Google + Email'
       : user.providers?.includes('google') || user.provider === 'google'
-      ? '🔵 via Google'
-      : '✉️ via Email'
+      ? 'via Google'
+      : 'via Email'
 
     return (
       <div className="room-join">
@@ -470,7 +470,7 @@ export default function RoomJoin({ onJoin, user, onGuestLogin }) {
             onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.04)'}
             onMouseLeave={e => e.currentTarget.style.background = 'none'}
           >
-            <span style={{ width: 28, height: 28, borderRadius: 8, background: 'rgba(124,106,255,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.85rem' }}>✉️</span>
+            <span style={{ width: 28, height: 28, borderRadius: 8, background: 'rgba(124,106,255,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><svg viewBox='0 0 24 24' fill='currentColor' width='14' height='14' style={{color:'#c4b5fd'}}><path d='M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4-8 5-8-5V6l8 5 8-5v2z'/></svg></span>
             <span>Sign in with email</span>
             <span style={{ marginLeft: 'auto', color: 'rgba(255,255,255,0.2)', fontSize: '0.8rem' }}>›</span>
           </button>
@@ -480,7 +480,7 @@ export default function RoomJoin({ onJoin, user, onGuestLogin }) {
             onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.04)'}
             onMouseLeave={e => e.currentTarget.style.background = 'none'}
           >
-            <span style={{ width: 28, height: 28, borderRadius: 8, background: 'rgba(0,201,116,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.85rem' }}>🎵</span>
+            <span style={{ width: 28, height: 28, borderRadius: 8, background: 'rgba(0,201,116,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><svg viewBox='0 0 24 24' fill='currentColor' width='14' height='14' style={{color:'#6affb8'}}><path d='M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z'/></svg></span>
             <span>Create account</span>
             <span style={{ marginLeft: 'auto', color: 'rgba(255,255,255,0.2)', fontSize: '0.8rem' }}>›</span>
           </button>
