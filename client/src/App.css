@@ -14051,3 +14051,90 @@ input[type="radio"] {
   }
 }
 
+
+/* ════════════════════════════════════════════════════════════
+   HEADER — PLAYER MODE MOBILE (clean slate)
+   ════════════════════════════════════════════════════════════ */
+
+@media (max-width: 768px) {
+
+  /* Player tab — header fully transparent, minimal content */
+  .app-header.header-player-mode {
+    background: transparent !important;
+    border-bottom: none !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+
+  /* Hide logo always on mobile */
+  .app-header .logo { display: none !important; }
+
+  /* Hide room badge on player tab — not needed, user knows what room they're in */
+  .app-header.header-player-mode .room-badge { display: none !important; }
+
+  /* Hide header-tools on mobile (in nav already) */
+  .app-header .header-tools { display: none !important; }
+
+  /* Hide profile chevron on mobile */
+  .profile-chevron { display: none !important; }
+
+  /* Hide streak badge in header on mobile (in profile dropdown) */
+  .app-header .streak-badge { display: none !important; }
+
+  /* Non-player tabs — show minimal header */
+  .app-header:not(.header-player-mode) {
+    background: rgba(6,4,16,0.96) !important;
+    backdrop-filter: blur(20px) !important;
+    -webkit-backdrop-filter: blur(20px) !important;
+    border-bottom: 1px solid rgba(255,255,255,0.05) !important;
+  }
+  .app-header:not(.header-player-mode) .room-badge {
+    display: flex !important;
+  }
+
+  /* Room badge — always hide on mobile (nav handles context) */
+  .room-badge { display: none !important; }
+
+  /* Avatar only in top-right — clean */
+  .profile-wrap {
+    margin-left: auto !important;
+  }
+  .profile-trigger {
+    background: none !important;
+    border: none !important;
+    padding: 4px !important;
+    gap: 0 !important;
+  }
+  .header-avatar {
+    width: 32px !important;
+    height: 32px !important;
+    border-radius: 50% !important;
+    border: 2px solid rgba(255,255,255,0.15) !important;
+  }
+  .header-avatar-placeholder {
+    width: 32px !important;
+    height: 32px !important;
+    border-radius: 50% !important;
+    font-size: 0.72rem !important;
+    font-weight: 700 !important;
+    border: 2px solid rgba(255,255,255,0.15) !important;
+  }
+
+  /* Player mode — avatar ring glows */
+  .app-header.header-player-mode .header-avatar,
+  .app-header.header-player-mode .header-avatar-placeholder {
+    border-color: rgba(255,255,255,0.3) !important;
+  }
+
+  /* FCB — fully hidden on mobile (belt+suspenders) */
+  .fcb-bubble,
+  .fcb-preview-bubble {
+    display: none !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+  }
+
+  /* Party tool btn — hide on mobile */
+  .party-tool-btn { display: none !important; }
+}
+
