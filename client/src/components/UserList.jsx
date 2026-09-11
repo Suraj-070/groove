@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { createPortal } from 'react-dom'
 
-export default function UserList({ users: rawUsers = [], currentUser, djId, isDJ, onTransferDJ }) {
+export default function UserList({ users: rawUsers = [], currentUser, djId, isDJ, djMode, onTransferDJ, onAskDJ }) {
   const users = Array.isArray(rawUsers) ? rawUsers : []
   const colors = ['#7c6aff','#ff6a8a','#6affb8','#ffb86a','#6ab8ff','#ff6aff','#a78bfa','#34d399']
   const [confirmId, setConfirmId] = useState(null)
@@ -114,6 +114,19 @@ export default function UserList({ users: rawUsers = [], currentUser, djId, isDJ
           )
         })}
       </div>
+
+      {/* Ask-to-be-DJ — visible to non-DJs (mobile reaches DJ controls here) */}
+      {djMode && !isDJ && (
+        <div style={{ padding: '10px 16px', borderTop: '1px solid rgba(255,255,255,0.06)', flexShrink: 0 }}>
+          <button
+            onClick={() => onAskDJ?.()}
+            style={{ width: '100%', padding: '9px', background: 'linear-gradient(135deg,#7c6aff,#5b4bd4)', border: 'none', borderRadius: 10, color: '#fff', cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.82rem', fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+          >
+            <svg viewBox="0 0 24 24" fill="currentColor" width="13" height="13"><path d="M23 5.5V20c0 2.2-1.8 4-4 4h-7.3c-1.08 0-2.1-.43-2.85-1.19L1 14.83s1.26-1.23 1.3-1.25c.22-.19.49-.29.79-.29.22 0 .42.06.6.16.04.01 4.31 2.46 4.31 2.46V4c0-.83.67-1.5 1.5-1.5S11 3.17 11 4v7h1V1.5c0-.83.67-1.5 1.5-1.5S15 .67 15 1.5V11h1V2.5c0-.83.67-1.5 1.5-1.5s1.5.67 1.5 1.5V11h1V5.5c0-.83.67-1.5 1.5-1.5s1.5.67 1.5 1.5z"/></svg>
+            Ask to be DJ
+          </button>
+        </div>
+      )}
 
       {/* DJ transfer confirm — inline inside panel */}
       {confirmId && (() => {

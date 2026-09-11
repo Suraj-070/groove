@@ -762,6 +762,11 @@ function App() {
     socket.emit('transfer-dj', { roomId, toSocketId })
   }
 
+  const handleAskDJ = () => {
+    socket.emit('request-dj', { roomId, username: user.username })
+    showToast('🙋 Asked the DJ for control')
+  }
+
   useEffect(() => {
     const handleNewMsg = () => {
       if (!chatOpen) setUnread((p) => p + 1)
@@ -1276,7 +1281,7 @@ function App() {
           />
           {/* UserList — desktop only here; mobile shows it inside queue sheet */}
           {!isMobileView && (
-            <UserList users={users} currentUser={socket.id} djId={djId} isDJ={isDJ} onTransferDJ={handleTransferDJ} />
+            <UserList users={users} currentUser={socket.id} djId={djId} isDJ={isDJ} djMode={djMode} onTransferDJ={handleTransferDJ} onAskDJ={handleAskDJ} />
           )}
         </div>
 
@@ -1305,7 +1310,7 @@ function App() {
           {/* Listeners strip — mobile only, inside queue sheet */}
           {isMobileView && users.length > 0 && (
             <div className="mobile-listeners-strip">
-              <UserList users={users} currentUser={socket.id} djId={djId} isDJ={isDJ} onTransferDJ={handleTransferDJ} />
+              <UserList users={users} currentUser={socket.id} djId={djId} isDJ={isDJ} djMode={djMode} onTransferDJ={handleTransferDJ} onAskDJ={handleAskDJ} />
             </div>
           )}
           <Queue
