@@ -1,7 +1,8 @@
+const { randomUUID } = require('crypto')
 const { Message, Room, RoomSession } = require('./models')
-const { enrichSong, flowScore } = require('./services/music')
-const { sendPushToRoom } = require('./services/push')
-const { rooms, getRoom, saveRoom, updateStreak, recordListen, computeChemistry } = require('./services/room')
+const { enrichSong, getCachedDNA } = require('./services/music')
+const { sendPush, sendPushToRoom } = require('./services/push')
+const { rooms, getRoom, saveRoom, updateStreak, recordListen, computeChemistry, recomputeCurrentIndex } = require('./services/room')
 
 // ── In-memory message store ───────────────────────────────
 const memMessages = {}
@@ -17,23 +18,109 @@ async function getMessages(roomId) {
   } catch { return memMessages[roomId] || [] }
 }
 
+// Returns false when the message already exists (client resend after
+// reconnect) so callers can ack without re-broadcasting a duplicate.
 async function saveMessage(roomId, msg) {
   if (!memMessages[roomId]) memMessages[roomId] = []
+  if (msg.id && memMessages[roomId].some(m => m.id === msg.id)) return false
   memMessages[roomId].push(msg)
   if (memMessages[roomId].length > 100) memMessages[roomId].shift()
-  if (!process.env.MONGODB_URI || (msg.type !== 'msg' && msg.type !== 'gif')) return
+  if (!process.env.MONGODB_URI || (msg.type !== 'msg' && msg.type !== 'gif')) return true
   try {
     await Message.create({ roomId, ...msg, createdAt: new Date() })
   } catch (e) { console.error('[Chat] saveMessage error:', e.message) }
+  return true
+}
+
+// ── Server-side auto-advance ──────────────────────────────
+// If the DJ's tab dies during the last seconds of a song, the room used to
+// stall forever. With song durations stored, the server advances on its own.
+function clearAdvanceTimer(room) {
+  if (room && room._advanceTimer) {
+    clearTimeout(room._advanceTimer)
+    room._advanceTimer = null
+    room._advanceQid = null
+  }
+}
+
+function armAdvanceTimer(io, roomId, room) {
+  clearAdvanceTimer(room)
+  if (!room || !room.isPlaying) return
+  const item = room.queue[room.currentIndex]
+  if (!item || !item.duration || !(item.duration > 0)) return
+  const remainingMs = (item.duration - (room.currentTime || 0)) * 1000 + 2500
+  if (remainingMs <= 0) return
+  room._advanceQid = item.qid
+  room._advanceTimer = setTimeout(() => { autoAdvance(io, roomId).catch(() => {}) }, remainingMs)
+}
+
+async function autoAdvance(io, roomId) {
+  const room = rooms[roomId]
+  if (!room || !room.isPlaying) return
+  const idx = room.queue.findIndex(q => q.qid === room._advanceQid)
+  if (idx === -1 || idx !== room.currentIndex) return // song changed — stale timer
+  const endedQid = room.queue[idx].qid
+  let next = room.loopAuto ? idx : idx + 1
+  if (next >= room.queue.length) {
+    // End of queue — stop cleanly (radio mode is client-driven)
+    room.isPlaying = false
+    clearAdvanceTimer(room)
+    io.to(roomId).emit('pause', { time: 0 })
+    return
+  }
+  // Mark as just-ended so late client onEnded events don't double-advance
+  room.lastEndedQid = endedQid
+  setTimeout(() => {
+    if (rooms[roomId] && rooms[roomId].lastEndedQid === endedQid) rooms[roomId].lastEndedQid = null
+  }, 10000)
+  await performLoad(io, roomId, next, { force: room.loopAuto })
+}
+
+// Shared load routine — used by the load-song handler AND auto-advance
+async function performLoad(io, roomId, index, { force = false } = {}) {
+  const room = rooms[roomId]
+  if (!room) return
+  const prev = room.queue[room.currentIndex]
+  const song = room.queue[index]
+  if (!song) return
+  if (prev && index !== room.currentIndex && !room.songsPlayed.find(s => s.videoId === prev.videoId))
+    room.songsPlayed.push({ ...prev, playedAt: Date.now() })
+  room.currentIndex = index
+  room.currentTime = 0
+  room.currentTimeAt = Date.now()
+  room.isPlaying = true
+  room.currentQid = song.qid || null
+  room.currentLoadedAt = Date.now()
+  room.loadCount = (room.loadCount || 0) + 1
+  clearAdvanceTimer(room)
+  // Record listen history for all users in room
+  if (song) {
+    await Promise.all(Object.values(room.users).map(u =>
+      (u.discordId || u.userId) ? recordListen(u.discordId || u.userId, song.videoId, song.title, roomId) : Promise.resolve()
+    ))
+  }
+  io.to(roomId).emit('load-song', {
+    index, qid: song.qid, videoId: song.videoId, title: song.title,
+    queue: room.queue, currentIndex: room.currentIndex,
+    loadCount: room.loadCount, force,
+  })
+  await saveRoom(roomId)
+  // Arm the fallback timer right away when we already know the duration
+  armAdvanceTimer(io, roomId, room)
 }
 
 // ── Register all socket handlers ──────────────────────────
 module.exports = function registerSockets(io) {
   io.on('connection', (socket) => {
-  socket.on('join-room', async ({ roomId, username, avatar, discordId, password }) => {
+  socket.on('join-room', async ({ roomId, username, avatar, discordId, userId, password, visible }) => {
     socket.join(roomId);
     socket.roomId = roomId;
     socket.username = username;
+    // ── Persistent identity ──
+    // Clients send a stable userId (account id or a localStorage UUID).
+    // A page refresh / network drop mints a NEW socket.id, which used to
+    // orphan the DJ crown and split the user into two room entries.
+    socket.userId = userId || discordId || socket.id;
     const room = await getRoom(roomId);
     const isFirstUser = Object.keys(room.users).length === 0;
     // ── Room password check ──
@@ -44,14 +131,31 @@ module.exports = function registerSockets(io) {
         return;
       }
     }
-    room.users[socket.id] = { id: socket.id, discordId, username, avatar, joinedAt: Date.now() };
+    // ── Reconnect handling: same person, new socket ──
+    // Silently replace the old socket entry; carry over the crown + joinedAt.
+    const prevEntry = Object.entries(room.users).find(([sid, u]) => u.userId === socket.userId && sid !== socket.id)
+    let joinedAt = Date.now()
+    if (prevEntry) {
+      const [prevSid, prevUser] = prevEntry
+      if (room.djId === prevSid) room.djId = socket.id // reconnected DJ keeps the crown
+      joinedAt = prevUser.joinedAt || joinedAt
+      delete room.users[prevSid]
+    }
+    room.users[socket.id] = { id: socket.id, userId: socket.userId, discordId, username, avatar, joinedAt, visible: visible !== false };
+    // Track everyone who was part of this session (used when the last
+    // person leaves to persist an accurate RoomSession record)
+    if (!room.sessionParticipants) room.sessionParticipants = {}
+    room.sessionParticipants[socket.userId] = {
+      userId: discordId || socket.userId, username, avatar, joinedAt
+    }
     if (isFirstUser) {
       room.djId = socket.id;
       room.reactions = {}; // track reactions per session
     }
     // Update streak for this user
-    if (discordId) {
-      const streakData = await updateStreak(discordId, username, avatar);
+    const identityId = discordId || socket.userId
+    if (identityId) {
+      const streakData = await updateStreak(identityId, username, avatar);
       if (streakData) {
         socket.emit('streak-update', streakData);
         if (streakData.milestone) {
@@ -72,6 +176,8 @@ module.exports = function registerSockets(io) {
       users: Object.values(room.users), djId: room.djId,
       djMode: room.djMode, sessionStart: room.sessionStart,
       songsPlayed: room.songsPlayed,
+      loadCount: room.loadCount || 0,
+      currentQid: room.currentQid || null,
       chatHistory   // last 100 messages — clients format timestamps to local tz
     });
     socket.to(roomId).emit('user-joined', { user: room.users[socket.id], users: Object.values(room.users) });
@@ -93,37 +199,62 @@ module.exports = function registerSockets(io) {
 
   socket.on('play', async ({ roomId, time }) => {
     const room = await getRoom(roomId);
-    if (room.djMode && socket.id !== room.djId) return;
+    if (room.djMode && socket.id !== room.djId) {
+      socket.emit('room-error', { code: 'dj-locked', message: '👑 DJ mode is on — only the DJ can control playback' });
+      return;
+    }
     room.isPlaying = true; room.currentTime = time;
+    armAdvanceTimer(io, roomId, room);
     socket.to(roomId).emit('play', { time });
   });
 
   socket.on('pause', async ({ roomId, time }) => {
     const room = await getRoom(roomId);
-    if (room.djMode && socket.id !== room.djId) return;
+    if (room.djMode && socket.id !== room.djId) {
+      socket.emit('room-error', { code: 'dj-locked', message: '👑 DJ mode is on — only the DJ can control playback' });
+      return;
+    }
     room.isPlaying = false; room.currentTime = time;
+    clearAdvanceTimer(room);
     socket.to(roomId).emit('pause', { time });
   });
 
   socket.on('seek', async ({ roomId, time }) => {
     const room = await getRoom(roomId);
-    if (room.djMode && socket.id !== room.djId) return;
+    if (room.djMode && socket.id !== room.djId) {
+      socket.emit('room-error', { code: 'dj-locked', message: '👑 DJ mode is on — only the DJ can control playback' });
+      return;
+    }
     room.currentTime = time;
+    if (room.isPlaying) armAdvanceTimer(io, roomId, room);
     socket.to(roomId).emit('seek', { time });
   });
 
-  socket.on('add-song', async ({ roomId, videoId, title, addedBy }) => {
+  socket.on('add-song', async ({ roomId, videoId, title, addedBy, duration }) => {
     const room = await getRoom(roomId);
     if (room.queue.length >= 200) {
       socket.emit('queue-full', { limit: 200 });
       return;
     }
+    // ── Duplicate guard ──
+    // Same song already queued → tell the sender instead of silently
+    // adding a second copy that splits reactions and skips.
+    const dupIndex = room.queue.findIndex(s => s.videoId === videoId)
+    if (dupIndex !== -1) {
+      socket.emit('song-duplicate', { videoId, title, position: dupIndex + 1, addedBy: room.queue[dupIndex].addedBy })
+      return
+    }
+    const item = { qid: randomUUID(), videoId, title, addedBy }
+    if (duration && duration > 0) item.duration = Math.round(duration)
     socket.to(roomId).emit('song-added-notify', { title, addedBy });
-    room.queue.push({ videoId, title, addedBy });
-    io.to(roomId).emit('queue-updated', { queue: room.queue });
+    room.queue.push(item);
+    recomputeCurrentIndex(room)
+    io.to(roomId).emit('queue-updated', { queue: room.queue, currentIndex: room.currentIndex });
     // Confirm to the sender with position number
     socket.emit('song-added-confirm', { title, addedBy, position: room.queue.length })
     await saveRoom(roomId);
+    // Background enrichment — fills the DNA cache without blocking anyone
+    enrichSong(videoId, title).catch(() => {})
     sendPushToRoom(roomId, socket.id, {
       type: 'song_added',
       title: 'Groove Together',
@@ -146,45 +277,85 @@ module.exports = function registerSockets(io) {
       socket.emit('queue-full', { limit: 200 });
       return;
     }
-    const toAdd = songs.slice(0, remaining).map(s => ({ ...s, addedBy }));
+    // Skip songs already in the queue
+    const known = new Set(room.queue.map(s => s.videoId))
+    const fresh = songs.filter(s => s && !known.has(s.videoId))
+    const toAdd = fresh.slice(0, remaining).map(s => ({ qid: randomUUID(), ...s, addedBy }));
     const skipped = songs.length - toAdd.length;
     room.queue.push(...toAdd);
-    io.to(roomId).emit('queue-updated', { queue: room.queue });
+    io.to(roomId).emit('queue-updated', { queue: room.queue, currentIndex: room.currentIndex });
     if (skipped > 0) socket.emit('queue-limit-reached', { added: toAdd.length, skipped, limit: 200 });
     await saveRoom(roomId);
+    // Warm the DNA cache for the next few songs only (avoid a stampede)
+    toAdd.slice(0, 8).forEach(s => enrichSong(s.videoId, s.title).catch(() => {}))
   });
 
-  socket.on('load-song', async ({ roomId, index }) => {
+  socket.on('load-song', async ({ roomId, qid, index, force }) => {
     const room = await getRoom(roomId);
-    if (room.djMode && socket.id !== room.djId) return;
-    const prev = room.queue[room.currentIndex];
-    if (prev && !room.songsPlayed.find(s => s.videoId === prev.videoId))
-      room.songsPlayed.push({ ...prev, playedAt: Date.now() });
-    room.currentIndex = index; room.currentTime = 0; room.currentTimeAt = Date.now(); room.isPlaying = true;
-    // Record listen history for all users in room
-    const song = room.queue[index];
-    if (song) {
-      await Promise.all(Object.values(room.users).map(u =>
-        u.discordId ? recordListen(u.discordId, song.videoId, song.title, roomId) : Promise.resolve()
-      ));
+    if (room.djMode && socket.id !== room.djId) {
+      socket.emit('room-error', { code: 'dj-locked', message: '👑 DJ mode is on — only the DJ can control playback' });
+      return;
     }
-    io.to(roomId).emit('load-song', { index, videoId: room.queue[index]?.videoId, title: room.queue[index]?.title, queue: room.queue });
+    // Resolve target: qid first (race-safe), index as fallback
+    let idx = -1
+    if (qid) idx = room.queue.findIndex(s => s.qid === qid)
+    else if (typeof index === 'number') idx = index
+    if (idx === -1 || !room.queue[idx]) return
+    const reqQid = room.queue[idx].qid
+    // Ignore loads for a song that just auto-advanced away (stale client)
+    if (!force && room.lastEndedQid && reqQid === room.lastEndedQid) return
+    // Ignore replays of a song loaded moments ago (double-advance guard).
+    // Manual restarts usually happen later than 5s after load.
+    if (!force && reqQid === room.currentQid && room.currentLoadedAt && Date.now() - room.currentLoadedAt < 5000) return
+    await performLoad(io, roomId, idx, { force: !!force });
+  });
+
+  // Client player reports the real stream duration — enables the
+  // server-side auto-advance fallback and queue timing.
+  socket.on('song-duration', async ({ roomId, videoId, duration }) => {
+    const room = rooms[roomId]
+    if (!room || typeof duration !== 'number' || !(duration > 0)) return
+    const item = room.queue[room.currentIndex]
+    if (!item || item.videoId !== videoId) return
+    item.duration = Math.round(duration)
+    if (!room.currentQid) room.currentQid = item.qid
+    armAdvanceTimer(io, roomId, room)
+    await saveRoom(roomId)
+  });
+
+  socket.on('remove-song', async ({ roomId, qid, index }) => {
+    const room = await getRoom(roomId);
+    let idx = -1
+    if (qid) idx = room.queue.findIndex(s => s.qid === qid)
+    else if (typeof index === 'number') idx = index
+    if (idx === -1 || !room.queue[idx]) return
+    room.queue.splice(idx, 1);
+    recomputeCurrentIndex(room)
+    io.to(roomId).emit('queue-updated', { queue: room.queue, currentIndex: room.currentIndex });
     await saveRoom(roomId);
   });
 
-  socket.on('remove-song', async ({ roomId, index }) => {
+  // Batch remove (multi-select delete) — one broadcast instead of N,
+  // and qid-based so concurrent edits can't remove the wrong songs.
+  socket.on('remove-songs', async ({ roomId, qids = [] }) => {
     const room = await getRoom(roomId);
-    room.queue.splice(index, 1);
-    if (room.currentIndex >= room.queue.length)
-      room.currentIndex = Math.max(0, room.queue.length - 1);
-    io.to(roomId).emit('queue-updated', { queue: room.queue });
+    if (!Array.isArray(qids) || qids.length === 0) return
+    const kill = new Set(qids)
+    const currentSong = room.queue[room.currentIndex]
+    room.queue = room.queue.filter(s => !kill.has(s.qid))
+    if (currentSong && !kill.has(currentSong.qid)) {
+      recomputeCurrentIndex(room)
+    } else if (room.currentIndex >= room.queue.length) {
+      room.currentIndex = Math.max(0, room.queue.length - 1)
+    }
+    io.to(roomId).emit('queue-updated', { queue: room.queue, currentIndex: room.currentIndex });
     await saveRoom(roomId);
   });
 
   socket.on('push-category', async ({ roomId, songs, categoryName, username }) => {
     const room = await getRoom(roomId);
-    songs.forEach(song => room.queue.push({ ...song, addedBy: username }));
-    io.to(roomId).emit('queue-updated', { queue: room.queue });
+    songs.forEach(song => room.queue.push({ qid: randomUUID(), ...song, addedBy: username }));
+    io.to(roomId).emit('queue-updated', { queue: room.queue, currentIndex: room.currentIndex });
     io.to(roomId).emit('category-pushed', { categoryName, username, count: songs.length });
     await saveRoom(roomId);
   });
@@ -205,8 +376,9 @@ module.exports = function registerSockets(io) {
       toSocketId,
     });
     // Push notification to new DJ
-    if (target.discordId) {
-      sendPush(target.discordId, {
+    const targetIdentity = target.discordId || target.userId
+    if (targetIdentity) {
+      sendPush(targetIdentity, {
         type: 'dj_crown',
         title: 'You are now the DJ 👑',
         body: `${fromUsername} passed the crown to you in room ${roomId}`,
@@ -218,13 +390,28 @@ module.exports = function registerSockets(io) {
     }
   });
 
+  // Non-DJ asks for control — DJ gets a live toast instead of silence
+  socket.on('request-dj', ({ roomId, username }) => {
+    const room = rooms[roomId]
+    if (!room || !room.djMode || !room.djId) return
+    if (socket.id === room.djId) return
+    io.to(room.djId).emit('dj-control-request', { username, socketId: socket.id })
+  })
+
   socket.on('toggle-dj-mode', async ({ roomId }) => {
     const room = await getRoom(roomId);
-    const prevDjId = room.djId;
     if (socket.id !== room.djId) return;
     room.djMode = !room.djMode;
     io.to(roomId).emit('dj-mode-changed', { djMode: room.djMode, djId: room.djId });
   });
+
+  // Loop state lives on the server now so auto-advance honours it
+  socket.on('set-loop', ({ roomId, loop }) => {
+    const room = rooms[roomId]
+    if (!room) return
+    room.loopAuto = !!loop
+    if (room.loopAuto && room.isPlaying) armAdvanceTimer(io, roomId, room)
+  })
 
   socket.on('sync-heartbeat', async ({ roomId, time }) => {
     const room = await getRoom(roomId);
@@ -288,16 +475,20 @@ module.exports = function registerSockets(io) {
     socket.to(roomId).emit('chat-read', { msgId })
   })
 
-  socket.on('chat-msg', ({ roomId, msg }) => {
-    const stamped = { ...msg, ts: Date.now() };
-    socket.to(roomId).emit('chat-msg', stamped);
+  socket.on('chat-msg', async ({ roomId, msg }) => {
+    const stamped = { ...msg, ts: msg.ts || Date.now() };
+    // Always ack the sender (echo = delivery confirmation for the resend queue)
     socket.emit('chat-msg-echo', stamped);
-    saveMessage(roomId, stamped);
-    // Push to room members who are away (app closed/backgrounded)
+    // Await the dedupe check — a resend must NOT be re-broadcast
+    const isNew = await saveMessage(roomId, stamped);
+    if (!isNew) return // reconnect resend — already saved, don't double-broadcast
+    socket.to(roomId).emit('chat-msg', stamped);
+    // Push to room members who are away (app closed/backgrounded).
+    // Users with the tab visible are filtered out server-side.
     sendPushToRoom(roomId, socket.id, {
       type: 'chat',
       title: `${msg.username}`,
-      body: msg.text.length > 100 ? msg.text.slice(0, 100) + '…' : msg.text,
+      body: (msg.text || '').length > 100 ? msg.text.slice(0, 100) + '…' : msg.text,
       icon: '/web-app-manifest-192x192.png',
       badge: '/favicon-96x96.png',
       tag: `chat-${roomId}`,
@@ -306,18 +497,61 @@ module.exports = function registerSockets(io) {
       data: { roomId, url: `/?room=${roomId}`, type: 'chat' }
     });
   });
+
   socket.on('reaction', ({ roomId, emoji, username }) => socket.to(roomId).emit('reaction', { emoji, username }));
   socket.on('user-typing', ({ roomId, username, isTyping }) => socket.to(roomId).emit('user-typing', { username, isTyping }));
 
-  // Reorder queue (drag-to-reorder / shuffle)
+  // ── Presence: tab visibility & buffering ──────────────────
+  // Visibility gates push notifications; buffering is relayed to the DJ.
+  socket.on('client-visibility', ({ roomId, visible }) => {
+    const room = rooms[roomId]
+    if (room && room.users[socket.id]) room.users[socket.id].visible = !!visible
+  })
+
+  socket.on('client-buffering', ({ roomId, isBuffering }) => {
+    if (!roomId) return
+    socket.to(roomId).emit('user-buffering', { username: socket.username, isBuffering: !!isBuffering })
+  })
+
+  // Reorder queue (drag-to-reorder) — race-safe via qid reconciliation.
+  // Trust the client's ORDER, but keep any songs added meanwhile and
+  // re-derive currentIndex from the actually-playing song.
   socket.on('reorder-queue', async ({ roomId, queue: newQueue }) => {
     const room = await getRoom(roomId);
     if (!room || !Array.isArray(newQueue)) return;
-    room.queue = newQueue;
+    const serverByQid = new Map(room.queue.filter(s => s.qid).map(s => [s.qid, s]))
+    const merged = []
+    const seen = new Set()
+    for (const s of newQueue) {
+      if (!s) continue
+      const qid = s.qid
+      if (qid && serverByQid.has(qid) && !seen.has(qid)) { merged.push(serverByQid.get(qid)); seen.add(qid) }
+      else if (qid && !seen.has(qid)) { merged.push({ ...s, qid }); seen.add(qid) }
+    }
+    // Songs added while the client was shuffling — keep them
+    for (const s of room.queue) {
+      if (s.qid && !seen.has(s.qid)) { merged.push(s); seen.add(s.qid) }
+    }
+    room.queue = merged
+    recomputeCurrentIndex(room)
     await saveRoom(roomId);
     // Emit to ALL in room including sender so their UI reflects confirmed state
-    io.to(roomId).emit('queue-reordered', { queue: room.queue });
+    io.to(roomId).emit('queue-reordered', { queue: room.queue, currentIndex: room.currentIndex });
   });
+
+  // Single-item move (drag & drop) — qid-based, no full-array overwrite
+  socket.on('move-queue-item', async ({ roomId, qid, toIndex }) => {
+    const room = await getRoom(roomId)
+    if (!room || !qid || typeof toIndex !== 'number') return
+    const from = room.queue.findIndex(s => s.qid === qid)
+    if (from === -1) return
+    const [item] = room.queue.splice(from, 1)
+    const target = Math.max(0, Math.min(toIndex, room.queue.length))
+    room.queue.splice(target, 0, item)
+    recomputeCurrentIndex(room)
+    await saveRoom(roomId)
+    io.to(roomId).emit('queue-reordered', { queue: room.queue, currentIndex: room.currentIndex })
+  })
 
   // Room password management (DJ/first user only)
   socket.on('set-room-password', async ({ roomId, password }) => {
@@ -355,11 +589,16 @@ module.exports = function registerSockets(io) {
     const allSongs = [...room.songsPlayed];
     if (currentSong && !allSongs.find(s => s.videoId === currentSong.videoId))
       allSongs.push({ ...currentSong, playedAt: room.sessionStart });
-    // Enrich songs with DNA for the DNA card
+    // Read DNA from cache only — recaps open instantly. Anything missing is
+    // enriched in the background and appears next time.
     const enrichedSongs = await Promise.all(
       allSongs.map(async s => {
-        const dna = await enrichSong(s.videoId, s.title).catch(() => ({}));
-        return { ...s, ...dna };
+        try {
+          const cached = await getCachedDNA(s.videoId)
+          if (cached) return { ...s, ...cached }
+          enrichSong(s.videoId, s.title).catch(() => {})
+        } catch {}
+        return s
       })
     );
     socket.emit('recap-data', {
@@ -373,18 +612,20 @@ module.exports = function registerSockets(io) {
   });
 
   socket.on('disconnect', async () => {
-    const { roomId, username } = socket;
+    const { roomId, username, userId } = socket;
     if (roomId && rooms[roomId]) {
+      const leaver = rooms[roomId].users[socket.id]
+      const hadDJ = rooms[roomId].djId === socket.id
       delete rooms[roomId].users[socket.id];
       const users = Object.values(rooms[roomId].users);
+      // Same person still connected from another tab/socket — no leave events
+      const sameUserStillHere = userId && users.some(u => u.userId === userId)
       // Save session when room empties
       if (users.length === 0 && process.env.MONGODB_URI) {
         const room = rooms[roomId];
-        const allUsers = Object.values(room.users || {}); // already deleted but may have others
         try {
-          const participants = Object.entries(room.users || {}).map(([sid, u]) => ({
-            userId: u.discordId, username: u.username, avatar: u.avatar, joinedAt: u.joinedAt
-          }));
+          // Full participant list for the whole session (not just the last leaver)
+          const participants = Object.values(room.sessionParticipants || {})
           const chemistry = await computeChemistry(participants, room.songsPlayed || [], room.reactions || {});
           const dnaList = await Promise.all((room.songsPlayed||[]).slice(0,20).map(s=>enrichSong(s.videoId,s.title).catch(()=>({}))));
           const moodCounts = {};
@@ -405,17 +646,25 @@ module.exports = function registerSockets(io) {
           });
           console.log(`[Session] saved room="${roomId}" chemistry=${chemistry}% songs=${(room.songsPlayed||[]).length}`);
         } catch(e) { console.error('session save error:', e.message); }
+        clearAdvanceTimer(room)
       }
 
-      if (rooms[roomId].djId === socket.id && users.length > 0) {
-        rooms[roomId].djId = users[0].id;
+      if (hadDJ && users.length > 0) {
+        // Crown the longest-standing listener (oldest joinedAt), not a random one
+        const oldest = users.slice().sort((a, b) => (a.joinedAt || 0) - (b.joinedAt || 0))[0]
+        rooms[roomId].djId = oldest.id;
         io.to(roomId).emit('dj-mode-changed', { djMode: rooms[roomId].djMode, djId: rooms[roomId].djId });
       }
 
-      io.to(roomId).emit('user-left', { userId: socket.id, username, users });
+      if (!sameUserStillHere) {
+        io.to(roomId).emit('user-left', { userId: socket.id, username, users });
+        // (leave chat-system is emitted by the explicit leave-room handler;
+        //  disconnect stays quiet to avoid noise on refresh)
+      }
 
       // If room is empty, remove from memory AND clean up from DB
       if (users.length === 0) {
+        clearAdvanceTimer(rooms[roomId])
         delete rooms[roomId];
         if (process.env.MONGODB_URI) {
           try {

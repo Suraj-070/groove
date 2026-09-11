@@ -37,6 +37,20 @@ const BACKEND = IS_DISCORD
 
 const socket = io(BACKEND, { withCredentials: true, autoConnect: false })
 
+// ── Persistent client identity ────────────────────────────
+// Survives page refreshes and socket reconnects (socket.id changes every
+// reconnect, which used to orphan the DJ crown and room presence).
+function getClientUserId() {
+  let uid = null
+  try { uid = localStorage.getItem('groove_uid') } catch {}
+  if (!uid) {
+    uid = (crypto.randomUUID?.() || `u_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`)
+    try { localStorage.setItem('groove_uid', uid) } catch {}
+  }
+  return uid
+}
+const PERSISTENT_UID = getClientUserId()
+
 let discordSdk = null
 if (IS_DISCORD) {
   discordSdk = new DiscordSDK(import.meta.env.VITE_DISCORD_CLIENT_ID)
@@ -211,6 +225,7 @@ function App() {
   const [djId, setDjId] = useState(null)
   const [initialTime, setInitialTime] = useState(0)
   const [initialPlaying, setInitialPlaying] = useState(false)
+  const [reloadKey, setReloadKey] = useState(0)   // bumped on every server-side load — forces Player to refetch even for the same videoId (loop replay)
   const [recap, setRecap] = useState(null)
   const [showRecap, setShowRecap] = useState(false)
   const [libraryOpen, setLibraryOpen] = useState(false)
@@ -303,6 +318,16 @@ function App() {
 
   const isDJ = socket.id === djId
 
+  // ── Tab visibility → server (gates push notifications) ────
+  // Users actively looking at the app don't need "song added" pushes.
+  useEffect(() => {
+    if (!roomId) return
+    const emitVis = () => socket.emit('client-visibility', { roomId, visible: document.visibilityState === 'visible' })
+    emitVis()
+    document.addEventListener('visibilitychange', emitVis)
+    return () => document.removeEventListener('visibilitychange', emitVis)
+  }, [roomId])
+
   // ── Browser tab title ─────────────────────────────────────
   useEffect(() => {
     const title = queue[currentIndex]?.title
@@ -387,6 +412,7 @@ function App() {
   // ── Keyboard shortcuts ────────────────────────────────────
   // Stable refs so keyboard handler never re-registers
   const kbRef = useRef({})
+  const loopToggleRef = useRef(null)
   useEffect(() => {
     kbRef.current = { isPlaying, djMode, isDJ, currentIndex, queueLen: queue.length, roomId }
   }, [isPlaying, djMode, isDJ, currentIndex, queue.length, roomId])
@@ -414,7 +440,7 @@ function App() {
         if (!isLocked && currentIndex > 0) handleLoadSongRef.current?.(currentIndex - 1); return
       }
       if (e.key === 'm' || e.key === 'M') { setVolume(v => v === 0 ? 80 : 0); return }
-      if (e.key === 'l' || e.key === 'L') { setLoop(p => !p); return }
+      if (e.key === 'l' || e.key === 'L') { loopToggleRef.current?.(); return }
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
@@ -445,7 +471,7 @@ function App() {
             const channelId = discordSdk.channelId || 'discord-activity'
             setRoomId(channelId)
             if (!socket.connected) socket.connect()
-            socket.emit('join-room', { roomId: channelId, username: userData.username, avatar: userData.avatar, discordId: userData.id })
+            socket.emit('join-room', { roomId: channelId, username: userData.username, avatar: userData.avatar, discordId: userData.id, userId: PERSISTENT_UID })
           }
         } else {
           try {
@@ -550,7 +576,7 @@ function App() {
     if (inviteRoom) sessionStorage.removeItem('groove_invite_room')
     setRoomId(targetRoom)
     if (!socket.connected) socket.connect()
-    socket.emit('join-room', { roomId: targetRoom, username: user.username, avatar: user.avatar, discordId: user.id })
+    socket.emit('join-room', { roomId: targetRoom, username: user.username, avatar: user.avatar, discordId: user.id, userId: PERSISTENT_UID })
   }, [user])
 
   // Handles both guest login AND email register/login
@@ -588,7 +614,7 @@ function App() {
     setRoomId(roomId)
     if (roomStorageKey) localStorage.setItem(roomStorageKey, roomId)
     if (!socket.connected) socket.connect()
-    socket.emit('join-room', { roomId, username: user.username, avatar: user.avatar, discordId: user.id })
+    socket.emit('join-room', { roomId, username: user.username, avatar: user.avatar, discordId: user.id, userId: PERSISTENT_UID })
   }
 
   const handleLeaveRoom = () => setShowLeaveConfirm(true)
@@ -633,13 +659,16 @@ function App() {
     }
   }
 
-  const handleAddSong = ({ videoId, title }) => {
-    socket.emit('add-song', { roomId, videoId, title, addedBy: user.username })
+  const handleAddSong = ({ videoId, title, duration }) => {
+    socket.emit('add-song', { roomId, videoId, title, duration, addedBy: user.username })
   }
 
-  const handleLoadSong = (index) => {
+  // qid-first load — falls back to index for legacy queue items
+  const handleLoadSong = (index, opts = {}) => {
+    const song = queue[index]
     setCurrentIndex(index)
-    socket.emit('load-song', { roomId, index })
+    if (song?.qid) socket.emit('load-song', { roomId, qid: song.qid, force: !!opts.force })
+    else socket.emit('load-song', { roomId, index })
   }
   // Sync ref immediately (not in useEffect — plain assignment is fine for non-stale ref)
   handleLoadSongRef.current = handleLoadSong
@@ -649,9 +678,22 @@ function App() {
     if (prev >= 0) handleLoadSong(prev)
   }
 
-  const handleRemoveSong = (index) => {
-    socket.emit('remove-song', { roomId, index })
+  const handleRemoveSong = (songOrIndex) => {
+    // Accepts a queue item (preferred — race-safe qid) or a legacy index
+    const song = typeof songOrIndex === 'object' ? songOrIndex : queue[songOrIndex]
+    if (song?.qid) socket.emit('remove-song', { roomId, qid: song.qid })
+    else if (typeof songOrIndex === 'number') socket.emit('remove-song', { roomId, index: songOrIndex })
   }
+
+  // Centralised loop toggle — the server tracks loop too so its
+  // auto-advance fallback replays correctly when the DJ disappears
+  const handleToggleLoop = useCallback(() => {
+    setLoop(p => {
+      const next = !p
+      socket.emit('set-loop', { roomId, loop: next })
+      return next
+    })
+  }, [roomId])
 
   // Smart Radio Mode
   const triggerRadio = useCallback(async () => {
@@ -679,13 +721,15 @@ function App() {
 
   const handleNext = useCallback(() => {
     if (djMode && !isDJ) return
+    // Always route through the ref — handleLoadSong captures the live queue,
+    // so qid resolution never goes stale after reorders
     if (loop) {
-      handleLoadSong(currentIndex)
+      handleLoadSongRef.current?.(currentIndex, { force: true })   // force — same song, real restart
       return
     }
     const next = currentIndex + 1
     if (next < queue.length) {
-      handleLoadSong(next)
+      handleLoadSongRef.current?.(next)
     } else if (radioMode) {
       triggerRadioRef.current?.()
     }
@@ -697,6 +741,8 @@ function App() {
   const handleToggleDJMode = () => {
     socket.emit('toggle-dj-mode', { roomId })
   }
+  // Keep the keyboard loop shortcut pointing at the live handler
+  useEffect(() => { loopToggleRef.current = handleToggleLoop }, [handleToggleLoop])
 
   const handleGetRecap = () => {
     socket.emit('get-recap', { roomId })
@@ -728,7 +774,7 @@ function App() {
     const handleReconnect = () => {
       setReconnecting(false)
       if (roomId && user) {
-        socket.emit('join-room', { roomId, username: user.username, avatar: user.avatar, discordId: user.id })
+        socket.emit('join-room', { roomId, username: user.username, avatar: user.avatar, discordId: user.id, userId: PERSISTENT_UID })
       }
     }
     const handleDisconnect = () => setReconnecting(true)
@@ -740,7 +786,7 @@ function App() {
   useEffect(() => {
     socket.on('room-state', (data) => {
       if (!data || typeof data !== 'object') return
-      const { queue, currentIndex, currentTime, isPlaying, users, djId, djMode, chatHistory } = data
+      const { queue, currentIndex, currentTime, isPlaying, users, djId, djMode, chatHistory, loadCount } = data
       setQueue(Array.isArray(queue) ? queue : [])
       setCurrentIndex(typeof currentIndex === 'number' ? currentIndex : 0)
       setUsers(Array.isArray(users) ? users : [])
@@ -749,18 +795,32 @@ function App() {
       if (typeof currentTime === 'number') setInitialTime(currentTime)
       if (isPlaying !== undefined) { setInitialPlaying(isPlaying); setIsPlaying(isPlaying) }
       if (Array.isArray(chatHistory)) setChatHistory(chatHistory)
+      if (typeof loadCount === 'number') setReloadKey(loadCount)
     })
-    socket.on('queue-updated', ({ queue }) => setQueue(Array.isArray(queue) ? queue : []))
-    socket.on('queue-reordered', ({ queue }) => setQueue(Array.isArray(queue) ? queue : []))
+    socket.on('queue-updated', ({ queue, currentIndex }) => {
+      setQueue(Array.isArray(queue) ? queue : [])
+      if (typeof currentIndex === 'number') setCurrentIndex(currentIndex)
+    })
+    socket.on('queue-reordered', ({ queue, currentIndex }) => {
+      setQueue(Array.isArray(queue) ? queue : [])
+      if (typeof currentIndex === 'number') setCurrentIndex(currentIndex)
+    })
     socket.on('room-lock-changed', ({ locked }) => setRoomLocked(locked))
     socket.on('join-error', ({ code }) => {
       if (code === 'wrong-password') {
         setShowRoomPassword(true)
       }
     })
-    socket.on('load-song', ({ index, queue: updatedQueue }) => {
+    socket.on('load-song', ({ index, queue: updatedQueue, currentIndex, loadCount }) => {
       if (updatedQueue) setQueue(Array.isArray(updatedQueue) ? updatedQueue : [])
-      if (typeof index === 'number' && !isNaN(index)) setCurrentIndex(index)
+      if (typeof currentIndex === 'number') setCurrentIndex(currentIndex)
+      else if (typeof index === 'number' && !isNaN(index)) setCurrentIndex(index)
+      // Fresh load → restart playback from 0 (initialTime from an old
+      // room-state used to leak into every later song — stale seek bug)
+      setInitialTime(0)
+      setInitialPlaying(true)
+      setIsPlaying(true)
+      if (typeof loadCount === 'number') setReloadKey(loadCount)
       // Video panel iframe auto-reloads because videoId prop changes (key={videoId} in VideoPanel)
     })
     socket.on('user-joined', ({ users }) => setUsers(Array.isArray(users) ? users : []))
@@ -800,6 +860,25 @@ function App() {
     socket.on('song-added-confirm', ({ title, addedBy, position }) => {
       showToast(`🎵 "${title.length > 30 ? title.slice(0,30)+'…' : title}" added at #${position}`)
     })
+    // ── Smoothness events: errors, duplicates, presence ──────
+    socket.on('room-error', ({ message }) => {
+      if (message) showToast(`⚠️ ${message}`, 3500)
+    })
+    socket.on('song-duplicate', ({ title, position, addedBy }) => {
+      const short = title?.length > 28 ? title.slice(0, 28) + '…' : title
+      showToast(`🔁 "${short}" is already queued at #${position}${addedBy ? ` (by ${addedBy})` : ''}`, 3500)
+    })
+    const bufToastAt = {}
+    socket.on('user-buffering', ({ username, isBuffering }) => {
+      if (!isBuffering || !username) return
+      const now = Date.now()
+      if (bufToastAt[username] && now - bufToastAt[username] < 15000) return
+      bufToastAt[username] = now
+      showToast(`⏳ ${username} is buffering…`, 2500)
+    })
+    socket.on('dj-control-request', ({ username }) => {
+      showToast(`🙋 ${username} asks for DJ control — open the listener list to pass the crown`, 4500)
+    })
     return () => {
       socket.off('room-state')
       socket.off('queue-updated')
@@ -818,6 +897,11 @@ function App() {
       socket.off('dj-transferred')
       socket.off('queue-full')
       socket.off('queue-limit-reached')
+      socket.off('song-added-confirm')
+      socket.off('room-error')
+      socket.off('song-duplicate')
+      socket.off('user-buffering')
+      socket.off('dj-control-request')
       socket.off('connect')
     }
   }, [])
@@ -955,6 +1039,18 @@ function App() {
           {!isMobileView && isDJ && (
             <button className={`dj-toggle-btn ${djMode ? 'active' : ''}`} onClick={handleToggleDJMode}>
               {djMode ? 'DJ Mode' : 'Free Play'}
+            </button>
+          )}
+          {!isMobileView && djMode && !isDJ && (
+            <button
+              className="dj-toggle-btn"
+              title="Ask the DJ to pass you control"
+              onClick={() => {
+                socket.emit('request-dj', { roomId, username: user.username })
+                showToast('🙋 Asked the DJ for control')
+              }}
+            >
+              🙋 Ask DJ
             </button>
           )}
           {!isMobileView && isDJ && (
@@ -1153,6 +1249,8 @@ function App() {
             roomId={roomId}
             videoId={currentSong?.videoId}
             title={currentSong?.title}
+            currentQid={currentSong?.qid}
+            reloadKey={reloadKey}
             onEnded={handleNext}
             onSkip={handleNext}
             onPrev={handlePrev}
@@ -1167,7 +1265,7 @@ function App() {
             externalVolume={volume}
             onVolumeChange={setVolume}
             loop={loop}
-            onToggleLoop={() => setLoop(p => !p)}
+            onToggleLoop={handleToggleLoop}
             onShuffle={() => {
               const q = [...queue]
               const before = q.slice(0, currentIndex + 1)
@@ -1222,7 +1320,7 @@ function App() {
             roomId={roomId}
             username={user?.username}
             loop={loop}
-            onToggleLoop={() => setLoop(p => !p)}
+            onToggleLoop={handleToggleLoop}
           />
         </div>
 

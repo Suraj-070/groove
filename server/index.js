@@ -6,6 +6,7 @@ const cors       = require('cors')
 const session    = require('express-session')
 const passport   = require('passport')
 const mongoose   = require('mongoose')
+const MongoStore = require('connect-mongo')
 
 // ── App setup ─────────────────────────────────────────────
 const app    = express()
@@ -30,10 +31,16 @@ app.use(cors({
 }))
 app.options(/.*/, cors())
 app.use(express.json())
+// Sessions persisted to MongoDB — logins survive server restarts/crashes.
+// (MemoryStore leaks memory and logs everyone out on every deploy.)
+const MONGO_URI = process.env.MONGODB_URI || process.env.MONGO_URI
 app.use(session({
   secret: process.env.SESSION_SECRET || 'groove_secret',
   resave: false,
   saveUninitialized: false,
+  store: MONGO_URI
+    ? MongoStore.create({ mongoUrl: MONGO_URI, ttl: 7 * 24 * 60 * 60, touchAfter: 24 * 60 * 60 })
+    : undefined,
   cookie: {
     secure: isProd, httpOnly: true,
     sameSite: isProd ? 'none' : 'lax',
@@ -44,7 +51,6 @@ app.use(passport.initialize())
 app.use(passport.session())
 
 // ── MongoDB ───────────────────────────────────────────────
-const MONGO_URI = process.env.MONGODB_URI || process.env.MONGO_URI
 if (MONGO_URI) {
   mongoose.connect(MONGO_URI)
     .then(() => {

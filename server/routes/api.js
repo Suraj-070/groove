@@ -1,6 +1,6 @@
 const express  = require('express')
 const router   = express.Router()
-const { SongDNA, UserProfile, ListenHistory, Moment, SharedSongs, PushSub, RoomSession, User } = require('../models')
+const { SongDNA, UserProfile, ListenHistory, Moment, SharedSongs, PushSub, RoomSession, User, Room } = require('../models')
 
 // Normalize Google users to their email_ MongoDB id
 async function normalizeUserId(user) {
@@ -879,6 +879,43 @@ router.post('/share/songs', requireAuth, async (req, res) => {
   } catch (e) {
     console.error('POST /share/songs error:', e);
     res.status(500).json({ error: 'Failed to create share link' });
+  }
+});
+
+// ─── ROOM PREVIEW — peek before joining ──────────────────────
+// Public: lets the join screen show lock state + who's inside without
+// exposing the room password or full queue.
+router.get('/rooms/:roomId/preview', async (req, res) => {
+  try {
+    const raw = (req.params.roomId || '').toString()
+    const candidates = [raw, raw.toUpperCase()]
+    let room = null
+    for (const id of candidates) {
+      room = rooms[id]
+      if (room) break
+    }
+    // Fall back to the persisted queue (server may have restarted)
+    let saved = null
+    if (!room && process.env.MONGODB_URI) {
+      for (const id of candidates) {
+        saved = await Room.findOne({ roomId: id }).lean().catch(() => null)
+        if (saved) break
+      }
+    }
+    if (!room && !saved) {
+      return res.json({ exists: false, locked: false, userCount: 0, nowPlaying: null })
+    }
+    const queue = (room && room.queue) || (saved && saved.queue) || []
+    const current = queue[(room ? room.currentIndex : saved.currentIndex) || 0]
+    const userCount = room ? Object.keys(room.users).length : 0
+    res.json({
+      exists: true,
+      locked: !!(room && room.password),
+      userCount,
+      nowPlaying: current ? { title: current.title, videoId: current.videoId } : null,
+    })
+  } catch (e) {
+    res.status(500).json({ error: 'Preview failed' })
   }
 });
 

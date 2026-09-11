@@ -90,6 +90,10 @@ const SongItem = memo(forwardRef(function SongItem(
 ) {
   const isActive   = index === currentIndex
   const isSelected = selected.has(index)
+  const dur = song.duration
+  const durLabel = dur && dur > 0
+    ? `${Math.floor(dur / 60)}:${String(Math.round(dur % 60)).padStart(2, '0')}`
+    : null
 
   const className = [
     'song-item',
@@ -137,11 +141,13 @@ const SongItem = memo(forwardRef(function SongItem(
         <p className="song-name" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', margin: 0 }}>
           {song.title}
         </p>
-        {song.addedBy && <p className="song-id">by {song.addedBy}</p>}
+        {(song.addedBy || durLabel) && (
+          <p className="song-id">{song.addedBy ? `by ${song.addedBy}` : ''}{durLabel ? `${song.addedBy ? ' · ' : ''}${durLabel}` : ''}</p>
+        )}
       </div>
 
       {!selectMode && (
-        <button className="remove-btn" onClick={e => { e.stopPropagation(); onRemove(index) }} title="Remove">
+        <button className="remove-btn" onClick={e => { e.stopPropagation(); onRemove(song) }} title="Remove">
           <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14">
             <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
           </svg>
@@ -349,11 +355,17 @@ export default function Queue({
   }, [selected.size, queue.length])
 
   const removeSelected = useCallback(() => {
-    // Remove in reverse order so indices don't shift
-    const indices = [...selected].sort((a, b) => b - a)
-    indices.forEach(i => onRemoveSong(i))
+    // One batched, qid-based event — concurrent edits can't shift targets.
+    const qids = [...selected].map(i => queue[i]?.qid).filter(Boolean)
+    if (qids.length === selected.size && qids.length > 0) {
+      socket?.emit('remove-songs', { roomId, qids })
+    } else {
+      // Legacy items without qid — remove in reverse order so indices don't shift
+      const indices = [...selected].sort((a, b) => b - a)
+      indices.forEach(i => onRemoveSong(i))
+    }
     exitSelectMode()
-  }, [selected, onRemoveSong, exitSelectMode])
+  }, [selected, queue, socket, roomId, onRemoveSong, exitSelectMode])
 
   const handleShuffle = useCallback(() => {
     if (queue.length < 2) return
@@ -386,10 +398,16 @@ export default function Queue({
     e.preventDefault()
     setDragIndex(prev => {
       if (prev === null || prev === dropIndex) { setDragOverIndex(null); return null }
-      const newQ = [...queue]
-      const [moved] = newQ.splice(prev, 1)
-      newQ.splice(dropIndex, 0, moved)
-      socket?.emit('reorder-queue', { roomId, queue: newQ })
+      // qid-based move — the server splices its own authoritative copy,
+      // so a simultaneous add/remove can't make us move the wrong song
+      const qid = queue[prev]?.qid
+      if (qid) socket?.emit('move-queue-item', { roomId, qid, toIndex: dropIndex })
+      else {
+        const newQ = [...queue]
+        const [moved] = newQ.splice(prev, 1)
+        newQ.splice(dropIndex, 0, moved)
+        socket?.emit('reorder-queue', { roomId, queue: newQ })
+      }
       setDragOverIndex(null)
       return null
     })
@@ -431,10 +449,14 @@ export default function Queue({
     if (from === null || to === -1 || from === to) {
       setDragIndex(null); setDragOverIndex(null); lastDragOver.current = -1; return
     }
-    const newQ = [...queue]
-    const [moved] = newQ.splice(from, 1)
-    newQ.splice(to, 0, moved)
-    socket?.emit('reorder-queue', { roomId, queue: newQ })
+    const qid = queue[from]?.qid
+    if (qid) socket?.emit('move-queue-item', { roomId, qid, toIndex: to })
+    else {
+      const newQ = [...queue]
+      const [moved] = newQ.splice(from, 1)
+      newQ.splice(to, 0, moved)
+      socket?.emit('reorder-queue', { roomId, queue: newQ })
+    }
     setDragIndex(null); setDragOverIndex(null); lastDragOver.current = -1
   }, [queue, socket, roomId])
 
@@ -638,7 +660,7 @@ export default function Queue({
         )}
         {queue.map((song, i) => (
           <SongItem
-            key={`${song.videoId}-${i}`}
+            key={song.qid || `${song.videoId}-${i}`}
             ref={el => { if (el) itemRefs.current[i] = el; else delete itemRefs.current[i] }}
             song={song}
             index={i}

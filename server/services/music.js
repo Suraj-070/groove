@@ -225,4 +225,11 @@ function deriveCategory(dna, ytTags = []) {
 }
 
 
-module.exports = { mapLastFmTags, estimateBpmFromTitle, enrichSong, flowScore, deriveCategory }
+// Cached-only DNA read — used by recaps so they never block on API calls.
+// Returns null when nothing is cached (caller can kick off enrichSong in background).
+async function getCachedDNA(videoId) {
+  if (!process.env.MONGODB_URI || !videoId) return null
+  return SongDNA.findOne({ videoId }).lean()
+}
+
+module.exports = { mapLastFmTags, estimateBpmFromTitle, enrichSong, flowScore, deriveCategory, getCachedDNA }

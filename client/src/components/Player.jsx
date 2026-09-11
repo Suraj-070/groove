@@ -174,7 +174,7 @@ function LyricsOverlay({ lyrics, currentTime, onClose }) {
 
 const SPEEDS = [0.75, 1, 1.25, 1.5, 2]
 
-export default function Player({ socket, roomId, videoId, title, onEnded, onSkip, onPrev, isDJ, djMode, initialTime, initialPlaying, onPlayStateChange, onProgressChange, onLoadingChange, hasPrev, externalVolume, onVolumeChange, loop, onToggleLoop, onShuffle }) {
+export default function Player({ socket, roomId, videoId, title, currentQid, reloadKey, onEnded, onSkip, onPrev, isDJ, djMode, initialTime, initialPlaying, onPlayStateChange, onProgressChange, onLoadingChange, hasPrev, externalVolume, onVolumeChange, loop, onToggleLoop, onShuffle }) {
   const playerRef     = useRef(null)
   const playerInst    = useRef(null)
   const isSyncingRef  = useRef(false)
@@ -185,6 +185,12 @@ export default function Player({ socket, roomId, videoId, title, onEnded, onSkip
   const swipeStartY   = useRef(null)
   const silentAudioRef = useRef(null)  // iOS background audio keepalive
   const wakeLockRef    = useRef(null)  // Screen wake lock
+  const videoIdRef      = useRef(videoId)   // latest videoId for event closures
+  const speedIdxRef     = useRef(1)         // user-chosen speed, restored after sync nudges
+  const softSyncTimer   = useRef(null)
+  const durationSentFor = useRef(null)      // one song-duration report per video load
+
+  useEffect(() => { videoIdRef.current = videoId }, [videoId])
 
   const [isPlaying, setIsPlaying]   = useState(false)
   const [currentTime, setCurrentTime] = useState(0)
@@ -224,8 +230,15 @@ export default function Player({ socket, roomId, videoId, title, onEnded, onSkip
           onReady: () => { if (!destroyed) { setIsReady(true); onLoadingChange?.(false) } },
           onStateChange: (e) => {
             if (e.data === YT.PlayerState.ENDED) onEndedRef.current?.()
-            if (e.data === YT.PlayerState.PLAYING) onLoadingChange?.(false)
-            if (e.data === YT.PlayerState.BUFFERING) onLoadingChange?.(true)
+            if (e.data === YT.PlayerState.PLAYING) {
+              onLoadingChange?.(false)
+              // Buffering presence: tell the room the stall is over
+              socket.emit('client-buffering', { roomId, isBuffering: false })
+            }
+            if (e.data === YT.PlayerState.BUFFERING) {
+              onLoadingChange?.(true)
+              socket.emit('client-buffering', { roomId, isBuffering: true })
+            }
           },
           onError: (e) => {
             if (!destroyed) { console.warn('[YT Error]', e.data); safeTimeout(() => onEndedRef.current?.(), 2500) }
@@ -240,7 +253,7 @@ export default function Player({ socket, roomId, videoId, title, onEnded, onSkip
       }
       window.onYouTubeIframeAPIReady = () => { YT = window.YT; initPlayer() }
     }
-    return () => { destroyed = true; playerInst.current?.destroy?.(); playerInst.current = null }
+    return () => { destroyed = true; clearTimeout(softSyncTimer.current); playerInst.current?.destroy?.(); playerInst.current = null }
   }, [])
 
   // ── Load video when videoId changes ───────────────────
@@ -249,6 +262,7 @@ export default function Player({ socket, roomId, videoId, title, onEnded, onSkip
     if (!p || !isReady || !videoId) return
     if (typeof p.loadVideoById !== 'function') return
     initialSyncDone.current = false
+    durationSentFor.current = null   // re-report duration for the freshly loaded video
     onLoadingChange?.(true)
     p.loadVideoById(videoId)
     if (!initialSyncDone.current && initialTime && initialTime > 0) {
@@ -264,9 +278,7 @@ export default function Player({ socket, roomId, videoId, title, onEnded, onSkip
         const pi = playerInst.current; if (pi?.playVideo) { pi.playVideo(); setIsPlaying(true); onPlayStateChange?.(true) }
       }, 300)
     }
-  }, [videoId, isReady])
-
-  // ── Poll time + progress ───────────────────────────────
+  }, [videoId, isReady, reloadKey])
   useEffect(() => {
     const interval = setInterval(() => {
       const p = playerInst.current
@@ -275,11 +287,25 @@ export default function Player({ socket, roomId, videoId, title, onEnded, onSkip
       const d = p.getDuration() || 0
       setCurrentTime(t); setDuration(d)
       if (d) onProgressChange?.((t / d) * 100)
+      emitSongDuration()   // guarded inside: reports once per video load
     }, IS_MOBILE ? 1000 : 500)
     return () => clearInterval(interval)
   }, [])
 
   // ── Socket sync ────────────────────────────────────────
+
+  // Report the real video duration to the server once per load —
+  // powers the server-side auto-advance fallback when the DJ vanishes.
+  const emitSongDuration = useCallback(() => {
+    const p = playerInst.current
+    const d = p?.getDuration?.() || 0
+    const vid = videoIdRef.current
+    if (!d || d <= 0 || !vid) return
+    const key = `${vid}:${roomId}`
+    if (durationSentFor.current === key) return
+    durationSentFor.current = key
+    socket.emit('song-duration', { roomId, videoId: vid, duration: Math.round(d) })
+  }, [roomId, socket])
   useEffect(() => {
     const seek = (time) => { const p = playerInst.current; if (p?.seekTo) p.seekTo(time, true) }
     socket.on('play', ({ time }) => {
@@ -300,7 +326,17 @@ export default function Player({ socket, roomId, videoId, title, onEnded, onSkip
       const p = playerInst.current; if (!p?.getCurrentTime) return
       const cur = p.getCurrentTime() || 0
       if (cur < 3 || time < cur - 5) return
-      if (Math.abs(cur - time) > 3) p.seekTo(time, true)
+      // ── SOFT SYNC (YT IFrame edition) ──
+      // YT rounds setPlaybackRate() to supported values (0.75/1/1.25…), so
+      // rate-nudging is unreliable. Instead: tolerate sub-second drift
+      // (imperceptible for music), seek only beyond 0.8s, hard-seek past 3s.
+      const drift = cur - time // + = we're ahead
+      if (Math.abs(drift) > 3) { p.seekTo(time, true); return }
+      if (Math.abs(drift) > 0.8 && isPlayingRef.current) {
+        isSyncingRef.current = true
+        p.seekTo(time, true)
+        safeTimeout(() => { isSyncingRef.current = false }, 500)
+      }
     })
     return () => { socket.off('play'); socket.off('pause'); socket.off('seek'); socket.off('sync-check') }
   }, [socket])
@@ -319,6 +355,7 @@ export default function Player({ socket, roomId, videoId, title, onEnded, onSkip
   }, [roomId, socket, djMode, isDJ])
 
   useEffect(() => { isPlayingRef.current = isPlaying }, [isPlaying])
+  useEffect(() => { speedIdxRef.current = speedIdx }, [speedIdx])
 
   // ── iOS background audio keepalive ─────────────────────
   // iOS WebKit kills web audio when screen locks UNLESS a native <audio>

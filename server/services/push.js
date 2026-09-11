@@ -48,13 +48,16 @@ async function sendPush(userId, payload) {
   }
 }
 
-// Send push to all users in a room except one (the actor)
+// Send push to all users in a room except one (the actor).
+// Users whose tab is currently VISIBLE are skipped — they're looking at the
+// app, a push notification would be noise. Works per-socket via the
+// `visible` flag the client keeps updated with `client-visibility` events.
 async function sendPushToRoom(roomId, exceptUserId, payload) {
   const room = rooms[roomId];
   if (!room) return;
   const userIds = Object.values(room.users)
-    .filter(u => u.id !== exceptUserId && u.discordId)
-    .map(u => u.discordId);
+    .filter(u => u.id !== exceptUserId && (u.discordId || u.userId) && !u.visible)
+    .map(u => u.discordId || u.userId);
   console.log(`[Push] room="${roomId}" type="${payload.type}" targets=${JSON.stringify(userIds)}`);
   await Promise.all(userIds.map(uid => sendPush(uid, payload)));
 }

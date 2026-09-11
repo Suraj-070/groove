@@ -28,6 +28,12 @@ const roomSchema = new mongoose.Schema({
   roomId:       { type: String, required: true, unique: true, index: true },
   queue:        { type: Array, default: [] },
   currentIndex: { type: Number, default: 0 },
+  // Session context persisted so recaps / streaks / chemistry survive restarts
+  sessionStart: { type: Number, default: 0 },
+  songsPlayed:  { type: Array, default: [] },
+  reactions:    { type: Object, default: {} },
+  currentQid:   { type: String, default: null },
+  loadCount:    { type: Number, default: 0 },
   updatedAt:    { type: Number, default: () => Date.now() }
 });
 
@@ -152,7 +158,7 @@ const userProfileSchema = new mongoose.Schema({
 const UserProfile = mongoose.models.UserProfile || mongoose.model('UserProfile', userProfileSchema);
 
 // Sync all indexes after models are defined — handles TTL changes etc
-if (process.env.MONGODB_URI || process.env.process.env.MONGODB_URI) {
+if (process.env.MONGODB_URI) {
   mongoose.connection.once('open', async () => {
     try {
       await Promise.all([

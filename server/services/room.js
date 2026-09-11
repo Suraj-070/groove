@@ -1,7 +1,30 @@
 const { Room, UserProfile, ListenHistory, RoomSession } = require('../models')
+const { randomUUID } = require('crypto')
 
 // ── In-memory room state ──────────────────────────────────
 const rooms = {}
+
+// Ensure every queue item has a stable id (qid) — all queue ops are
+// qid-based so concurrent edits never hit the wrong song (index drift).
+function backfillQids(queue = []) {
+  for (const s of queue) {
+    if (!s.qid) s.qid = randomUUID()
+  }
+  return queue
+}
+
+// Keep currentIndex pointing at the song that is actually playing,
+// even after the queue array is reordered/filtered.
+function recomputeCurrentIndex(room) {
+  if (!room) return 0
+  if (room.currentQid) {
+    const idx = room.queue.findIndex(s => s.qid === room.currentQid)
+    if (idx !== -1) { room.currentIndex = idx; return idx }
+  }
+  if (room.currentIndex >= room.queue.length)
+    room.currentIndex = Math.max(0, room.queue.length - 1)
+  return room.currentIndex
+}
 
 async function getRoom(roomId) {
   if (rooms[roomId]) return rooms[roomId]
@@ -13,7 +36,11 @@ async function getRoom(roomId) {
     loop: false,
     reactions: {},
     sessionStart: Date.now(),
-    songsPlayed: []
+    songsPlayed: [],
+    // ── Resilience fields (survive restart via DB) ──
+    currentQid: null,   // qid of the song that is playing right now
+    loadCount: 0,       // increments per load — clients use it to force reload
+    lastEndedQid: null, // guards against double-advance
   }
   if (process.env.MONGODB_URI) {
     try {
@@ -21,9 +48,20 @@ async function getRoom(roomId) {
       if (saved) {
         fresh.queue = saved.queue || []
         fresh.currentIndex = saved.currentIndex || 0
+        // Restore session context so recaps/wrapped survive restarts
+        if (saved.sessionStart) fresh.sessionStart = saved.sessionStart
+        if (Array.isArray(saved.songsPlayed)) fresh.songsPlayed = saved.songsPlayed
+        if (saved.reactions && typeof saved.reactions === 'object') fresh.reactions = saved.reactions
+        if (saved.currentQid) fresh.currentQid = saved.currentQid
+        if (typeof saved.loadCount === 'number') fresh.loadCount = saved.loadCount
+        // Don't restore isPlaying — clients re-broadcast real playback state
       }
     } catch {}
   }
+  backfillQids(fresh.queue)
+  // After a restart the old currentIndex may point past the queue
+  if (fresh.currentIndex >= fresh.queue.length)
+    fresh.currentIndex = Math.max(0, fresh.queue.length - 1)
   rooms[roomId] = fresh
   return fresh
 }
@@ -34,7 +72,17 @@ async function saveRoom(roomId) {
   try {
     await Room.findOneAndUpdate(
       { roomId },
-      { roomId, queue: room.queue, currentIndex: room.currentIndex },
+      {
+        roomId,
+        queue: room.queue,
+        currentIndex: room.currentIndex,
+        sessionStart: room.sessionStart,
+        songsPlayed: room.songsPlayed || [],
+        reactions: room.reactions || {},
+        currentQid: room.currentQid || null,
+        loadCount: room.loadCount || 0,
+        updatedAt: Date.now(),
+      },
       { upsert: true }
     )
   } catch {}
@@ -105,4 +153,4 @@ async function computeChemistry(participants, songsPlayed, reactions) {
   } catch { return 0 }
 }
 
-module.exports = { rooms, getRoom, saveRoom, updateStreak, recordListen, computeChemistry, todayStr }
+module.exports = { rooms, getRoom, saveRoom, updateStreak, recordListen, computeChemistry, todayStr, backfillQids, recomputeCurrentIndex }

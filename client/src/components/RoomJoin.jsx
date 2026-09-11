@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 
 const BACKEND = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'
 
@@ -208,7 +208,24 @@ export default function RoomJoin({ onJoin, user, onGuestLogin }) {
 
   const handleJoin = () => { if (roomId.trim()) onJoin({ roomId: roomId.toUpperCase().trim() }) }
 
-  // ── Logged in ──────────────────────────────────────────
+  // ── Room preview: peek before joining ───────────────────
+  const [preview, setPreview] = useState(null)
+  useEffect(() => {
+    const code = roomId.trim().toUpperCase()
+    if (code.length < 4) { setPreview(null); return }
+    let cancelled = false
+    const t = setTimeout(async () => {
+      try {
+        const res = await fetch(`${BACKEND}/rooms/${encodeURIComponent(code)}/preview`, { credentials: 'include' })
+        if (!res.ok) throw new Error()
+        const data = await res.json()
+        if (!cancelled) setPreview(data)
+      } catch { if (!cancelled) setPreview(null) }
+    }, 350)
+    return () => { cancelled = true; clearTimeout(t) }
+  }, [roomId])
+
+  // ── Logged in ─────────────────────────────────────────
   if (user) {
     return (
       <Shell>
@@ -232,6 +249,29 @@ export default function RoomJoin({ onJoin, user, onGuestLogin }) {
             onKeyDown={e => e.key === 'Enter' && handleJoin()}
             maxLength={10}
           />
+          {roomId.trim().length >= 4 && preview && (
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap',
+              fontSize: '0.78rem', color: 'var(--text-dim, #a29db8)',
+              background: 'rgba(124,106,255,0.08)', border: '1px solid rgba(124,106,255,0.22)',
+              borderRadius: 10, padding: '8px 12px',
+            }}>
+              {preview.exists ? (
+                <>
+                  <span style={{ color: preview.userCount > 0 ? '#6affb8' : 'inherit' }}>●</span>
+                  <span>{preview.userCount > 0 ? `${preview.userCount} listening` : 'Empty room'}</span>
+                  {preview.locked && <span>· password required</span>}
+                  {preview.nowPlaying?.title && (
+                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%' }}>
+                      {preview.nowPlaying.title.length > 34 ? preview.nowPlaying.title.slice(0, 34) + '…' : preview.nowPlaying.title}
+                    </span>
+                  )}
+                </>
+              ) : (
+                <span>New room — you'll be the DJ</span>
+              )}
+            </div>
+          )}
           <PrimaryBtn onClick={handleJoin} disabled={!roomId.trim()}>Join Room</PrimaryBtn>
           <Divider />
           <GhostBtn onClick={() => onJoin({ roomId: Math.random().toString(36).substring(2,8).toUpperCase() })}>

@@ -752,6 +752,9 @@ export default function Chat({
   const prevSongRef   = useRef(null)
   const historySeeded = useRef(false)
   const unreadMarked  = useRef(false)
+  // ── Delivery queue: messages awaiting server ack (echo) ──
+  // If the socket drops mid-send they're replayed once we're back in the room.
+  const pendingSends  = useRef([])
 
   const showToast = useCallback((t) => { setToast(t); setTimeout(() => setToast(''), 2200) }, [])
 
@@ -789,7 +792,11 @@ export default function Chat({
       })
       setAtBottom(prev => { if (!prev) setNewCount(c => c + 1); return prev })
     }
-    const onEcho     = (msg) => setMessages(prev => prev.map(m => m.id === msg.id ? { ...msg, self: true, status: 'sent' } : m))
+    const onEcho     = (msg) => {
+      // Ack received — drop from the resend queue
+      pendingSends.current = pendingSends.current.filter(p => p.msg.id !== msg.id)
+      setMessages(prev => prev.map(m => m.id === msg.id ? { ...msg, self: true, status: 'sent' } : m))
+    }
     const onEdit     = ({ msgId, text }) => setMessages(prev => prev.map(m => m.id === msgId ? { ...m, text, edited: true } : m))
     const onDelete   = ({ msgId }) => setMessages(prev => prev.filter(m => m.id !== msgId))
     const onReaction = ({ msgId, emoji, username: who, action }) => setMessages(prev => prev.map(m => {
@@ -857,14 +864,28 @@ export default function Chat({
     typingTimer.current = setTimeout(() => { isTypingRef.current = false; socket.emit('user-typing', { roomId, username, isTyping: false }) }, 1500)
   }
 
+  // ── Reconnect resend: server echoes = acks; anything unacked is replayed
+  // once we've rejoined the room (room-state arrives after join-room).
+  useEffect(() => {
+    const onRoomState = () => {
+      const pend = pendingSends.current
+      pendingSends.current = []
+      pend.forEach(p => socket.emit('chat-msg', p))
+    }
+    socket.on('room-state', onRoomState)
+    return () => socket.off('room-state', onRoomState)
+  }, [socket])
+
   const sendMessage = useCallback(() => {
     const text = input.trim(); if (!text) return
     const msg = {
-      id: Date.now(), type: 'msg', username, text,
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, type: 'msg', username, text,
       avatar: userAvatar || null, ts: Date.now(), status: 'sending',
       ...(replyTo ? { replyTo: { id: replyTo.id, username: replyTo.username, text: replyTo.text } } : {})
     }
-    socket.emit('chat-msg', { roomId, msg })
+    const payload = { roomId, msg }
+    pendingSends.current.push(payload)
+    socket.emit('chat-msg', payload)
     setMessages(prev => [...prev, { ...msg, self: true }])
     setInput(''); setReplyTo(null)
     clearTimeout(typingTimer.current); isTypingRef.current = false
@@ -882,8 +903,10 @@ export default function Chat({
   }, [messages, socket, roomId, username])
 
   const handleGifSelect = useCallback((gif) => {
-    const msg = { id: Date.now(), type: 'gif', username, gif: gif.url, preview: gif.preview, text: gif.title || 'GIF', avatar: userAvatar || null, ts: Date.now(), status: 'sending' }
-    socket.emit('chat-msg', { roomId, msg }); setMessages(prev => [...prev, { ...msg, self: true }])
+    const msg = { id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, type: 'gif', username, gif: gif.url, preview: gif.preview, text: gif.title || 'GIF', avatar: userAvatar || null, ts: Date.now(), status: 'sending' }
+    const payload = { roomId, msg }
+    pendingSends.current.push(payload)
+    socket.emit('chat-msg', payload); setMessages(prev => [...prev, { ...msg, self: true }])
     setShowGifPicker(false); setAtBottom(true)
     // GIF images take time to load — retry scroll a few times
     const scrollDown = () => { const el = messagesRef.current; if (el) el.scrollTop = el.scrollHeight }
